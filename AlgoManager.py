@@ -13,27 +13,31 @@ import requests
 import AlgoGUI as app
 import ManagerGUI as man
 
-
 # https://github.com/RomelTorres/alpha_vantage
 # https://github.com/Jamonek/Robinhood
 
-robinhood_username = 'sphericalcow'
-robinhood_password = 'Acciorocketships'
-alpha_vantage_api = 'GHFIPLMIWZN5DNXT'
+creds = []
+credential_file = "creds.txt"
+try:
+    with open(credential_file, "r") as f:
+        creds = f.readlines()
+except IOError:
+    creds.append(raw_input('Robinhood Username: '))
+    creds.append(raw_input('Robinhood Password: '))
+    creds.append(raw_input('Alpha Vantage API Key: '))
+    with open(credential_file, "w") as f:
+        for l in creds:
+            f.write(l + "\n")
+except PermissionError:
+    print("Cannot read credentials file.")
+    exit(-1)
 
-if robinhood_username == '':
-	robinhood_username = raw_input('Robinhood Username: ')
-if robinhood_password == '':
-	robinhood_password = raw_input('Robinhood Password')
-if alpha_vantage_api == '':
-	alpha_vantage_api = raw_input('Alpha Vantage API Key: ')
-
-
+creds = [x.strip() for x in creds]
 broker = Robinhood()
-broker.login(username=robinhood_username,password=robinhood_password)
+broker.login(username=creds[0],password=creds[1])
 
-data = TimeSeries(key=alpha_vantage_api,output_format='pandas')
-tech = TechIndicators(key=alpha_vantage_api, output_format='pandas')
+data = TimeSeries(key=creds[2],output_format='pandas')
+tech = TechIndicators(key=creds[2], output_format='pandas')
 
 
 class Manager:
