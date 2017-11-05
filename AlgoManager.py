@@ -50,6 +50,7 @@ class Manager:
 		self.portfolio = broker.portfolios()
 		# Variables that change automatically
 		self.value = float(self.portfolio['equity'])
+		self.cash = self.portfolio['withdrawable_amount']
 		self.daychangeperc = 100 * (self.value - float(self.portfolio['adjusted_equity_previous_close'])) / float(self.portfolio['adjusted_equity_previous_close'])
 		self.chartminute = []
 		self.chartminutetimes = []
@@ -127,9 +128,20 @@ class Manager:
 		if self.value * total_allocation > float(self.portfolio['withdrawable_amount']):
 			print("Warning: You have allocated more than your buying power. \
 				  Sell some stocks not already in your account or reduce your allocation percentages.")
+			return
+		newcash = {}
 		for algo in self.algo_alloc:
-			algo.startingcapital = self.value * self.algo_alloc[algo]
-			algo.cash = algo.startingcapital - (algo.value-algo.cash)
+			startingcapital = self.value * self.algo_alloc[algo]
+			cash = startingcapital - (algo.value-algo.cash)
+			if cash < 0:
+				print("Warning: You are trying to deallocate more money than your algorithm has in cash. \
+					   Sell stocks from or raise allocation of " + algo.__class__.__name__ + " and try \
+					   rebalancing again")
+				return
+			newcash[algo] = (startingcapital, cash)
+		for algo, (startingcapital, cash) in newcash:
+			algo.startingcapital = startingcapital
+			algo.cash = cash
 
 
 	# Keep algorithm manager running and enter interactive mode
@@ -209,12 +221,14 @@ class Manager:
 			self.value = float(self.portfolio['extended_hours_equity'])
 		else:
 			self.value = float(self.portfolio['equity'])
+		self.cash = self.portfolio['withdrawable_amount']
 		self.daychangeperc = 100 * (self.value - float(self.portfolio['adjusted_equity_previous_close'])) / float(self.portfolio['adjusted_equity_previous_close'])
 
 
 	# Private Method
 	# Called every minute
 	# Updates the data in the Manager
+	# TODO: Make sure only one stock trades in a given minute
 	def updatemin(self):
 		self.chartminute.append(self.value)
 		self.chartminutetimes.append(datetime.datetime.now())
@@ -222,10 +236,19 @@ class Manager:
 		for position in positions:
 			name = str(requests.get(position['instrument']).json()['symbol'])
 			amount = float(position['quantity'])
+			amountdiff = amount - (self.stocks[name] if name in self.stocks else 0)
+			if amountdiff != 0:
+				for algo in self.algo_alloc.keys():
+					if name in algo.openorders:
+						shareprice = abs((self.cash - self.lastcash) / amountdiff)
+						algo.stocks[name] += algo.openorders[name]
+						algo.cash -= shareprice * algo.openorders[name]
+						del algo.openorders[name]
 			if amount == 0:
 				self.stocks.pop(name, None)
 			else:
 				self.stocks[name] = amount
+		self.lastcash = self.cash
 
 
 	# Moves stocks that you already hold into an algorithm
@@ -294,6 +317,7 @@ class Algorithm(object):
 		self.chartday = []
 		self.chartdaytimes = []
 		self.running = True
+		self.openorders = {}
 		# User initialization
 		self.initialize()
 
@@ -354,23 +378,28 @@ class Algorithm(object):
 		self.chartminutetimes = []
 		self.chartday.append(self.value)
 		self.chartdaytimes.append(datetime.datetime.now())
+		self.openorders = {}
 
 
-	# Buy and Sell assume that an order goes through.
-	# TODO: Check that order went through before adding to self.stocks
 	# stock: stock symbol (string)
 	# amount: number of shares of that stock to sell (int)
-	def buy(self,stock,amount,verbose=False):
+	# verbose: prints out order
+	# noverify: assume that the order went through at the current price,
+	#			as opposed to waiting for the manager to verify it (default)
+	def buy(self,stock,amount,verbose=False,noverify=False):
 		stockobj = broker.instruments(stock)
 		cost = self.quote(stock)
 		if cost*amount > self.cash:
 			print("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(amount) + " shares of " + stock)
 			return None
-		if stock in self.stocks:
-			self.stocks[stock] += amount
+		if noverify:
+			if stock in self.stocks:
+				self.stocks[stock] += amount
+			else:
+				self.stocks[stock] = amount
+			self.cash -= cost*amount
 		else:
-			self.stocks[stock] = amount
-		self.cash -= cost*amount
+			self.openorders[stock] = amount
 		if verbose:
 			print("Buying " + str(amount) + " shares of " + stock)
 		if self.running:
@@ -379,18 +408,24 @@ class Algorithm(object):
 
 	# stock: stock symbol (string)
 	# amount: number of shares of that stock to sell (int)
+	# verbose: prints out order
+	# noverify: assume that the order went through at the current price,
+	#			as opposed to waiting for the manager to verify it (default)
 	def sell(self,stock,amount,verbose=False):
 		stockobj = broker.instruments(stock)
 		if (stock in self.stocks) and (amount <= self.stocks[stock]):
-			self.stocks[stock] -= amount
-			self.cash += self.quote(stock)*amount
+			if noverify:
+				self.stocks[stock] -= amount
+				self.cash += self.quote(stock)*amount
+			else:
+				self.openorders[stock] = -amount
 			if verbose:
 				print("Selling " + str(amount) + " shares of " + stock)
 			if self.running:
 				return broker.place_sell_order(stockobj,amount)
 		else:
 			print("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock)
-			return broker.place_sell_order(stockobj,self.stocks[stock])
+			return None
 
 
 	# Buy or sell to reach a target percent of the algorithm's total allocation
@@ -751,11 +786,12 @@ def backtester(algo,startingcapital=None):
 
 # High Priority
 # TODO: don't assume order went through. Get actual buy/sell price
-# TODO: Add extra plots (technical indicator, benchmark, etc) to GUI
 # TODO: TEST buy/sell in real time
 # TODO: TEST other technical indicators in backtesting
 
 # Medium priority
+# TODO: add liquidate algo/manager feature that sells all stocks
+# TODO: Add extra plots (technical indicator, etc) to GUI
 # TODO: add entire portfolio GUI section to the manager GUI
 # TODO: add searching and manually buying to manager GUI
 # TODO: add more buttons/options to manager GUI (add simple algo, )

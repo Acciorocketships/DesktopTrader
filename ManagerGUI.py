@@ -42,7 +42,6 @@ class Gui(Tk):
 		self.pages = {}
 		for algo in manager.algo_alloc.keys():
 			page = app.Gui(algo,root=pageframe)
-			#app.add(page,pageframe,0,0)
 			page.place(in_=pageframe, x=0, y=0, relwidth=1, relheight=1)
 			self.pages[algo.__class__.__name__] = page
 			self.activepage.set(algo.__class__.__name__)
