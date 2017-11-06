@@ -16,6 +16,8 @@ import ManagerGUI as man
 # https://github.com/RomelTorres/alpha_vantage
 # https://github.com/Jamonek/Robinhood
 
+brokerplatform = 'robinhood'
+
 creds = []
 credential_file = "creds.txt"
 try:
@@ -365,54 +367,50 @@ class Algorithm(object):
         self.openorders = {}
 
     # stock: stock symbol (string)
-    # amount: number of shares of that stock to sell (int)
+    # amount: number of shares of that stock to order (+ for buy, - for sell)
     # verbose: prints out order
     # noverify: assume that the order went through at the current price,
-    #			as opposed to waiting for the manager to verify it (default)
-    def buy(self, stock, amount, verbose=False, noverify=False):
-        stockobj = broker.instruments(stock)
-        cost = self.quote(stock)
-        if cost * amount > self.cash:
-            print("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
-                amount) + " shares of " + stock)
-            return None
-        if noverify:
-            if stock in self.stocks:
-                self.stocks[stock] += amount
-            else:
-                self.stocks[stock] = amount
-            self.cash -= cost * amount
-        else:
-            self.openorders[stock] = amount
-        if verbose:
-            print("Buying " + str(amount) + " shares of " + stock)
-        if self.running:
-            return broker.place_buy_order(stockobj, amount)
-
-    # stock: stock symbol (string)
-    # amount: number of shares of that stock to sell (int)
-    # verbose: prints out order
-    # noverify: assume that the order went through at the current price,
-    #			as opposed to waiting for the manager to verify it (default)
-    def sell(self, stock, amount, verbose=False):
-        stockobj = broker.instruments(stock)
-        if (stock in self.stocks) and (amount <= self.stocks[stock]):
+    #			as opposed to waiting for the manager to verify it (default off)
+    def order(self, stock, amount, verbose=False, noverify=False):
+        if amount > 0:
+            # BUY
+            cost = self.quote(stock)
+            if cost * amount > self.cash:
+                print("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
+                    amount) + " shares of " + stock)
+                return None
             if noverify:
-                self.stocks[stock] -= amount
-                self.cash += self.quote(stock) * amount
+                if stock in self.stocks:
+                    self.stocks[stock] += amount
+                else:
+                    self.stocks[stock] = amount
+                self.cash -= cost * amount
             else:
-                self.openorders[stock] = -amount
+                self.openorders[stock] = amount
             if verbose:
-                print("Selling " + str(amount) + " shares of " + stock)
+                print("Buying " + str(amount) + " shares of " + stock)
             if self.running:
-                return broker.place_sell_order(stockobj, amount)
-        else:
-            print("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
-                self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock)
-            return None
+                return buy(stock, amount)
+        elif amount < 0:
+            # SELL
+            amount *= -1
+            if (stock in self.stocks) and (amount <= self.stocks[stock]):
+                if noverify:
+                    self.stocks[stock] -= amount
+                    self.cash += self.quote(stock) * amount
+                else:
+                    self.openorders[stock] = -amount
+                if verbose:
+                    print("Selling " + str(amount) + " shares of " + stock)
+                if self.running:
+                    return sell(stock, amount)
+            else:
+                print("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
+                    self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock)
+                return None
 
     # Buy or sell to reach a target percent of the algorithm's total allocation
-    def orderpercent(self, stock, percent, verbose=False):
+    def orderpercent(self, stock, percent, verbose=False, noverify=False):
         stockprice = self.quote(stock)
         currentpercent = 0.0
         if stock in self.stocks:
@@ -420,10 +418,10 @@ class Algorithm(object):
         percentdiff = percent - currentpercent
         if percentdiff < 0:
             amount = round(-percentdiff * self.value / stockprice)
-            return self.sell(stock, amount, verbose)
+            return self.order(stock, -amount, verbose, noverify)
         else:
             amount = math.floor(percentdiff * self.value / stockprice)
-            return self.buy(stock, amount, verbose)
+            return self.order(stock, amount, verbose, noverify)
 
     # Use Alpha Vantage to get the historical price data of a stock
     # stock: stock symbol (string)
@@ -625,7 +623,7 @@ class Backtester(Algorithm):
             return self.daysago / 5
 
     def quote(self, stock):
-        return self.history(stock, interval=self.logging)[0]
+        return self.history(stock, interval=self.logging)[0].item()
 
     def history(self, stock, interval='1min', length=1, datatype='close'):
         name = 'history,' + stock + ',' + interval
@@ -643,28 +641,30 @@ class Backtester(Algorithm):
                len(hist[datatype]) - self.timetoticks(interval) - length:len(hist[datatype]) - self.timetoticks(
                    interval)]
 
-    def buy(self, stock, amount, verbose=False):
-        cost = self.history(stock, interval=self.logging)[0].item()
-        if cost * amount > self.cash:
-            print("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
-                amount) + " shares of " + stock)
-        if stock in self.stocks:
-            self.stocks[stock] += amount
-        else:
-            self.stocks[stock] = amount
-        self.cash -= cost * amount
-        if verbose:
-            print("Buying " + str(amount) + " shares of " + stock)
-
-    def sell(self, stock, amount, verbose=False):
-        if (stock in self.stocks) and (amount <= self.stocks[stock]):
-            self.stocks[stock] -= amount
-            self.cash += self.history(stock, interval=self.logging)[0].item() * amount
+    def order(self, stock, amount, verbose=False):
+        if amount > 0:
+        # BUY
+            cost = self.history(stock, interval=self.logging)[0].item()
+            if cost * amount > self.cash:
+                print("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
+                    amount) + " shares of " + stock)
+            if stock in self.stocks:
+                self.stocks[stock] += amount
+            else:
+                self.stocks[stock] = amount
+            self.cash -= cost * amount
             if verbose:
-                print("Selling " + str(amount) + " shares of " + stock)
-        else:
-            print("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
-                self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock)
+                print("Buying " + str(amount) + " shares of " + stock)
+        elif amount < 0:
+        # SELL
+            if (stock in self.stocks) and (amount <= self.stocks[stock]):
+                self.stocks[stock] -= amount
+                self.cash += self.history(stock, interval=self.logging)[0].item() * amount
+                if verbose:
+                    print("Selling " + str(amount) + " shares of " + stock)
+            else:
+                print("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
+                    self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock)
 
     def orderpercent(self, stock, percent, verbose=False):
         stockprice = self.history(stock, interval=self.logging)[0].item()
@@ -674,10 +674,10 @@ class Backtester(Algorithm):
         percentdiff = percent - currentpercent
         if percentdiff < 0:
             amount = round(-percentdiff * self.value / stockprice)
-            return self.sell(stock, amount, verbose)
+            return self.order(stock, -amount, verbose)
         else:
             amount = math.floor(percentdiff * self.value / stockprice)
-            return self.buy(stock, amount, verbose)
+            return self.order(stock, amount, verbose)
 
     def macd(self, stock, interval='daily', length=1, fastmawindow=12, slowmawindow=26, signalmawindow=9, fastmatype=1,
              slowmatype=1, signalmatype=1):
@@ -766,10 +766,23 @@ def backtester(algo, startingcapital=None):
     algoback.benchmark = algo.benchmark
     return algoback
 
+
+def buy(stock, amount):
+    if brokerplatform = 'robinhood':
+        stockobj = broker.instruments(stock)
+        return broker.place_buy_order(stockobj, amount)
+
+
+def sell(stock, amount):
+    if brokerplatform = 'robinhood':
+        stockobj = broker.instruments(stock)
+        return broker.place_sell_order(stockobj, amount)
+
 # High Priority
 # TODO: don't assume order went through. Get actual buy/sell price
 # TODO: TEST buy/sell in real time
 # TODO: TEST other technical indicators in backtesting
+# TODO: fix jumping axes in backtest with benchmark
 
 # Medium priority
 # TODO: add liquidate algo/manager feature that sells all stocks
