@@ -226,7 +226,6 @@ class Manager:
     # Private Method
     # Called every minute
     # Updates the data in the Manager
-    # TODO: Make sure only one stock trades in a given minute
     def updatemin(self):
         self.chartminute.append(self.value)
         self.chartminutetimes.append(datetime.datetime.now())
@@ -235,11 +234,12 @@ class Manager:
             name = str(requests.get(position['instrument']).json()['symbol'])
             amount = float(position['quantity'])
             amountdiff = amount - (self.stocks[name] if name in self.stocks else 0)
+            algo.stocks[name] = amount
             if amountdiff != 0:
                 for algo in self.algo_alloc.keys():
-                    if name in algo.openorders:
+                    if (name in algo.openorders) and (algo.openorders[name] == amountdiff):
                         shareprice = abs((self.cash - self.lastcash) / amountdiff)
-                        algo.stocks[name] += algo.openorders[name]
+                        # TODO: ^^ update shareprice to position[ last traded price ]
                         algo.cash -= shareprice * algo.openorders[name]
                         del algo.openorders[name]
             if amount == 0:
@@ -558,11 +558,11 @@ class Backtester(Algorithm):
     # Starts the backtest (calls startbacktest in a new thread)
     # Times can be in the form of datetime objects or tuples (day,month,year)
     def start(self, startdate=datetime.datetime.today().date() - datetime.timedelta(days=10),
-              enddate=datetime.datetime.today().date(), sleeptime=0):
-        backtestthread = threading.Thread(target=self.startbacktest, args=(startdate, enddate, sleeptime))
+              enddate=datetime.datetime.today().date()):
+        backtestthread = threading.Thread(target=self.startbacktest, args=(startdate, enddate))
         backtestthread.start()
 
-    def startbacktest(self, startdate, enddate, sleeptime):
+    def startbacktest(self, startdate, enddate):
         if type(startdate) == tuple:
             startdate = datetime.date(startdate[2], startdate[1], startdate[0])
         if type(enddate) == tuple:
@@ -582,14 +582,12 @@ class Backtester(Algorithm):
                     self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(
                         minutes=minute)
                     if minute in self.times:
-                        time.sleep(sleeptime)
                         self.update()
                         self.run()
                         self.backtestrun()
             elif self.logging == 'daily':
                 self.datetime = datetime.datetime.combine(day, datetime.time(9, 30))
                 self.minutesago = 391 * self.daysago
-                time.sleep(sleeptime)
                 self.update()
                 self.run()
                 self.backtestrun()
@@ -772,7 +770,6 @@ def buy(stock, amount):
         stockobj = broker.instruments(stock)
         return broker.place_buy_order(stockobj, amount)
 
-
 def sell(stock, amount):
     if brokerplatform = 'robinhood':
         stockobj = broker.instruments(stock)
@@ -781,7 +778,7 @@ def sell(stock, amount):
 # High Priority
 # TODO: don't assume order went through. Get actual buy/sell price
 # TODO: TEST buy/sell in real time
-# TODO: TEST other technical indicators in backtesting
+# TODO: TEST other technical indicators in backtesting. Check that they return lists of floats (perhaps switch to numpy)
 # TODO: fix jumping axes in backtest with benchmark
 
 # Medium priority
