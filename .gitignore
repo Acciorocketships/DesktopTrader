@@ -1,0 +1,9 @@
+#Ignore vim files
+*.swo
+*.swp
+
+#Python
+*.pyc
+
+#Secrets
+creds.txt
