@@ -775,14 +775,17 @@ def sell(stock, amount):
         stockobj = robinhood.instruments(stock)
         return robinhood.place_sell_order(stockobj, amount)
 
+# Extreme Priority
+# Now my api calls are resulting in "Authentication credentials not provided". figure out why and how to fix it.
+
 # High Priority
 # TODO: don't assume order went through. Get actual buy/sell price
 # TODO: TEST buy/sell in real time
 # TODO: TEST other technical indicators in backtesting. Check that they return lists of floats (perhaps switch to numpy)
 # TODO: fix jumping axes in backtest with benchmark
+# TODO: generalize to other brokers. write a wrapper function for everywhere it uses 'self.portfolio' now
 
 # Medium priority
-# TODO: generalize to other brokers. write a wrapper function for everywhere it uses 'self.portfolio' now
 # TODO: add liquidate algo/manager feature that sells all stocks
 # TODO: Add extra plots (technical indicator, etc) to GUI
 # TODO: add entire portfolio GUI section to the manager GUI

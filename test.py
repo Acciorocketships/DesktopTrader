@@ -25,5 +25,5 @@ class Manual2(AM.Algorithm):
 if __name__ == '__main__':
     algo = Manual(times=['every day'])
     algoback = AM.backtester(algo)
-    algoback.start(startdate=(1, 1, 2006), sleeptime=0.0)
+    algoback.start(startdate=(1, 1, 2006))
     algoback.gui()
