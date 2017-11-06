@@ -10,3 +10,7 @@ creds.txt
 
 #PyCharm
 .idea/
+
+#Eddie is developing custom algos
+#in the same directory, ignore for now
+*eddie*
