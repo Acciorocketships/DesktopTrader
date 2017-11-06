@@ -16,7 +16,7 @@ import ManagerGUI as man
 # https://github.com/RomelTorres/alpha_vantage
 # https://github.com/Jamonek/Robinhood
 
-brokerplatform = 'robinhood'
+broker = 'robinhood'
 
 creds = []
 credential_file = "creds.txt"
@@ -35,8 +35,8 @@ except PermissionError:
     exit(-1)
 
 creds = [x.strip() for x in creds]
-broker = Robinhood()
-broker.login(username=creds[0], password=creds[1])
+robinhood = Robinhood()
+robinhood.login(username=creds[0], password=creds[1])
 
 data = TimeSeries(key=creds[2], output_format='pandas')
 tech = TechIndicators(key=creds[2], output_format='pandas')
@@ -51,7 +51,7 @@ class Manager:
         self.algo_times = {}
         # Private variables
         self.graphing = False
-        self.portfolio = broker.portfolios()
+        self.portfolio = robinhood.portfolios()
         # Variables that change automatically
         self.value = float(self.portfolio['equity'])
         self.cash = self.portfolio['withdrawable_amount']
@@ -214,7 +214,7 @@ class Manager:
     # Updates the data in the Manager
     # Allows you to track how the portfolio is doing in real time
     def updatetick(self):
-        self.portfolio = broker.portfolios()
+        self.portfolio = robinhood.portfolios()
         if not (self.portfolio['extended_hours_equity'] is None):
             self.value = float(self.portfolio['extended_hours_equity'])
         else:
@@ -229,7 +229,7 @@ class Manager:
     def updatemin(self):
         self.chartminute.append(self.value)
         self.chartminutetimes.append(datetime.datetime.now())
-        positions = broker.positions()['results']
+        positions = robinhood.positions()['results']
         for position in positions:
             name = str(requests.get(position['instrument']).json()['symbol'])
             amount = float(position['quantity'])
@@ -444,7 +444,7 @@ class Algorithm(object):
     # Uses robinhood to get the current price of a stock
     # stock: stock symbol (string)
     def quote(self, stock):
-        return float(broker.quote_data(stock)['last_trade_price'])
+        return float(robinhood.quote_data(stock)['last_trade_price'])
 
     # macd line: 12 day MA - 26 day MA
     # signal line: 9 period MA of the macd line
@@ -766,14 +766,14 @@ def backtester(algo, startingcapital=None):
 
 
 def buy(stock, amount):
-    if brokerplatform = 'robinhood':
-        stockobj = broker.instruments(stock)
-        return broker.place_buy_order(stockobj, amount)
+    if broker == 'robinhood':
+        stockobj = robinhood.instruments(stock)
+        return robinhood.place_buy_order(stockobj, amount)
 
 def sell(stock, amount):
-    if brokerplatform = 'robinhood':
-        stockobj = broker.instruments(stock)
-        return broker.place_sell_order(stockobj, amount)
+    if broker == 'robinhood':
+        stockobj = robinhood.instruments(stock)
+        return robinhood.place_sell_order(stockobj, amount)
 
 # High Priority
 # TODO: don't assume order went through. Get actual buy/sell price
@@ -782,6 +782,7 @@ def sell(stock, amount):
 # TODO: fix jumping axes in backtest with benchmark
 
 # Medium priority
+# TODO: generalize to other brokers. write a wrapper function for everywhere it uses 'self.portfolio' now
 # TODO: add liquidate algo/manager feature that sells all stocks
 # TODO: Add extra plots (technical indicator, etc) to GUI
 # TODO: add entire portfolio GUI section to the manager GUI
