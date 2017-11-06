@@ -624,9 +624,8 @@ class Backtester(Algorithm):
         elif interval == 'weekly':
             return self.daysago / 5
 
-    #TODO: Short backtests can use minute data, should not always use daily
     def quote(self, stock):
-        return self.history(stock, interval="daily")[0]
+        return self.history(stock, interval=self.logging)[0]
 
     def history(self, stock, interval='1min', length=1, datatype='close'):
         name = 'history,' + stock + ',' + interval
