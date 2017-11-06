@@ -23,7 +23,9 @@ class Gui(Frame):
             window.geometry('{}x{}'.format(1024, 576))
             # Transparency
             window.wm_attributes("-alpha", 0.95)
-            window.config(bg='systemTransparent')
+            #This only works on MacOSX
+            if sys.platform.startswith("darwin"):
+                window.config(bg='systemTransparent')
             Frame.__init__(self, master=window, bg='sea green', width=100, height=100, padx=5, pady=5)
         else:
             Frame.__init__(self, master=root, bg='sea green', width=100, height=100, padx=5, pady=5)
