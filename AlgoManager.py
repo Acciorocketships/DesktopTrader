@@ -310,6 +310,7 @@ class Algorithm(object):
         self.chartdaytimes = []
         self.running = True
         self.openorders = {}
+        self.cache = {}
         # User initialization
         self.initialize()
 
@@ -500,6 +501,28 @@ class Algorithm(object):
     def ema(self, stock, interval='daily', length=1, mawindow=20):
         ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow)
         return ma[-length:]
+
+    #Private version of stoch, handles caching, shared between backtester and algo classes
+    @staticmethod
+    def _stoch(self, stock, interval='daily', length=1, fastkperiod=12, 
+                slowkperiod=26, slowdperiod=26, slowkmatype=0, slowdmatype=0, fast=False):
+        key = ("stoch", tuple(locals().values()))
+        cache = self.cache.get(key)
+        if cache is not None:
+            exp, val = cache
+            if exp > datetime.datetime.now():
+                return val
+        val = tech.get_stoch(stock, interval=interval, fastkperiod=fastkperiod,
+                slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype)
+        self.cache[key] = (datetime.datetime.now() + datetime.timedelta(minutes = 1), val)
+        return val
+
+    def stoch(self, stock, interval='daily', length=1, fastkperiod=12, 
+                slowkperiod=26, slowdperiod=26, slowkmatype=0, slowdmatype=0):
+        # returns: pandas data frame with columns Date, SlowK, and SlowD
+        #Be sure to call _stoch BEFORE allocating any further local vars
+        result, _ = Algorithm._stoch(**locals())
+        return result
 
     # stock: stock symbol (string)
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
@@ -739,6 +762,26 @@ class Backtester(Algorithm):
             ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow)
             self.storeddata[name] = ma
         return ma[len(ma) - self.timetoticks(interval) - length:len(ma) - self.timetoticks(interval)]
+
+    # fast: If set to true, an unfiltered stoch will be returned (including values in the future)
+    #       If false, the data will be filtered -- *this is the more realistic setting*
+    def stoch(self, stock, interval='daily', length=1, fastkperiod=12, 
+                slowkperiod=26, slowdperiod=26, slowkmatype=0, slowdmatype=0, fast=False):
+        # returns: pandas data frame with columns Date, SlowK, and SlowD
+        # Must call _stoch before allocating any other local variables
+        result, _ = Algorithm._stoch(**locals())
+        
+        if fast:
+            return result
+        
+        for idx, _ in result.iterrows():
+            d = datetime.datetime.strptime(idx, "%Y-%m-%d")
+            if d > self.datetime:
+                slice_exclusive = result.index.get_loc(idx)
+                result = result.iloc[:slice_exclusive, :]
+                break
+                
+        return result
 
     def percentchange(self, stock, interval='daily', length=1):
         name = 'percentchange,' + stock + ',' + interval
