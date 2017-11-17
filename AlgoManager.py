@@ -31,7 +31,7 @@ except IOError:
         for l in creds:
             f.write(l + "\n")
 except PermissionError:
-    print("Cannot read credentials file.")
+    print("Inadequate permissions to read credentials file.")
     exit(-1)
 
 creds = [x.strip() for x in creds]
@@ -40,7 +40,6 @@ robinhood.login(username=creds[0], password=creds[1])
 
 data = TimeSeries(key=creds[2], output_format='pandas')
 tech = TechIndicators(key=creds[2], output_format='pandas')
-
 
 class Manager:
     def __init__(self):
@@ -234,7 +233,7 @@ class Manager:
             name = str(requests.get(position['instrument']).json()['symbol'])
             amount = float(position['quantity'])
             amountdiff = amount - (self.stocks[name] if name in self.stocks else 0)
-            algo.stocks[name] = amount
+            self.stocks[name] = amount
             if amountdiff != 0:
                 for algo in self.algo_alloc.keys():
                     if (name in algo.openorders) and (algo.openorders[name] == amountdiff):
@@ -643,43 +642,44 @@ class Backtester(Algorithm):
         elif interval == 'weekly':
             return self.daysago / 5
 
+    def nearestidx(self, arr, time):
+        d = datetime.datetime.strptime(arr)
+        return d.index.get_loc(time, method='pad')
+
     def quote(self, stock):
         return self.history(stock, interval=self.logging)[0].item()
 
     def history(self, stock, interval='1min', length=1, datatype='close'):
-        name = 'history,' + stock + ',' + interval
-        if name in self.storeddata:
-            hist = self.storeddata[name]
-        else:
+        key = ('history', tuple(locals().values()))
+        cache = self.cache.get(key)
+        exp = None
+        if cache is not None: 
+            exp, hist = cache 
+        if (exp is None) or (datetime.datetime.now() > exp): 
             if interval == 'daily':
                 hist, _ = data.get_daily_adjusted(symbol=stock, outputsize='full')
             elif interval == 'weekly':
                 hist, _ = data.get_weekly(symbol=stock)
             else:
                 hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
-            self.storeddata[name] = hist
-        return hist[datatype][
-               len(hist[datatype]) - self.timetoticks(interval) - length:len(hist[datatype]) - self.timetoticks(
-                   interval)]
+            self.cache[key] = (datetime.datetime.now() + datetime.timedelta(minutes = 1), hist) 
+        return hist[datatype][len(hist[datatype])-self.timetoticks(interval)-length: len(hist[datatype])-self.timetoticks(interval)]
 
     def order(self, stock, amount, verbose=False):
-        #Guard condition for sell
+        # Guard condition for sell
         if amount < 0 and (stock in self.stocks) and (-amount > self.stocks[stock]):
             print("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
                 self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock)
             return None
-
         cost = self.quote(stock)
-        #Guard condition for buy
+        # Guard condition for buy
         if cost * amount > self.cash:
             print("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
                 amount) + " shares of " + stock)
             return None
-
         if amount == 0:
             return None
-
-        #Stage the order
+        # Stage the order
         self.stocks[stock] = self.stocks.get(stock, 0) + amount
         self.cash -= cost * amount
         if verbose:
@@ -704,65 +704,65 @@ class Backtester(Algorithm):
 
     def macd(self, stock, interval='daily', length=1, fastmawindow=12, slowmawindow=26, signalmawindow=9, fastmatype=1,
              slowmatype=1, signalmatype=1):
-        name = 'macd,' + stock + ',' + interval + ',' + str(fastmawindow) + ',' + str(slowmawindow) + ',' + str(
-            signalmawindow) + ',' + str(fastmatype) + ',' + str(slowmatype) + ',' + str(signalmatype)
-        if name in self.storeddata:
-            md = self.storeddata[name]
-        else:
+        key = ('macd', tuple(locals().values()))
+        cache = self.cache.get(key)
+        exp = None
+        if cache is not None: 
+            exp, md = cache 
+        if (cache is None) or (datetime.datetime.now() > exp): 
             md, _ = tech.get_macdext(stock, interval=interval, \
-                                     fastperiod=fastmawindow, slowperiod=slowmawindow, signalperiod=signalmawindow, \
-                                     fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype)
-            self.storeddata[name] = md
-        return {'macd': md['MACD'][
-                        len(md['MACD']) - self.timetoticks(interval) - length:len(md['MACD']) - self.timetoticks(
-                            interval)], 'signal': md['MACD_Signal'][
-                                                  len(md['MACD']) - self.timetoticks(interval) - length:len(
-                                                      md['MACD']) - self.timetoticks(interval)],
-                'macd hist': md['MACD_Hist'][
-                             len(md['MACD']) - self.timetoticks(interval) - length:len(md['MACD']) - self.timetoticks(
-                                 interval)]}
+                        fastperiod=fastmawindow, slowperiod=slowmawindow, signalperiod=signalmawindow, \
+                        fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype)
+            self.cache[key] = (datetime.datetime.now() + datetime.timedelta(minutes = 1), md) 
+        return {'macd': md['MACD'][len(md['MACD']) - self.timetoticks(interval) - length:len(md['MACD']) - self.timetoticks(interval)],
+                'signal': md['MACD_Signal'][len(md['MACD']) - self.timetoticks(interval) - length:len(md['MACD']) - self.timetoticks(interval)],
+                'macd hist': md['MACD_Hist'][len(md['MACD']) - self.timetoticks(interval) - length:len(md['MACD']) - self.timetoticks(interval)]}
 
     def bollinger(self, stock, interval='daily', length=1, nbdevup=2, nbdevdn=2, matype=1, mawindow=20):
-        name = 'bollinger,' + stock + ',' + interval + ',' + str(nbdevup) + ',' + str(nbdevdn) + ',' + str(
-            matype) + ',' + str(mawindow)
-        if name in self.storeddata:
-            bb = self.storeddata[name]
-        else:
+        key = ('bollinger', tuple(locals().values()))
+        cache = self.cache.get(key)
+        exp = None
+        if cache is not None: 
+            exp, bb = cache 
+        if (cache is None) or (datetime.datetime.now() > exp): 
             bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
                                     time_period=mawindow)
-            self.storeddata[name] = bb
-        return {'top': bb['Real Upper Band'][len(bb['Real Upper Band']) - self.timetoticks(interval) - length:len(
-            bb['Real Upper Band']) - self.timetoticks(interval)], 'bottom': bb['Real Lower Band'][len(
-            bb['Real Lower Band']) - self.timetoticks(interval) - length:len(bb['Real Lower Band']) - self.timetoticks(
-            interval)], 'middle': bb['Real Middle Band'][
-                                  len(bb['Real Middle Band']) - self.timetoticks(interval) - length:len(
-                                      bb['Real Middle Band']) - self.timetoticks(interval)]}
+            self.cache[key] = (datetime.datetime.now() + datetime.timedelta(minutes = 1), bb) 
+        return {'top': bb['Real Upper Band'][len(bb['Real Upper Band'])-self.timetoticks(interval)-length: len(bb['Real Upper Band'])-self.timetoticks(interval)],
+                'bottom': bb['Real Lower Band'][len(bb['Real Lower Band'])-self.timetoticks(interval)-length: len(bb['Real Lower Band'])-self.timetoticks(interval)],
+                'middle': bb['Real Middle Band'][len(bb['Real Middle Band']) - self.timetoticks(interval) - length:len(bb['Real Middle Band']) - self.timetoticks(interval)]}
 
     def rsi(self, stock, interval='daily', length=1, mawindow=20):
-        name = 'rsi,' + stock + ',' + interval + ',' + str(mawindow)
-        if name in self.storeddata:
-            r = self.storeddata[name]
-        else:
+        key = ('rsi', tuple(locals().values()))
+        cache = self.cache.get(key)
+        exp = None
+        if cache is not None: 
+            exp, r = cache 
+        if (cache is None) or (datetime.datetime.now() > exp): 
             r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow)
-            self.storeddata[name] = r
+            self.cache[key] = (datetime.datetime.now() + datetime.timedelta(minutes = 1), r) 
         return r[len(r) - self.timetoticks(interval) - length:len(r) - self.timetoticks(interval)]
 
     def sma(self, stock, interval='daily', length=1, mawindow=20):
-        name = 'sma,' + stock + ',' + interval + ',' + str(mawindow)
-        if name in self.storeddata:
-            ma = self.storeddata[name]
-        else:
+        key = ('sma', tuple(locals().values()))
+        cache = self.cache.get(key)
+        exp = None
+        if cache is not None: 
+            exp, ma = cache 
+        if (cache is None) or (datetime.datetime.now() > exp): 
             ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow)
-            self.storeddata[name] = ma
+            self.cache[key] = (datetime.datetime.now() + datetime.timedelta(minutes = 1), ma)
         return ma[len(ma) - self.timetoticks(interval) - length:len(ma) - self.timetoticks(interval)]
 
     def ema(self, stock, interval='daily', length=1, mawindow=20):
-        name = 'ema,' + stock + ',' + interval + ',' + str(mawindow)
-        if name in self.storeddata:
-            ma = self.storeddata[name]
-        else:
+        key = ('ema', tuple(locals().values()))
+        cache = self.cache.get(key)
+        exp = None
+        if cache is not None: 
+            exp, ma = cache 
+        if (cache is None) or (datetime.datetime.now() > exp):
             ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow)
-            self.storeddata[name] = ma
+            self.cache[key] = (datetime.datetime.now() + datetime.timedelta(minutes = 1), ma)
         return ma[len(ma) - self.timetoticks(interval) - length:len(ma) - self.timetoticks(interval)]
 
     # fast: If set to true, an unfiltered stoch will be returned (including values in the future)
@@ -786,14 +786,16 @@ class Backtester(Algorithm):
         return result
 
     def percentchange(self, stock, interval='daily', length=1):
-        name = 'percentchange,' + stock + ',' + interval
-        if name in self.storeddata:
-            changes = self.storeddata[name]
-        else:
+        key = ('percentchange', tuple(locals().values()))
+        cache = self.cache.get(key)
+        exp = None
+        if cache is not None: 
+            exp, changes = cache 
+        if (cache is None) or (datetime.datetime.now() > exp):
             calclength = length + self.timetoticks(interval)
             prices = self.history(stock, interval=interval, length=calclength + 1)
             changes = [(current - last) / last for last, current in zip(prices[:-1], prices[1:])]
-            self.storeddata[name] = changes
+            self.cache[key] = (datetime.datetime.now() + datetime.timedelta(minutes = 1), changes)
         return changes[len(changes) - self.timetoticks(interval) - length:len(changes) - self.timetoticks(interval)]
 
 
@@ -820,20 +822,18 @@ def sell(stock, amount):
         stockobj = robinhood.instruments(stock)
         return robinhood.place_sell_order(stockobj, amount)
 
-# Extreme Priority
-# Now my api calls are resulting in "Authentication credentials not provided". figure out why and how to fix it.
-
 # High Priority
-# TODO: don't assume order went through. Get actual buy/sell price
+# TODO: TEST that algorithm uses the correct buy/sell price.
 # TODO: TEST buy/sell in real time
 # TODO: TEST other technical indicators in backtesting. Check that they return lists of floats (perhaps switch to numpy)
+# TODO: Add manager GUI
+# TODO: Look up exact date in pandas instead of calculating 'timetoticks'. nearestidx function is in progress.
 # TODO: fix jumping axes in backtest with benchmark
-# TODO: generalize to other brokers. write a wrapper function for everywhere it uses 'self.portfolio' now
 
 # Medium priority
+# TODO: generalize to other brokers. write a wrapper function for everywhere it uses 'self.portfolio' now
 # TODO: add liquidate algo/manager feature that sells all stocks
 # TODO: Add extra plots (technical indicator, etc) to GUI
-# TODO: add entire portfolio GUI section to the manager GUI
 # TODO: add searching and manually buying to manager GUI
 # TODO: add more buttons/options to manager GUI (add simple algo, )
 # TODO: add more buttons/options to algo GUI (paper trade, backtest, )

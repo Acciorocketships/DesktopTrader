@@ -27,5 +27,4 @@ if __name__ == '__main__':
     manager = AM.Manager()
     manager.add(algo)
     manager.add(algo2)
-    manager.assignstocks("ARKK", algo2)
     manager.gui()
