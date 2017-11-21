@@ -310,6 +310,7 @@ class Algorithm(object):
         self.running = True
         self.openorders = {}
         self.cache = {}
+        self.datetime = None
         # User initialization
         self.initialize()
 
@@ -352,6 +353,7 @@ class Algorithm(object):
         for stock, amount in self.stocks.items():
             stockvalue += self.quote(stock) * amount
         self.value = self.cash + stockvalue
+        self.datetime = datetime.datetime.now()
 
     # Private Method
     def updatemin(self):
@@ -612,10 +614,8 @@ class Backtester(Algorithm):
         self.cash = capital
         self.times = self.timestorun(times)
         # Variables that change automatically
-        self.datetime = None
         self.daysago = None
         self.minutesago = None
-        self.storeddata = {}
         # Variables that the user can change
         self.benchmark = None
 
@@ -656,8 +656,7 @@ class Backtester(Algorithm):
         if (datetime.datetime.today().date() - startdate) < datetime.timedelta(days=10):
             self.logging = '1min'
         days = list(tradingdays.NYSE_tradingdays(a=startdate, b=enddate))
-        self.daysago = len(days) + len(
-            list(tradingdays.NYSE_tradingdays(a=enddate, b=datetime.datetime.today().date())))
+        self.daysago = len(days) + len(list(tradingdays.NYSE_tradingdays(a=enddate, b=datetime.datetime.today().date())))
         self.datetime = startdate
         self.update()
         for day in days:
@@ -665,8 +664,7 @@ class Backtester(Algorithm):
             if self.logging == '1min':
                 for minute in range(391):
                     self.minutesago = 391 * self.daysago - minute
-                    self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(
-                        minutes=minute)
+                    self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)
                     if minute in self.times:
                         self.update()
                         self.run()
@@ -689,22 +687,6 @@ class Backtester(Algorithm):
         self.value = round(self.value, 2)
         self.chartday.append(self.value)
         self.chartdaytimes.append(self.datetime)
-
-    def timetoticks(self, interval='1min'):
-        if interval == '1min':
-            return self.minutesago
-        elif interval == '5min':
-            return self.minutesago / 5
-        elif interval == '15min':
-            return self.minutesago / 15
-        elif interval == '30min':
-            return self.minutesago / 30
-        elif interval == '60min':
-            return self.minutesago / 60
-        elif interval == 'daily':
-            return self.daysago
-        elif interval == 'weekly':
-            return self.daysago / 5
 
     def quote(self, stock):
         return self.history(stock, interval=self.logging)[0].item()
@@ -935,7 +917,6 @@ def sell(stock, amount):
 # TODO: TEST buy/sell in real time
 # TODO: TEST other technical indicators in backtesting. Check that they return lists of floats (perhaps switch to numpy)
 # TODO: Add manager GUI
-# TODO: Look up exact date in pandas instead of calculating 'timetoticks'. nearestidx function is in progress.
 # TODO: fix jumping axes in backtest with benchmark
 
 # Medium priority

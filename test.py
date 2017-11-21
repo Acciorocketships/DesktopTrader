@@ -9,7 +9,6 @@ class MacdQQQ(AM.Algorithm):
         self.benchmark = "QQQ"
 
     def run(self):
-        import pdb; pdb.set_trace()
         self.macdval = \
         self.macd(stock='QQQ', interval='daily', fastmawindow=12, slowmawindow=26, signalmawindow=9)['macd hist'][0]
         if self.macdval > 0:
@@ -22,4 +21,4 @@ if __name__ == '__main__':
     algo = MacdQQQ(times=['every day'])
     algoback = AM.backtester(algo)
     algoback.start(startdate=(1, 1, 2006))
-    #algoback.gui()
+    algoback.gui()
