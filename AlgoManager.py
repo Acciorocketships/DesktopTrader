@@ -425,7 +425,13 @@ class Algorithm(object):
 
     # Returns the list of datetime objects associated with the entries of a pandas dataframe
     def dateidxs(self, arr):
-        return [datetime.datetime.strptime(idx[0], "%Y-%m-%d") for idx in arr.iterrows()]
+        return [self.extractdate(item[0]) for item in arr.iterrows()]
+
+    def extractdate(self,string):
+        try:
+            return datetime.datetime.strptime(string, "%Y-%m-%d")
+        except:
+            return datetime.datetime.strptime(string, "%Y-%m-%d %H:%M:%S")
 
     # Returns the index of the nearest element in dateidxs that occured before (or at the same time) as time.
     # If lastchecked==None: Searches backward from the most recent entries
@@ -451,7 +457,7 @@ class Algorithm(object):
 
     # Returns the difference of the indexes of startdate and currentdateidx in dateidxs
     # startdate: datetime in the past
-    # currentdateidx: idx of current date in dateidxs (datetime also accepted) (If none given, it will default to the last value)
+    # currentdateidx: idx of current date in dateidxs (datetime also accepted) (If None given, it will default to the last value)
     # dateidxs: list of datetimes (original pandas dataframe also accepted)
     def datetolength(self, startdate, dateidxs, currentdateidx=None):
         if isinstance(dateidxs,pd.DataFrame):
@@ -478,6 +484,10 @@ class Algorithm(object):
             hist, _ = data.get_weekly(symbol=stock)
         else:
             hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize=size)
+        if isinstance(length,datetime.datetime):
+            length = self.datetolength(length,hist)
+        if length is None:
+            length = len(hist)
         return hist[datatype][-length:]
 
     # Uses robinhood to get the current price of a stock
@@ -499,6 +509,10 @@ class Algorithm(object):
         md, _ = tech.get_macdext(stock, interval=interval, \
                                  fastperiod=fastmawindow, slowperiod=slowmawindow, signalperiod=signalmawindow, \
                                  fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype)
+        if isinstance(length,datetime.datetime):
+            length = self.datetolength(length,md)
+        if length is None:
+            length = len(md)
         return {'macd': md['MACD'][-length:], 'signal': md['MACD_Signal'][-length:],
                 'macd hist': md['MACD_Hist'][-length:]}
 
@@ -513,6 +527,10 @@ class Algorithm(object):
     def bollinger(self, stock, interval='daily', length=1, nbdevup=2, nbdevdn=2, matype=1, mawindow=20):
         bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
                                 time_period=mawindow)
+        if isinstance(length,datetime.datetime):
+            length = self.datetolength(length,bb)
+        if length is None:
+            length = len(bb)
         return {'top': bb['Real Upper Band'][-length:], 'bottom': bb['Real Lower Band'][-length:],
                 'middle': bb['Real Middle Band'][-length:]}
 
@@ -522,6 +540,10 @@ class Algorithm(object):
     # mawindow: number of days to average in moving average
     def rsi(self, stock, interval='daily', length=1, mawindow=20):
         r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow)
+        if isinstance(length,datetime.datetime):
+            length = self.datetolength(length,r)
+        if length is None:
+            length = len(r)
         return r[-length:]
 
     # stock: stock symbol (string)
@@ -530,6 +552,10 @@ class Algorithm(object):
     # mawindow: number of days to average in moving average
     def sma(self, stock, interval='daily', length=1, mawindow=20):
         ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow)
+        if isinstance(length,datetime.datetime):
+            length = self.datetolength(length,ma)
+        if length is None:
+            length = len(ma)
         return ma[-length:]
 
     # stock: stock symbol (string)
@@ -538,6 +564,10 @@ class Algorithm(object):
     # mawindow: number of days to average in moving average
     def ema(self, stock, interval='daily', length=1, mawindow=20):
         ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow)
+        if isinstance(length,datetime.datetime):
+            length = self.datetolength(length,ma)
+        if length is None:
+            length = len(ma)
         return ma[-length:]
 
     # ADD DOCUMENTATION
@@ -545,14 +575,24 @@ class Algorithm(object):
                 slowkperiod=26, slowdperiod=26, slowkmatype=0, slowdmatype=0):
         s = tech.get_stoch(stock, interval=interval, fastkperiod=fastkperiod,
                 slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype)
+        if isinstance(length,datetime.datetime):
+            length = self.datetolength(length,s)
+        if length is None:
+            length = len(s)
         return s[-length:]
 
     # stock: stock symbol (string)
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
     # length: number of data points (default is only the last)
     def percentchange(self, stock, interval='daily', length=1):
-        prices = self.history(stock, interval=interval, length=length + 1)
-        changes = [(current - last) / last for last, current in zip(prices[:-1], prices[1:])]
+        prices = self.history(stock, interval=interval, length=None)
+        if isinstance(length,datetime.datetime):
+            length = self.datetolength(length,ma)
+        elif length is None:
+            length = len(ma)
+        else:
+            length += 1
+        changes = [(current - last) / last for last, current in zip(prices[-length:-1], prices[-length+1:])]
         return changes
 
     # Returns a list of symbols for high-volume stocks tradable on Robinhood
@@ -687,8 +727,10 @@ class Backtester(Algorithm):
             self.cache[key] = [hist, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
-        if type(length)!=int:
+        if isinstance(length,datetime.datetime):
             length = self.datetolength(length,dateidxs,idx)
+        if length is None:
+            length = idx
         return hist[datatype][idx-length: idx]
 
     def order(self, stock, amount, verbose=False):
@@ -739,13 +781,15 @@ class Backtester(Algorithm):
             md, _ = tech.get_macdext(stock, interval=interval, \
                         fastperiod=fastmawindow, slowperiod=slowmawindow, signalperiod=signalmawindow, \
                         fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype)
-            dateidxs = self.dateidxs(md['MACD'])
+            dateidxs = self.dateidxs(md)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [md, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
-        if type(length)!=int:
+        if isinstance(length,datetime.datetime):
             length = self.datetolength(length,dateidxs,idx)
+        if length is None:
+            length = idx
         return {'macd': md['MACD'][idx-length : idx],
                 'signal': md['MACD_Signal'][idx-length : idx],
                 'macd hist': md['MACD_Hist'][idx-length : idx]}
@@ -759,13 +803,15 @@ class Backtester(Algorithm):
         if (cache is None) or (datetime.datetime.now() > exp): 
             bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
                                     time_period=mawindow)
-            dateidxs = self.dateidxs(bb['Real Upper Band'])
+            dateidxs = self.dateidxs(bb)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [bb, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
-        if type(length)!=int:
+        if isinstance(length,datetime.datetime):
             length = self.datetolength(length,dateidxs,idx)
+        if length is None:
+            length = idx
         return {'top': bb['Real Upper Band'][idx-length : idx],
                 'bottom': bb['Real Lower Band'][idx-length : idx],
                 'middle': bb['Real Middle Band'][idx-length : idx]}
@@ -783,8 +829,10 @@ class Backtester(Algorithm):
             self.cache[key] = [r, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
-        if type(length)!=int:
+        if isinstance(length,datetime.datetime):
             length = self.datetolength(length,dateidxs,idx)
+        if length is None:
+            length = idx
         return r[idx-length : idx]
 
     def sma(self, stock, interval='daily', length=1, mawindow=20):
@@ -800,8 +848,10 @@ class Backtester(Algorithm):
             self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
-        if type(length)!=int:
+        if isinstance(length,datetime.datetime):
             length = self.datetolength(length,dateidxs,idx)
+        if length is None:
+            length = idx
         return ma[idx-length : idx]
 
     def ema(self, stock, interval='daily', length=1, mawindow=20):
@@ -817,8 +867,10 @@ class Backtester(Algorithm):
             self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
-        if type(length)!=int:
+        if isinstance(length,datetime.datetime):
             length = self.datetolength(length,dateidxs,idx)
+        if length is None:
+            length = idx
         return ma[idx-length : idx]
 
     def stoch(self, stock, interval='daily', length=1, fastkperiod=12, 
@@ -836,28 +888,22 @@ class Backtester(Algorithm):
             self.cache[key] = [s, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
-        if type(length)!=int:
+        if isinstance(length,datetime.datetime):
             length = self.datetolength(length,dateidxs,idx)
+        if length is None:
+            length = idx
         return s[idx-length : idx]
 
     def percentchange(self, stock, interval='daily', length=1):
-        key = ('percentchange', tuple(locals().values()))
-        cache = self.cache.get(key)
-        exp = None
-        if cache is not None: 
-            changes, exp, dateidxs, lastidx = cache
-        if (cache is None) or (datetime.datetime.now() > exp):
-            calclength = length + self.timetoticks(interval)
-            prices = self.history(stock, interval=interval, length=calclength + 1)
-            changes = [(current - last) / last for last, current in zip(prices[:-1], prices[1:])]
-            dateidxs = self.dateidxs(changes)
-            lastidx = self.nearestidx(self.datetime, dateidxs)
-            self.cache[key] = [changes, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
-        idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
-        self.cache[key][3] = idx
-        if type(length)!=int:
-            length = self.datetolength(length,dateidxs,idx)
-        return changes[idx-length : idx]
+        prices = self.history(stock, interval=interval, length=None)
+        if isinstance(length,datetime.datetime):
+            length = self.datetolength(length,dateidxs,len(prices)-1)
+        elif length is None:
+            length = idx
+        else:
+            length += 1
+        changes = [(current - last) / last for last, current in zip(prices[-length:-1], prices[-length+1:])]
+        return changes
 
 
 def backtester(algo, startingcapital=None):
