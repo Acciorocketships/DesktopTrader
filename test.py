@@ -3,7 +3,7 @@ import code
 import datetime
 
 
-class Manual(AM.Algorithm):
+class MacdQQQ(AM.Algorithm):
     def initialize(self):
         self.macdval = None
         self.benchmark = "QQQ"
@@ -17,13 +17,8 @@ class Manual(AM.Algorithm):
             self.orderpercent('QQQ', 0)
 
 
-class Manual2(AM.Algorithm):
-    def run(self):
-        self.orderpercent('QQQ', 1)
-
-
 if __name__ == '__main__':
-    algo = Manual(times=['every day'])
+    algo = MacdQQQ(times=['every day'])
     algoback = AM.backtester(algo)
     algoback.start(startdate=(1, 1, 2006))
     algoback.gui()
