@@ -266,8 +266,6 @@ class Manager:
             for stock, amount in stocks:
                 algo.stocks[stock] = (min(amount, self.stocks[stock]) - self.numstockinalgos(stock, algo))
         else:
-            import pdb;
-            pdb.set_trace()
             algo.stocks[stocks] = (self.stocks[stocks] - self.numstockinalgos(stocks, algo))
 
     # Helper function for assignstocks.
@@ -308,6 +306,8 @@ class Algorithm(object):
         self.running = True
         self.openorders = {}
         self.cache = {}
+        self.stoplosses = {}
+        self.stopgains = {}
         self.datetime = None
         # User initialization
         self.initialize()
@@ -354,9 +354,29 @@ class Algorithm(object):
         self.datetime = datetime.datetime.now()
 
     # Private Method
+    def checksellthresholds(self,stock):
+        if (stock in self.stocks) and (stock in self.stoplosses):
+            if self.quote(stock) <= self.stoplosses[stock]:
+                self.orderpercent(stock,0)
+        elif (stock in self.stocks) and (stock in self.stopgains):
+            if self.quote(stock) >= self.stopgains[stock]:
+                self.orderpercent(stock,0)
+
+    # Adds stop loss or stop gain to a particular stock until it is sold (then you need to re-add it)
+    # If change == 0.05, then the stock will be sold if it goes 5% over the current price
+    # If change == -0.05, then the stock will be sold if it goes 5% below the current price
+    def stopsell(self,stock,change):
+        if change > 0:
+            self.stopgains[stock] = (1+change)*self.quote(stock)
+        if change < 0:
+            self.stoplosses[stock] = (1+change)*self.quote(stock)
+
+    # Private Method
     def updatemin(self):
         self.chartminute.append(self.value)
         self.chartminutetimes.append(datetime.datetime.now())
+        for stock in self.stocks:
+            self.checksellthresholds(stock)
 
     # Private Method
     def updateday(self):
@@ -377,19 +397,16 @@ class Algorithm(object):
             print("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
                 self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock)
             return None
-
         cost = self.quote(stock)
         #Guard condition for buy
         if cost * amount > self.cash:
             print("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
                 amount) + " shares of " + stock)
             return None
-
         if amount == 0:
             return None
-
         #Stage the order
-        if noverify:
+        if noverify or not self.running:
             if stock in self.stocks:
                 self.stocks[stock] += amount
             else:
@@ -422,6 +439,10 @@ class Algorithm(object):
             if verbose:
                 print("percentdiff: (" + stock + ", " + str(amount) + ")")
             return self.order(stock, amount, verbose, noverify)
+
+    def sellall(self):
+        for stock in self.stocks:
+            self.orderpercent(stock,0)
 
     # Returns the list of datetime objects associated with the entries of a pandas dataframe
     def dateidxs(self, arr):
@@ -612,7 +633,7 @@ class Backtester(Algorithm):
         self.startingcapital = capital
         self.cash = capital
         self.times = self.timestorun(times)
-        self.exptime = 3
+        self.exptime = 5
         # Variables that change automatically
         self.daysago = None
         self.minutesago = None
@@ -880,15 +901,29 @@ class Backtester(Algorithm):
         return s[idx-length : idx]
 
     def percentchange(self, stock, interval='daily', length=1):
-        prices = self.history(stock, interval=interval, length=None)
+        key = ('percchng', tuple(locals().values()))
+        cache = self.cache.get(key)
+        exp = None
+        if cache is not None: 
+            changes, exp, dateidxs, lastidx = cache
+        if (cache is None) or (datetime.datetime.now() > exp):
+            if interval == 'daily':
+                prices, _ = data.get_daily_adjusted(symbol=stock, outputsize='full')
+            elif interval == 'weekly':
+                prices, _ = data.get_weekly(symbol=stock)
+            else:
+                prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
+            changes = [(current - last) / last for last, current in zip(prices['close'][:-1], prices['close'][1:])]
+            dateidxs = self.dateidxs(prices[1:])
+            lastidx = self.nearestidx(self.datetime, dateidxs)
+            self.cache[key] = [changes, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+        idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
+        self.cache[key][3] = idx
         if isinstance(length,datetime.datetime):
-            length = self.datetolength(length,dateidxs,len(prices)-1)
-        elif length is None:
+            length = self.datetolength(length,dateidxs,idx)
+        if length is None:
             length = idx
-        else:
-            length += 1
-        changes = [(current - last) / last for last, current in zip(prices[-length:-1], prices[-length+1:])]
-        return changes
+        return changes[idx-length : idx]
 
 
 def backtester(algo, startingcapital=None):
