@@ -290,8 +290,6 @@ class Manager:
         self.chartdaytimes.append(datetime.datetime.now())
 
 
-# To do manual trading, just add an algorithm object to Manager
-# and manually call the buy(stock,amount) and sell(stock,amount) methods
 class Algorithm(object):
     def __init__(self, times=['every minute']):
         # Constants
@@ -447,7 +445,7 @@ class Algorithm(object):
                     return index
         elif lastchecked >= 0:
             for i in range(len(dateidxs)):
-                index = (lastchecked + i) % len(dateidxs)
+                index = (lastchecked + i - 5) % len(dateidxs)
                 if dateidxs[index] > time:
                     return index-1
             return len(dateidxs)-1
@@ -604,7 +602,8 @@ class Algorithm(object):
             sym = simplejson.load(f)
         return sym
 
-
+# Use self.datetime to get current time (as a datetime object)
+# Set self.benchmark = "SPY" (or any other symbol) to plot benchmark in backtest
 class Backtester(Algorithm):
     def __init__(self, capital=10000.0, times=['every day']):
         super(Backtester, self).__init__(times)
@@ -613,6 +612,7 @@ class Backtester(Algorithm):
         self.startingcapital = capital
         self.cash = capital
         self.times = self.timestorun(times)
+        self.exptime = 3
         # Variables that change automatically
         self.daysago = None
         self.minutesago = None
@@ -679,6 +679,9 @@ class Backtester(Algorithm):
     def update(self):
         stockvalue = 0
         for stock, amount in self.stocks.items():
+            if amount == 0:
+                del self.stocks[stock]
+                continue
             if self.logging == '1min':
                 stockvalue += self.history(stock, interval='1min')[0].item() * amount
             elif self.logging == 'daily':
@@ -706,7 +709,7 @@ class Backtester(Algorithm):
                 hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
             dateidxs = self.dateidxs(hist)
             lastidx = self.nearestidx(self.datetime, dateidxs)
-            self.cache[key] = [hist, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
+            self.cache[key] = [hist, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
         if isinstance(length,datetime.datetime):
@@ -765,7 +768,7 @@ class Backtester(Algorithm):
                         fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype)
             dateidxs = self.dateidxs(md)
             lastidx = self.nearestidx(self.datetime, dateidxs)
-            self.cache[key] = [md, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
+            self.cache[key] = [md, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
         if isinstance(length,datetime.datetime):
@@ -787,7 +790,7 @@ class Backtester(Algorithm):
                                     time_period=mawindow)
             dateidxs = self.dateidxs(bb)
             lastidx = self.nearestidx(self.datetime, dateidxs)
-            self.cache[key] = [bb, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
+            self.cache[key] = [bb, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
         if isinstance(length,datetime.datetime):
@@ -808,7 +811,7 @@ class Backtester(Algorithm):
             r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow)
             dateidxs = self.dateidxs(r)
             lastidx = self.nearestidx(self.datetime, dateidxs)
-            self.cache[key] = [r, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
+            self.cache[key] = [r, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
         if isinstance(length,datetime.datetime):
@@ -827,7 +830,7 @@ class Backtester(Algorithm):
             ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow)
             dateidxs = self.dateidxs(ma)
             lastidx = self.nearestidx(self.datetime, dateidxs)
-            self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
+            self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
         if isinstance(length,datetime.datetime):
@@ -846,7 +849,7 @@ class Backtester(Algorithm):
             ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow)
             dateidxs = self.dateidxs(ma)
             lastidx = self.nearestidx(self.datetime, dateidxs)
-            self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
+            self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
         if isinstance(length,datetime.datetime):
@@ -867,7 +870,7 @@ class Backtester(Algorithm):
                 slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype)
             dateidxs = self.dateidxs(s)
             lastidx = self.nearestidx(self.datetime, dateidxs)
-            self.cache[key] = [s, datetime.datetime.now() + datetime.timedelta(minutes = 1), dateidxs, lastidx]
+            self.cache[key] = [s, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
         self.cache[key][3] = idx
         if isinstance(length,datetime.datetime):
