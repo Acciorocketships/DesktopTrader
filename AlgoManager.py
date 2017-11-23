@@ -8,6 +8,7 @@ import code
 import copy
 import pandas
 import tradingdays
+from empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio
 import math
 import requests
 import AlgoGUI as app
@@ -15,6 +16,10 @@ import ManagerGUI as man
 
 # https://github.com/RomelTorres/alpha_vantage
 # https://github.com/Jamonek/Robinhood
+
+
+
+
 
 broker = 'robinhood'
 
@@ -40,6 +45,11 @@ robinhood.login(username=creds[0], password=creds[1])
 
 data = TimeSeries(key=creds[2], output_format='pandas')
 tech = TechIndicators(key=creds[2], output_format='pandas')
+
+
+
+
+
 
 class Manager:
     def __init__(self):
@@ -148,6 +158,7 @@ class Manager:
     def interactive(self):
         code.interact(local=locals())
 
+    # Opens GUI of all algorithms in the manager
     def gui(self):
         desktoptrader = man.Gui(self)
         desktoptrader.mainloop()
@@ -169,8 +180,7 @@ class Manager:
             plt.title(('Portfolio: $%0.2f    Day Change: %0.2f%%' % (self.value, self.daychangeperc)))
             plt.pause(0.05)
 
-            # Private Method
-
+    # Private Method
     # Graph callback helper
     def quit_figure(self, event):
         import matplotlib.pyplot as plt
@@ -189,22 +199,23 @@ class Manager:
             try:
                 currenttime = datetime.time(datetime.datetime.now().hour, datetime.datetime.now().minute)
                 currentday = datetime.datetime.today().date()
-                for algo in list(self.algo_alloc.keys()):
-                    algo.updatetick()
-                self.updatetick()
-                if currenttime != lasttime:
-                    lasttime = currenttime
+                if len(list(tradingdays.NYSE_tradingdays(a=currentday,b=currentday+datetime.timedelta(days=1)))) > 0:
                     for algo in list(self.algo_alloc.keys()):
-                        algo.updatemin()
-                    self.updatemin()
-                    if currentday != lastday:
-                        lastday = currentday
-                        self.updateday()
+                        algo.updatetick()
+                    self.updatetick()
+                    if currenttime != lasttime:
+                        lasttime = currenttime
                         for algo in list(self.algo_alloc.keys()):
-                            algo.updateday()
-                    if currenttime in self.algo_times:
-                        for algo in self.algo_times[currenttime]:
-                            algo.run()
+                            algo.updatemin()
+                        self.updatemin()
+                        if currentday != lastday:
+                            lastday = currentday
+                            self.updateday()
+                            for algo in list(self.algo_alloc.keys()):
+                                algo.updateday()
+                        if currenttime in self.algo_times:
+                            for algo in self.algo_times[currenttime]:
+                                algo.run()
             except:
                 pass
 
@@ -280,7 +291,6 @@ class Manager:
 
     # Private Method
     # Called at the start of every day
-    # TODO: Skip weekends
     def updateday(self):
         self.chartminute = []
         self.chartminutetimes = []
@@ -288,7 +298,13 @@ class Manager:
         self.chartdaytimes.append(datetime.datetime.now())
 
 
+
+
+
+
+
 class Algorithm(object):
+
     def __init__(self, times=['every minute']):
         # Constants
         self.times = times
@@ -312,12 +328,96 @@ class Algorithm(object):
         # User initialization
         self.initialize()
 
-    # Override this method
     def initialize(self):
         pass
 
     def run(self):
         pass
+
+
+    ### PRIVATE METHODS ###
+
+    # Update function called every second
+    def updatetick(self):
+        stockvalue = 0
+        for stock, amount in self.stocks.items():
+            stockvalue += self.quote(stock) * amount
+        self.value = self.cash + stockvalue
+        self.datetime = datetime.datetime.now()
+
+    # Update function called every minute
+    def updatemin(self):
+        self.chartminute.append(self.value)
+        self.chartminutetimes.append(datetime.datetime.now())
+        for stock in self.stocks:
+            self.checksellthresholds(stock)
+
+    # Update function called every day
+    def updateday(self):
+        self.chartminute = []
+        self.chartminutetimes = []
+        self.chartday.append(self.value)
+        self.chartdaytimes.append(datetime.datetime.now())
+        self.openorders = {}
+
+    # Checks and executes limit/stop orders
+    def checksellthresholds(self,stock):
+        if (stock in self.stocks) and (stock in self.stoplosses):
+            if self.quote(stock) <= self.stoplosses[stock]:
+                self.orderpercent(stock,0)
+        elif (stock in self.stocks) and (stock in self.stopgains):
+            if self.quote(stock) >= self.stopgains[stock]:
+                self.orderpercent(stock,0)
+
+    # Returns the list of datetime objects associated with the entries of a pandas dataframe
+    def dateidxs(self, arr):
+        return [self.extractdate(item[0]) for item in arr.iterrows()]
+
+    # Gets datetime from string. Helper for dateidxs
+    def extractdate(self,string):
+        try:
+            return datetime.datetime.strptime(string, "%Y-%m-%d")
+        except:
+            return datetime.datetime.strptime(string, "%Y-%m-%d %H:%M:%S")
+
+    # Returns the index of the nearest element in dateidxs that occured before (or at the same time) as time.
+    # If lastchecked==None: Searches backward from the most recent entries
+    # If lastchecked>=0: Searches forward starting at lastchecked
+    # If lastchecked<0: Searches backward starting at -lastchecked
+    def nearestidx(self, time, dateidxs, lastchecked=None):
+        if lastchecked is None:
+            for i in range(len(dateidxs)):
+                index = len(dateidxs) - i - 1
+                if dateidxs[index] <= time:
+                    return index
+        elif lastchecked >= 0:
+            for i in range(len(dateidxs)):
+                index = (lastchecked + i - 5) % len(dateidxs)
+                if dateidxs[index] > time:
+                    return index-1
+            return len(dateidxs)-1
+        else:
+            for i in range(len(dateidxs)):
+                index = (len(dateidxs) - lastchecked - i) % len(dateidxs)
+                if dateidxs[index] <= time:
+                    return index
+
+    # Returns the difference of the indexes of startdate and currentdateidx in dateidxs
+    # startdate: datetime in the past
+    # currentdateidx: idx of current date in dateidxs (datetime also accepted) (If None given, it will default to the last value)
+    # dateidxs: list of datetimes (original pandas dataframe also accepted)
+    def datetolength(self, startdate, dateidxs, currentdateidx=None):
+        if isinstance(dateidxs,pd.DataFrame):
+            dateidxs = self.dateidxs(dateidxs)
+        if isinstance(startdate,datetime.datetime):
+            currentdateidx = self.nearestidx(currentdateidx, dateidxs)
+        if currentdateidx is None:
+            currentdateidx = len(dateidxs)-1
+        return currentdateidx - self.nearestidx(startdate, dateidxs, lastchecked=-currentdateidx)
+
+
+    ### PUBLIC METHODS ###
+
 
     # Opens the GUI to visualize the Algorithm's performance (also works with Backtests)
     def gui(self):
@@ -345,23 +445,6 @@ class Algorithm(object):
             self.chartday = []
             self.running = True
 
-    # Private Method
-    def updatetick(self):
-        stockvalue = 0
-        for stock, amount in self.stocks.items():
-            stockvalue += self.quote(stock) * amount
-        self.value = self.cash + stockvalue
-        self.datetime = datetime.datetime.now()
-
-    # Private Method
-    def checksellthresholds(self,stock):
-        if (stock in self.stocks) and (stock in self.stoplosses):
-            if self.quote(stock) <= self.stoplosses[stock]:
-                self.orderpercent(stock,0)
-        elif (stock in self.stocks) and (stock in self.stopgains):
-            if self.quote(stock) >= self.stopgains[stock]:
-                self.orderpercent(stock,0)
-
     # Adds stop loss or stop gain to a particular stock until it is sold (then you need to re-add it)
     # If change == 0.05, then the stock will be sold if it goes 5% over the current price
     # If change == -0.05, then the stock will be sold if it goes 5% below the current price
@@ -370,21 +453,6 @@ class Algorithm(object):
             self.stopgains[stock] = (1+change)*self.quote(stock)
         if change < 0:
             self.stoplosses[stock] = (1+change)*self.quote(stock)
-
-    # Private Method
-    def updatemin(self):
-        self.chartminute.append(self.value)
-        self.chartminutetimes.append(datetime.datetime.now())
-        for stock in self.stocks:
-            self.checksellthresholds(stock)
-
-    # Private Method
-    def updateday(self):
-        self.chartminute = []
-        self.chartminutetimes = []
-        self.chartday.append(self.value)
-        self.chartdaytimes.append(datetime.datetime.now())
-        self.openorders = {}
 
     # stock: stock symbol (string)
     # amount: number of shares of that stock to order (+ for buy, - for sell)
@@ -440,54 +508,26 @@ class Algorithm(object):
                 print("percentdiff: (" + stock + ", " + str(amount) + ")")
             return self.order(stock, amount, verbose, noverify)
 
+    # Sells all held stocks
     def sellall(self):
         for stock in self.stocks:
             self.orderpercent(stock,0)
 
-    # Returns the list of datetime objects associated with the entries of a pandas dataframe
-    def dateidxs(self, arr):
-        return [self.extractdate(item[0]) for item in arr.iterrows()]
+    # Returns a list of symbols for high-volume stocks tradable on Robinhood
+    def symbols(self):
+        import simplejson
+        with open('symbols.txt', 'r') as f:
+            sym = simplejson.load(f)
+        return sym
 
-    def extractdate(self,string):
-        try:
-            return datetime.datetime.strptime(string, "%Y-%m-%d")
-        except:
-            return datetime.datetime.strptime(string, "%Y-%m-%d %H:%M:%S")
 
-    # Returns the index of the nearest element in dateidxs that occured before (or at the same time) as time.
-    # If lastchecked==None: Searches backward from the most recent entries
-    # If lastchecked>=0: Searches forward starting at lastchecked
-    # If lastchecked<0: Searches backward starting at -lastchecked
-    def nearestidx(self, time, dateidxs, lastchecked=None):
-        if lastchecked is None:
-            for i in range(len(dateidxs)):
-                index = len(dateidxs) - i - 1
-                if dateidxs[index] <= time:
-                    return index
-        elif lastchecked >= 0:
-            for i in range(len(dateidxs)):
-                index = (lastchecked + i - 5) % len(dateidxs)
-                if dateidxs[index] > time:
-                    return index-1
-            return len(dateidxs)-1
-        else:
-            for i in range(len(dateidxs)):
-                index = (len(dateidxs) - lastchecked - i) % len(dateidxs)
-                if dateidxs[index] <= time:
-                    return index
+    ### HISTORY AND INDICATORS ###
 
-    # Returns the difference of the indexes of startdate and currentdateidx in dateidxs
-    # startdate: datetime in the past
-    # currentdateidx: idx of current date in dateidxs (datetime also accepted) (If None given, it will default to the last value)
-    # dateidxs: list of datetimes (original pandas dataframe also accepted)
-    def datetolength(self, startdate, dateidxs, currentdateidx=None):
-        if isinstance(dateidxs,pd.DataFrame):
-            dateidxs = self.dateidxs(dateidxs)
-        if isinstance(startdate,datetime.datetime):
-            currentdateidx = self.nearestidx(currentdateidx, dateidxs)
-        if currentdateidx is None:
-            currentdateidx = len(dateidxs)-1
-        return currentdateidx - self.nearestidx(startdate, dateidxs, lastchecked=-currentdateidx)
+
+    # Uses robinhood to get the current price of a stock
+    # stock: stock symbol (string)
+    def quote(self, stock):
+        return float(robinhood.quote_data(stock)['last_trade_price'])
 
     # Use Alpha Vantage to get the historical price data of a stock
     # stock: stock symbol (string)
@@ -510,11 +550,6 @@ class Algorithm(object):
         if length is None:
             length = len(hist)
         return hist[datatype][-length:]
-
-    # Uses robinhood to get the current price of a stock
-    # stock: stock symbol (string)
-    def quote(self, stock):
-        return float(robinhood.quote_data(stock)['last_trade_price'])
 
     # macd line: 12 day MA - 26 day MA
     # signal line: 9 period MA of the macd line
@@ -616,12 +651,11 @@ class Algorithm(object):
         changes = [(current - last) / last for last, current in zip(prices[-length:-1], prices[-length+1:])]
         return changes
 
-    # Returns a list of symbols for high-volume stocks tradable on Robinhood
-    def symbols(self):
-        import simplejson
-        with open('symbols.txt', 'r') as f:
-            sym = simplejson.load(f)
-        return sym
+
+
+
+
+
 
 # Use self.datetime to get current time (as a datetime object)
 # Set self.benchmark = "SPY" (or any other symbol) to plot benchmark in backtest
@@ -637,6 +671,11 @@ class Backtester(Algorithm):
         # Variables that change automatically
         self.daysago = None
         self.minutesago = None
+        self.alpha = None
+        self.beta = None
+        self.volatility = None
+        self.sharpe = None
+        self.maxdrawdown = None
         # Variables that the user can change
         self.benchmark = None
 
@@ -657,11 +696,6 @@ class Backtester(Algorithm):
                 runtimes.add((time[0] - 9) * 60 + (time[1] - 30))
         return runtimes
 
-    # Gets called immediately after run() when backtesting. Can be used to debug
-    # or to graph progress of the algorithm or technical indicators
-    def backtestrun(self):
-        pass
-
     # Starts the backtest (calls startbacktest in a new thread)
     # Times can be in the form of datetime objects or tuples (day,month,year)
     def start(self, startdate=datetime.datetime.today().date() - datetime.timedelta(days=10),
@@ -669,6 +703,7 @@ class Backtester(Algorithm):
         backtestthread = threading.Thread(target=self.startbacktest, args=(startdate, enddate))
         backtestthread.start()
 
+    # Starts the backtest
     def startbacktest(self, startdate, enddate):
         if type(startdate) == tuple:
             startdate = datetime.date(startdate[2], startdate[1], startdate[0])
@@ -689,13 +724,20 @@ class Backtester(Algorithm):
                     if minute in self.times:
                         self.update()
                         self.run()
-                        self.backtestrun()
             elif self.logging == 'daily':
                 self.datetime = datetime.datetime.combine(day, datetime.time(9, 30))
                 self.minutesago = 391 * self.daysago
                 self.update()
                 self.run()
-                self.backtestrun()
+        self.riskmetrics()
+
+    def riskmetrics(self):
+        changes = np.array([(current - last) / last for last, current in zip(self.chartday[:-1], self.chartday[1:])])
+        benchmarkchanges = np.array(self.percentchange(self.benchmark, length=len(changes)))
+        self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
+        self.sharpe = sharpe_ratio(changes)
+        self.volatility = annual_volatility(changes)
+        self.maxdrawdown = max_drawdown(changes)
 
     def update(self):
         stockvalue = 0
@@ -926,6 +968,11 @@ class Backtester(Algorithm):
         return changes[idx-length : idx]
 
 
+
+
+
+
+
 def backtester(algo, startingcapital=None):
     if startingcapital is None:
         if algo.value != 0:
@@ -949,13 +996,19 @@ def sell(stock, amount):
         stockobj = robinhood.instruments(stock)
         return robinhood.place_sell_order(stockobj, amount)
 
+
+
+
+
+
+
 # High Priority
 # TODO: Comment functions that don't have descriptions
 # TODO: TEST that algorithm uses the correct buy/sell price.
 # TODO: TEST buy/sell in real time
 # TODO: TEST other technical indicators in backtesting. Check that they return lists of floats (perhaps switch to numpy)
 # TODO: Add manager GUI
-# TODO: fix jumping axes in backtest with benchmark
+# TODO: fix jumping axes in backtest with benchmark. is this fixed??
 
 # Medium priority
 # TODO: generalize to other brokers. write a wrapper function for everywhere it uses 'self.portfolio' now
