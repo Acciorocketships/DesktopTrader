@@ -11,6 +11,7 @@ import tradingdays
 from empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio
 import math
 import requests
+import numpy as np
 import AlgoGUI as app
 import ManagerGUI as man
 
@@ -734,7 +735,11 @@ class Backtester(Algorithm):
     def riskmetrics(self):
         changes = np.array([(current - last) / last for last, current in zip(self.chartday[:-1], self.chartday[1:])])
         benchmarkchanges = np.array(self.percentchange(self.benchmark, length=len(changes)))
-        self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
+        #Temporary fix, should find the actual problem
+        try:
+            self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
+        except TypeError:
+            print("Failed to calculate alpha, beta - TypeError")
         self.sharpe = sharpe_ratio(changes)
         self.volatility = annual_volatility(changes)
         self.maxdrawdown = max_drawdown(changes)
