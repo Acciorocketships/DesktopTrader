@@ -61,12 +61,10 @@ class Manager:
         self.algo_times = {}
         # Private variables
         self.graphing = False
-        self.portfolio = robinhood.portfolios()
+        self.portfolio = portfoliodata()
         # Variables that change automatically
-        self.value = float(self.portfolio['equity'])
-        self.cash = self.portfolio['withdrawable_amount']
-        self.daychangeperc = 100 * (self.value - float(self.portfolio['adjusted_equity_previous_close'])) / float(
-            self.portfolio['adjusted_equity_previous_close'])
+        self.value = self.portfolio["value"]
+        self.cash = self.portfolio["cash"]
         self.chartminute = []
         self.chartminutetimes = []
         self.chartday = []
@@ -136,7 +134,7 @@ class Manager:
     # Always call this before start()
     def rebalance(self):
         total_allocation = reduce(lambda x, y: x + y, list(self.algo_alloc.values()), 0)
-        if self.value * total_allocation > float(self.portfolio['withdrawable_amount']):
+        if self.value * total_allocation > self.cash):
             print("Warning: You have allocated more than your buying power. \
 				  Sell some stocks not already in your account or reduce your allocation percentages.")
             return
@@ -178,7 +176,7 @@ class Manager:
                 plt.plot(self.chartminute, 'b')
             else:
                 plt.plot(self.chartday, 'b')
-            plt.title(('Portfolio: $%0.2f    Day Change: %0.2f%%' % (self.value, self.daychangeperc)))
+            plt.title(('Portfolio: $%0.2f    Day Change: %0.2f%%' % (self.value, self.portfolio["day change"])))
             plt.pause(0.05)
 
     # Private Method
@@ -225,14 +223,9 @@ class Manager:
     # Updates the data in the Manager
     # Allows you to track how the portfolio is doing in real time
     def updatetick(self):
-        self.portfolio = robinhood.portfolios()
-        if not (self.portfolio['extended_hours_equity'] is None):
-            self.value = float(self.portfolio['extended_hours_equity'])
-        else:
-            self.value = float(self.portfolio['equity'])
-        self.cash = self.portfolio['withdrawable_amount']
-        self.daychangeperc = 100 * (self.value - float(self.portfolio['adjusted_equity_previous_close'])) / float(
-            self.portfolio['adjusted_equity_previous_close'])
+        portfolio = portfoliodata()
+        self.value = portfolio["value"]
+        self.cash = portfolio["cash"]
 
     # Private Method
     # Called every minute
@@ -240,10 +233,7 @@ class Manager:
     def updatemin(self):
         self.chartminute.append(self.value)
         self.chartminutetimes.append(datetime.datetime.now())
-        positions = robinhood.positions()['results']
-        for position in positions:
-            name = str(requests.get(position['instrument']).json()['symbol'])
-            amount = float(position['quantity'])
+        for (name,amount) in positions():
             amountdiff = amount - (self.stocks[name] if name in self.stocks else 0)
             self.stocks[name] = amount
             if amountdiff != 0:
@@ -525,10 +515,10 @@ class Algorithm(object):
     ### HISTORY AND INDICATORS ###
 
 
-    # Uses robinhood to get the current price of a stock
+    # Uses broker to get the current price of a stock
     # stock: stock symbol (string)
     def quote(self, stock):
-        return float(robinhood.quote_data(stock)['last_trade_price'])
+        return price(stock)
 
     # Use Alpha Vantage to get the historical price data of a stock
     # stock: stock symbol (string)
@@ -735,7 +725,7 @@ class Backtester(Algorithm):
     def riskmetrics(self):
         changes = np.array([(current - last) / last for last, current in zip(self.chartday[:-1], self.chartday[1:])])
         benchmarkchanges = np.array(self.percentchange(self.benchmark, length=len(changes)))
-        #Temporary fix, should find the actual problem
+        # TODO: Temporary fix, should find the actual problem
         try:
             self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
         except TypeError:
@@ -975,7 +965,7 @@ class Backtester(Algorithm):
 
 
 
-
+# Wrappers for Broker-Related Functions
 
 
 def backtester(algo, startingcapital=None):
@@ -1001,28 +991,54 @@ def sell(stock, amount):
         stockobj = robinhood.instruments(stock)
         return robinhood.place_sell_order(stockobj, amount)
 
+# Returns: share price as a float
+def price(stock):
+    if broker == 'robinhood':
+        return float(robinhood.quote_data(stock)['last_trade_price'])
 
+# Returns: list of ("symbol",amount)
+def positions():
+    positions = []
+    if broker == 'robinhood':
+        robinhoodpositions = robinhood.positions()['results']
+        for position in robinhoodpositions:
+            name = str(requests.get(position['instrument']).json()['symbol'])
+            amount = float(position['quantity'])
+            positions.append((name,amount))
+    return positions
 
-
-
+# Returns dictionary of
+    # "value": total portfolio value as a float
+    # "cash": portfolio cash as a float
+    # "daychange": current day's percent portfolio value change as a float
+def portfoliodata():
+    portfolio = {}
+    if broker == 'robinhood':
+        robinhoodportfolio = robinhood.portfolios()
+        if not (robinhoodportfolio['extended_hours_equity'] is None):
+            portfolio["value"] = float(robinhoodportfolio['extended_hours_equity'])
+        else:
+            portfolio["value"] = float(robinhoodportfolio['equity'])
+        portfolio["cash"] = robinhoodportfolio['withdrawable_amount']
+        # TODO: check if cash is a different attribute from withdrawable amount
+        portfolio["day change"] = 100 * (self.value - float(robinhoodportfolio['adjusted_equity_previous_close'])) / 
+                                                     float(robinhoodportfolio['adjusted_equity_previous_close'])
+    return portfolio
 
 
 # High Priority
-# TODO: Comment functions that don't have descriptions
 # TODO: TEST that algorithm uses the correct buy/sell price.
 # TODO: TEST buy/sell in real time
 # TODO: TEST other technical indicators in backtesting. Check that they return lists of floats (perhaps switch to numpy)
 # TODO: Add manager GUI
-# TODO: fix jumping axes in backtest with benchmark. is this fixed??
 
 # Medium priority
-# TODO: generalize to other brokers. write a wrapper function for everywhere it uses 'self.portfolio' now
-# TODO: add liquidate algo/manager feature that sells all stocks
+# TODO: Comment functions that don't have descriptions
 # TODO: Add extra plots (technical indicator, etc) to GUI
 # TODO: add searching and manually buying to manager GUI
 # TODO: add more buttons/options to manager GUI (add simple algo, )
 # TODO: add more buttons/options to algo GUI (paper trade, backtest, )
+# TODO: load and save data when closed/opened
 
 # Low Priority
-# TODO: load and save data when closed/opened
 # TODO: Prevent day trades, Combine concurrent orders for same stock
