@@ -134,7 +134,7 @@ class Manager:
     # Always call this before start()
     def rebalance(self):
         total_allocation = reduce(lambda x, y: x + y, list(self.algo_alloc.values()), 0)
-        if self.value * total_allocation > self.cash):
+        if self.value * total_allocation > self.cash:
             print("Warning: You have allocated more than your buying power. \
 				  Sell some stocks not already in your account or reduce your allocation percentages.")
             return
@@ -1021,7 +1021,7 @@ def portfoliodata():
             portfolio["value"] = float(robinhoodportfolio['equity'])
         portfolio["cash"] = robinhoodportfolio['withdrawable_amount']
         # TODO: check if cash is a different attribute from withdrawable amount
-        portfolio["day change"] = 100 * (self.value - float(robinhoodportfolio['adjusted_equity_previous_close'])) / 
+        portfolio["day change"] = 100 * (self.value - float(robinhoodportfolio['adjusted_equity_previous_close'])) / \
                                                      float(robinhoodportfolio['adjusted_equity_previous_close'])
     return portfolio
 
