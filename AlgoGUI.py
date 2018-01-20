@@ -1,5 +1,5 @@
 import AlgoManager as alg
-from Tkinter import *
+from tkinter import *
 import matplotlib
 
 matplotlib.use('TkAgg')
@@ -139,7 +139,7 @@ class Stocks(Text):
     def update(self):
         self.config(state=NORMAL)
         self.delete(1.0, END)
-        for stock, amount in self.source.stocks.iteritems():
+        for stock, amount in self.source.stocks.items():
             if isinstance(self.source, alg.Backtester):
                 self.insert(END, str(stock) + ':  ' + str(int(amount)) + '  $' + str(
                     self.source.history(stock, interval=self.source.logging)[0].item()) + '\n')
@@ -165,7 +165,7 @@ class Attributes(Text):
             for item in source:
                 self.insert(END, str(item))
         elif isinstance(self.source, alg.Algorithm):
-            for name, value in self.source.__dict__.iteritems():
+            for name, value in self.source.__dict__.items():
                 if name not in Attributes.dontshow:
                     self.insert(END, (" " + str(name) + ": " + str(value)) + "\n")
         self.config(state=DISABLED)

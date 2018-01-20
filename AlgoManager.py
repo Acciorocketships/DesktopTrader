@@ -14,6 +14,7 @@ import requests
 import numpy as np
 import AlgoGUI as app
 import ManagerGUI as man
+from functools import reduce
 
 # https://github.com/RomelTorres/alpha_vantage
 # https://github.com/Jamonek/Robinhood
@@ -30,9 +31,9 @@ try:
     with open(credential_file, "r") as f:
         creds = f.readlines()
 except IOError:
-    creds.append(raw_input('Robinhood Username: '))
-    creds.append(raw_input('Robinhood Password: '))
-    creds.append(raw_input('Alpha Vantage API Key: '))
+    creds.append(input('Robinhood Username: '))
+    creds.append(input('Robinhood Password: '))
+    creds.append(input('Alpha Vantage API Key: '))
     with open(credential_file, "w") as f:
         for l in creds:
             f.write(l + "\n")
@@ -81,7 +82,7 @@ class Manager:
         for time in algorithm.times:
             if time == 'every minute':
                 for hour in range(9, 16):
-                    for minute in (range(30, 60) if hour == 9 else range(0, 60)):
+                    for minute in (list(range(30, 60)) if hour == 9 else list(range(0, 60))):
                         if datetime.time(hour, minute) in self.algo_times:
                             self.algo_times[datetime.time(hour, minute)] += [algorithm]
                         else:
@@ -112,7 +113,7 @@ class Manager:
     def remove(self, algorithm):
         del self.algo_alloc[algorithm]
         delete = []
-        for time, algolist in self.algo_times.items():
+        for time, algolist in list(self.algo_times.items()):
             if algorithm in algolist:
                 algolist.remove(algorithm)
                 if len(self.algo_times[time]) == 0:
@@ -143,9 +144,9 @@ class Manager:
             startingcapital = self.value * self.algo_alloc[algo]
             cash = startingcapital - (algo.value - algo.cash)
             if cash < 0:
-                print("Warning: You are trying to deallocate more money than your algorithm has in cash. \
+                print(("Warning: You are trying to deallocate more money than your algorithm has in cash. \
 					   Sell stocks from or raise allocation of " + algo.__class__.__name__ + " and try \
-					   rebalancing again")
+					   rebalancing again"))
                 return
             newcash[algo] = (startingcapital, cash)
         for algo, (startingcapital, cash) in newcash:
@@ -237,7 +238,7 @@ class Manager:
             amountdiff = amount - (self.stocks[name] if name in self.stocks else 0)
             self.stocks[name] = amount
             if amountdiff != 0:
-                for algo in self.algo_alloc.keys():
+                for algo in list(self.algo_alloc.keys()):
                     if (name in algo.openorders) and (algo.openorders[name] == amountdiff):
                         shareprice = abs((self.cash - self.lastcash) / amountdiff)
                         # TODO: ^^ update shareprice to position[ last traded price ]
@@ -257,7 +258,7 @@ class Manager:
     # algo: The algorithm you are moving the stocks to
     def assignstocks(self, stocks, algo):
         if stocks == 'all':
-            for stock, amount in self.stocks.iteritems():
+            for stock, amount in self.stocks.items():
                 algo.stocks[stock] = (amount - self.numstockinalgos(stock, algo))
         elif stocks == 'none':
             algo.stocks = {}
@@ -274,7 +275,7 @@ class Manager:
     # Gets the total number of a given stock in all algos (except given algo, if given)
     def numstockinalgos(self, stock, algo=None):
         numstock = 0
-        for algorithm in self.algo_alloc.keys():
+        for algorithm in list(self.algo_alloc.keys()):
             numstock += (algorithm.stocks[stock] if (stock in algorithm.stocks) else 0)
         if algo != None:
             numstock -= (algo.stocks[stock] if (stock in algo.stocks) else 0)
@@ -315,7 +316,7 @@ class Algorithm(object):
         self.cache = {}
         self.stoplosses = {}
         self.stopgains = {}
-        self.datetime = None
+        self.datetime = datetime.datetime.now()
         # User initialization
         self.initialize()
 
@@ -331,7 +332,7 @@ class Algorithm(object):
     # Update function called every second
     def updatetick(self):
         stockvalue = 0
-        for stock, amount in self.stocks.items():
+        for stock, amount in list(self.stocks.items()):
             stockvalue += self.quote(stock) * amount
         self.value = self.cash + stockvalue
         self.datetime = datetime.datetime.now()
@@ -453,14 +454,14 @@ class Algorithm(object):
     def order(self, stock, amount, verbose=False, noverify=False):
         #Guard condition for sell
         if amount < 0 and (stock in self.stocks) and (-amount > self.stocks[stock]):
-            print("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
-                self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock)
+            print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
+                self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock))
             return None
         cost = self.quote(stock)
         #Guard condition for buy
         if cost * amount > self.cash:
-            print("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
-                amount) + " shares of " + stock)
+            print(("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
+                amount) + " shares of " + stock))
             return None
         if amount == 0:
             return None
@@ -474,7 +475,7 @@ class Algorithm(object):
         else:
             self.openorders[stock] = self.openorders.get(stock, 0) + amount
         if verbose:
-            print("Stock buy/sell" + str(amount) + " shares of " + stock)
+            print(("Stock buy/sell" + str(amount) + " shares of " + stock))
         if self.running:
             if amount > 0:
                 return buy(stock, amount)
@@ -491,12 +492,12 @@ class Algorithm(object):
         if percentdiff < 0:
             amount = round(-percentdiff * self.value / stockprice)
             if verbose:
-                print("percentdiff: (" + stock + ", " + str(amount) + ")")
+                print(("percentdiff: (" + stock + ", " + str(amount) + ")"))
             return self.order(stock, -amount, verbose, noverify)
         else:
             amount = math.floor(percentdiff * self.value / stockprice)
             if verbose:
-                print("percentdiff: (" + stock + ", " + str(amount) + ")")
+                print(("percentdiff: (" + stock + ", " + str(amount) + ")"))
             return self.order(stock, amount, verbose, noverify)
 
     # Sells all held stocks
@@ -525,7 +526,7 @@ class Algorithm(object):
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
     # length: number of data points (default is only the last)
     # datatype: 'adjusted close','close','open','volume','high','low' (default close)
-    def history(self, stock, interval='1min', length=1, datatype='close'):
+    def history(self, stock, interval='1min', length=1, datatype='4. close'):
         if length <= 100:
             size = 'compact'
         else:
@@ -674,10 +675,10 @@ class Backtester(Algorithm):
         runtimes = set()
         for time in times:
             if time == 'every minute':
-                for t in xrange(391):
+                for t in range(391):
                     runtimes.add(t)
             elif time == 'every hour':
-                for t in xrange(0, 391, 60):
+                for t in range(0, 391, 60):
                     runtimes.add(t)
             elif time == 'every day':
                 runtimes.add(0)
@@ -736,7 +737,7 @@ class Backtester(Algorithm):
 
     def update(self):
         stockvalue = 0
-        for stock, amount in self.stocks.items():
+        for stock, amount in list(self.stocks.items()):
             if amount == 0:
                 del self.stocks[stock]
                 continue
@@ -752,7 +753,7 @@ class Backtester(Algorithm):
     def quote(self, stock):
         return self.history(stock, interval=self.logging)[0].item()
 
-    def history(self, stock, interval='1min', length=1, datatype='close'):
+    def history(self, stock, interval='1min', length=1, datatype='4. close'):
         key = ('history', tuple(locals().values()))
         cache = self.cache.get(key)
         exp = None
@@ -779,14 +780,14 @@ class Backtester(Algorithm):
     def order(self, stock, amount, verbose=False):
         # Guard condition for sell
         if amount < 0 and (stock in self.stocks) and (-amount > self.stocks[stock]):
-            print("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
-                self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock)
+            print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
+                self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock))
             return None
         cost = self.quote(stock)
         # Guard condition for buy
         if cost * amount > self.cash:
-            print("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
-                amount) + " shares of " + stock)
+            print(("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
+                amount) + " shares of " + stock))
             return None
         if amount == 0:
             return None
@@ -794,7 +795,7 @@ class Backtester(Algorithm):
         self.stocks[stock] = self.stocks.get(stock, 0) + amount
         self.cash -= cost * amount
         if verbose:
-            print("Stock buy/sell" + str(amount) + " shares of " + stock)
+            print(("Stock buy/sell" + str(amount) + " shares of " + stock))
 
     def orderpercent(self, stock, percent, verbose=False):
         stockprice = self.history(stock, interval=self.logging)[0].item()
@@ -805,12 +806,12 @@ class Backtester(Algorithm):
         if percentdiff < 0:
             amount = round(-percentdiff * self.value / stockprice)
             if verbose:
-                print("percentdiff: (" + stock + ", " + str(amount) + ")")
+                print(("percentdiff: (" + stock + ", " + str(amount) + ")"))
             return self.order(stock, -amount, verbose)
         else:
             amount = math.floor(percentdiff * self.value / stockprice)
             if verbose:
-                print("percentdiff: (" + stock + ", " + str(amount) + ")")
+                print(("percentdiff: (" + stock + ", " + str(amount) + ")"))
             return self.order(stock, amount, verbose)
 
     def macd(self, stock, interval='daily', length=1, fastmawindow=12, slowmawindow=26, signalmawindow=9, fastmatype=1,
@@ -950,7 +951,7 @@ class Backtester(Algorithm):
                 prices, _ = data.get_weekly(symbol=stock)
             else:
                 prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
-            changes = [(current - last) / last for last, current in zip(prices['close'][:-1], prices['close'][1:])]
+            changes = [(current - last) / last for last, current in zip(prices['4. close'][:-1], prices['4. close'][1:])]
             dateidxs = self.dateidxs(prices[1:])
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [changes, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -977,7 +978,8 @@ def backtester(algo, startingcapital=None):
     times = algo.times
     BacktestAlgorithm = type('BacktestAlgorithm', (Backtester,), dict((algo.__class__).__dict__))
     algoback = BacktestAlgorithm(times=times)
-    algoback.benchmark = algo.benchmark
+    if 'benchmark' in algo.__dict__:
+        algoback.benchmark = algo.benchmark
     return algoback
 
 
@@ -1021,8 +1023,8 @@ def portfoliodata():
             portfolio["value"] = float(robinhoodportfolio['equity'])
         portfolio["cash"] = robinhoodportfolio['withdrawable_amount']
         # TODO: check if cash is a different attribute from withdrawable amount
-        portfolio["day change"] = 100 * (self.value - float(robinhoodportfolio['adjusted_equity_previous_close'])) / \
-                                                     float(robinhoodportfolio['adjusted_equity_previous_close'])
+        portfolio["day change"] = 100 * (portfolio["value"] - float(robinhoodportfolio['adjusted_equity_previous_close'])) / \
+                                                              float(robinhoodportfolio['adjusted_equity_previous_close'])
     return portfolio
 
 

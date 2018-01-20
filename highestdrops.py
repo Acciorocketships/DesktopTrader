@@ -1,7 +1,7 @@
 import AlgoManager as AM
 import code
 import datetime
-from Queue import PriorityQueue
+from queue import PriorityQueue
 
 
 class Drops(AM.Algorithm):
@@ -24,7 +24,7 @@ class Drops(AM.Algorithm):
         self.watchlist[0] = []
         for stock in self.stocks:
             if self.macd(stock=stock, interval='daily')['macd hist'][0] < 0:
-                print "selling " + stock
+                print(("selling " + stock))
                 self.orderpercent(stock,0)
         for stock in self.stocksymbols:
             change = self.percentchange(stock=stock, interval='daily')[0]
@@ -46,7 +46,7 @@ class Drops(AM.Algorithm):
                     self.percdiff[stock] = self.percentchange(stock=stock, interval='daily')[0]
                 if stock in self.swaps:
                     stock = self.swaps[stock]
-                print "buying " + stock
+                print(("buying " + stock))
                 counter += 1
                 self.orderpercent(stock,1.0/self.stockstohold)
                 if counter >= self.stockstohold:

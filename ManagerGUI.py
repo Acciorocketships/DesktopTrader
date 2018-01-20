@@ -1,6 +1,6 @@
 import AlgoManager as alg
 import AlgoGUI as app
-from Tkinter import *
+from tkinter import *
 
 
 class Gui(Tk):
@@ -32,7 +32,7 @@ class Gui(Tk):
         navigationframe.pack(side=TOP, fill=X)
         navigation = Frame(master=navigationframe, bg='sea green')
         navigation.pack(fill=BOTH, expand=True)
-        for algo in manager.algo_alloc.keys():
+        for algo in list(manager.algo_alloc.keys()):
             button = Radiobutton(master=navigation, text=algo.__class__.__name__, variable=self.activepage,
                                  value=algo.__class__.__name__, command=self.changepage)
             button.pack(side=LEFT)
@@ -40,7 +40,7 @@ class Gui(Tk):
         pageframe = Frame(master=root, bg='sea green')
         pageframe.pack(side=BOTTOM, expand=True, fill=BOTH)
         self.pages = {}
-        for algo in manager.algo_alloc.keys():
+        for algo in list(manager.algo_alloc.keys()):
             page = app.Gui(algo, root=pageframe)
             page.place(in_=pageframe, x=0, y=0, relwidth=1, relheight=1)
             self.pages[algo.__class__.__name__] = page
