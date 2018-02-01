@@ -126,17 +126,17 @@ class Manager:
     def start(self):
         self.running = True
         tradingthread = threading.Thread(target=self.run)
+        self.rebalance()
         tradingthread.start()
 
     # Redistributes the capital among the algorithms according to the
     # specified allocations in self.algo_alloc.
     # Funds become unbalanced when some algorithms outperform others
     # or algo_alloc is manually edited.
-    # Always call this before start()
     def rebalance(self):
         total_allocation = reduce(lambda x, y: x + y, list(self.algo_alloc.values()), 0)
         if self.value * total_allocation > self.cash:
-            print("Warning: You have allocated more than your buying power. \
+            raise Exception("You have allocated more than your buying power. \
 				  Sell some stocks not already in your account or reduce your allocation percentages.")
             return
         newcash = {}
@@ -144,7 +144,7 @@ class Manager:
             startingcapital = self.value * self.algo_alloc[algo]
             cash = startingcapital - (algo.value - algo.cash)
             if cash < 0:
-                print(("Warning: You are trying to deallocate more money than your algorithm has in cash. \
+                raise Exception(("You are trying to deallocate more money than your algorithm has in cash. \
 					   Sell stocks from or raise allocation of " + algo.__class__.__name__ + " and try \
 					   rebalancing again"))
                 return
@@ -234,7 +234,7 @@ class Manager:
     def updatemin(self):
         self.chartminute.append(self.value)
         self.chartminutetimes.append(datetime.datetime.now())
-        for (name,amount) in positions():
+        for name, amount in positions().items():
             amountdiff = amount - (self.stocks[name] if name in self.stocks else 0)
             self.stocks[name] = amount
             if amountdiff != 0:
@@ -297,7 +297,7 @@ class Manager:
 
 class Algorithm(object):
 
-    def __init__(self, times=['every minute']):
+    def __init__(self, times=['every day']):
         # Constants
         self.times = times
         if type(self.times) is not list:
@@ -650,9 +650,8 @@ class Algorithm(object):
 
 
 # Use self.datetime to get current time (as a datetime object)
-# Set self.benchmark = "SPY" (or any other symbol) to plot benchmark in backtest
 class Backtester(Algorithm):
-    def __init__(self, capital=10000.0, times=['every day']):
+    def __init__(self, capital=10000.0, times=['every day'], benchmark='SPY'):
         super(Backtester, self).__init__(times)
         # Constants
         self.logging = 'daily'
@@ -669,7 +668,7 @@ class Backtester(Algorithm):
         self.sharpe = None
         self.maxdrawdown = None
         # Variables that the user can change
-        self.benchmark = None
+        self.benchmark = benchmark
 
     def timestorun(self, times):
         runtimes = set()
@@ -966,33 +965,42 @@ class Backtester(Algorithm):
 
 
 
-# Wrappers for Broker-Related Functions
+### Wrappers for Broker-Related Functions ###
 
 
-def backtester(algo, startingcapital=None):
-    if startingcapital is None:
-        if algo.value != 0:
-            startingcapital = algo.value
-        else:
-            startingcapital = 10000
+def backtester(algo, capital=None, benchmark=None):
+    # Convert
     times = algo.times
     BacktestAlgorithm = type('BacktestAlgorithm', (Backtester,), dict((algo.__class__).__dict__))
     algoback = BacktestAlgorithm(times=times)
-    if 'benchmark' in algo.__dict__:
+    # Set Capital
+    if capital is None:
+        if algoback.value == 0:
+            algoback.value = 10000
+    else:
+        algoback.value = capital
+    # Set Benchmark
+    if benchmark is not None:
+        algoback.benchmark = benchmark
+    elif 'benchmark' in algo.__dict__:
         algoback.benchmark = algo.benchmark
+    else:
+        algoback.benchmark = "SPY"
     return algoback
 
-
+# Input: stock symbol as a string, number of shares as an int
 def buy(stock, amount):
     if broker == 'robinhood':
         stockobj = robinhood.instruments(stock)
-        return robinhood.place_buy_order(stockobj, amount)
+        robinhood.place_buy_order(stockobj, amount)
 
+# Input: stock symbol as a string, number of shares as an int
 def sell(stock, amount):
     if broker == 'robinhood':
         stockobj = robinhood.instruments(stock)
-        return robinhood.place_sell_order(stockobj, amount)
+        robinhood.place_sell_order(stockobj, amount)
 
+# Input: stock symbol as a string
 # Returns: share price as a float
 def price(stock):
     if broker == 'robinhood':
@@ -1000,13 +1008,13 @@ def price(stock):
 
 # Returns: list of ("symbol",amount)
 def positions():
-    positions = []
+    positions = {}
     if broker == 'robinhood':
         robinhoodpositions = robinhood.positions()['results']
         for position in robinhoodpositions:
             name = str(requests.get(position['instrument']).json()['symbol'])
             amount = float(position['quantity'])
-            positions.append((name,amount))
+            positions[name] = amount
     return positions
 
 # Returns dictionary of
@@ -1021,8 +1029,7 @@ def portfoliodata():
             portfolio["value"] = float(robinhoodportfolio['extended_hours_equity'])
         else:
             portfolio["value"] = float(robinhoodportfolio['equity'])
-        portfolio["cash"] = robinhoodportfolio['withdrawable_amount']
-        # TODO: check if cash is a different attribute from withdrawable amount
+        portfolio["cash"] = float(robinhoodportfolio['withdrawable_amount'])
         portfolio["day change"] = 100 * (portfolio["value"] - float(robinhoodportfolio['adjusted_equity_previous_close'])) / \
                                                               float(robinhoodportfolio['adjusted_equity_previous_close'])
     return portfolio
@@ -1032,15 +1039,13 @@ def portfoliodata():
 # TODO: TEST that algorithm uses the correct buy/sell price.
 # TODO: TEST buy/sell in real time
 # TODO: TEST other technical indicators in backtesting. Check that they return lists of floats (perhaps switch to numpy)
-# TODO: Add manager GUI
 
 # Medium priority
+# TODO: Use yahoo-finance data when alphavantage fails
 # TODO: Comment functions that don't have descriptions
-# TODO: Add extra plots (technical indicator, etc) to GUI
-# TODO: add searching and manually buying to manager GUI
-# TODO: add more buttons/options to manager GUI (add simple algo, )
-# TODO: add more buttons/options to algo GUI (paper trade, backtest, )
 # TODO: load and save data when closed/opened
 
 # Low Priority
+# Add support for more brokers
+# TODO: Add python3 type checking to functions
 # TODO: Prevent day trades, Combine concurrent orders for same stock
