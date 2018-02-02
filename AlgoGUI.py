@@ -126,7 +126,11 @@ class Stats(Text):
                                                 2) if self.source.startingcapital != 0 else 0) + '\n')
         self.insert(END, 'Total Value: $' + str(self.source.value) + '\n')
         self.insert(END, 'Cash: $' + str(self.source.cash) + '\n')
-        self.insert(END, 'Starting Capital: $' + str(self.source.startingcapital) + '\n')
+        self.insert(END, 'Alpha: ' + str(self.source.alpha) + '\n')
+        self.insert(END, 'Beta: ' + str(self.source.beta) + '\n')
+        self.insert(END, 'Sharpe: ' + str(self.source.sharpe) + '\n')
+        self.insert(END, 'Volatility: ' + str(self.source.volatility) + '\n')
+        self.insert(END, 'Max Drawdown: ' + str(self.source.maxdrawdown) + '\n')
         self.config(state=DISABLED)
 
 
@@ -151,7 +155,8 @@ class Stocks(Text):
 class Attributes(Text):
     dontshow = set(
         ['minutesago', 'daysago', 'logging', 'chartday', 'chartdaytimes', 'chartminute', 'running', 'benchmark', \
-         'chartminutetimes', 'cache', 'startingcapital', 'cash', 'value', 'stocks', 'times', 'datetime'])
+         'chartminutetimes', 'cache', 'startingcapital', 'cash', 'value', 'stocks', 'times', 'datetime', 'openorders', \
+         'stoplosses', 'stopgains', 'alpha', 'beta', 'maxdrawdown', 'volatility', 'sharpe','exptime'])
 
     def __init__(self, master, source, bg='sea green'):
         Text.__init__(self, master, bg=bg, wrap=WORD)

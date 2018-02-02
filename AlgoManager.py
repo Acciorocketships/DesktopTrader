@@ -6,7 +6,7 @@ from alpha_vantage.timeseries import TimeSeries
 from alpha_vantage.techindicators import TechIndicators
 import code
 import copy
-import pandas
+import pandas as pd
 import tradingdays
 from empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio
 import math
@@ -404,6 +404,7 @@ class Algorithm(object):
                 index = (len(dateidxs) - lastchecked - i) % len(dateidxs)
                 if dateidxs[index] <= time:
                     return index
+        raise Exception("Datetime " + str(time) + " not found in historical data.")
 
     # Returns the difference of the indexes of startdate and currentdateidx in dateidxs
     # startdate: datetime in the past
@@ -734,16 +735,14 @@ class Backtester(Algorithm):
         self.riskmetrics()
 
     def riskmetrics(self):
-        changes = np.array([(current - last) / last for last, current in zip(self.chartday[:-1], self.chartday[1:])])
-        benchmarkchanges = np.array(self.percentchange(self.benchmark, length=len(changes)))
-        # TODO: Temporary fix, should find the actual problem
-        try:
-            self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
-        except TypeError:
-            print("Failed to calculate alpha, beta - TypeError")
-        self.sharpe = sharpe_ratio(changes)
-        self.volatility = annual_volatility(changes)
-        self.maxdrawdown = max_drawdown(changes)
+        changes = pd.Series(np.array([(current - last) / last for last, current in zip(self.chartday[:-1], self.chartday[1:])]))
+        benchmarkchanges = pd.Series(np.array(self.percentchange(self.benchmark, length=len(changes))))
+        self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
+        self.alpha = round(self.alpha,3)
+        self.beta = round(self.beta,3)
+        self.sharpe = round(sharpe_ratio(changes),3)
+        self.volatility = round(annual_volatility(changes),3)
+        self.maxdrawdown = round(max_drawdown(changes),3)
 
     def update(self):
         stockvalue = 0
@@ -804,6 +803,7 @@ class Backtester(Algorithm):
         # Stage the order
         self.stocks[stock] = self.stocks.get(stock, 0) + amount
         self.cash -= cost * amount
+        self.cash = round(self.cash,2)
         if verbose:
             print(("Stock buy/sell" + str(amount) + " shares of " + stock))
 
@@ -1053,9 +1053,7 @@ def portfoliodata():
 
 
 # High Priority
-# TODO: TEST that algorithm uses the correct buy/sell price.
-# TODO: TEST buy/sell in real time
-# TODO: TEST other technical indicators in backtesting. Check that they return lists of floats (perhaps switch to numpy)
+# TODO: TEST technical indicators in live trading
 
 # Medium priority
 # TODO: Update buy function. Robinhood can only buy with 95% of your current cash

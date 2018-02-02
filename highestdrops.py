@@ -32,7 +32,7 @@ class Drops(AM.Algorithm):
             if self.sellifbetterdeal and stock in self.stocks:
                 self.percdiff[stock] = (1.0+self.percdiff[stock])*(1.0+change)-1.0
         lowest,sym = self.queue.get()
-        while lowest < 0:
+        while lowest < 0 and not self.queue.empty():
             self.watchlist[0].append(sym)
             lowest,sym = self.queue.get()
         counter = 0

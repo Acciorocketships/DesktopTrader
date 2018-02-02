@@ -10,9 +10,10 @@ class Test(Algorithm):
     def run(self):
         print("buying ARKK")
         self.orderpercent("ARKK",0.1)
-        self.history("ARKK")
+        self.history("ARKK",'daily')
 
 
 if __name__ == '__main__':
-    algo = backtester(Test(times=['every minute']))
+    algo = backtester(Test(times=['every day']))
+    algo.startbacktest((1,1,2017),(1,2,2018))
     code.interact(local=locals())
