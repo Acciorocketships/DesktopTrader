@@ -15,5 +15,7 @@ if __name__ == '__main__':
 	algo = Test(times=['every minute'])
 	manager = Manager()
 	manager.add(algo)
+	manager.assignstocks("all",algo)
+	manager.rebalance()
 	manager.start()
-	manager.interactive()
+	manager.interactive(locals())

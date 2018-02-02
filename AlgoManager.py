@@ -123,10 +123,10 @@ class Manager:
 
     # Starts running the algorithms
     # To stop, set self.running = False
+    # Always move stocks into algos and call rebalance() before calling start()
     def start(self):
         self.running = True
         tradingthread = threading.Thread(target=self.run)
-        self.rebalance()
         tradingthread.start()
 
     # Redistributes the capital among the algorithms according to the
@@ -135,28 +135,30 @@ class Manager:
     # or algo_alloc is manually edited.
     def rebalance(self):
         total_allocation = reduce(lambda x, y: x + y, list(self.algo_alloc.values()), 0)
-        if self.value * total_allocation > self.cash:
-            raise Exception("You have allocated more than your buying power. \
-				  Sell some stocks not already in your account or reduce your allocation percentages.")
+        if total_allocation > 1:
+            raise Exception("You have allocated more than 100%% of your portfolio")
             return
         newcash = {}
         for algo in self.algo_alloc:
-            startingcapital = self.value * self.algo_alloc[algo]
+            startingcapital = math.floor(self.value * self.algo_alloc[algo])
             cash = startingcapital - (algo.value - algo.cash)
             if cash < 0:
-                raise Exception(("You are trying to deallocate more money than your algorithm has in cash. \
-					   Sell stocks from or raise allocation of " + algo.__class__.__name__ + " and try \
-					   rebalancing again"))
+                raise Exception("You are trying to allocate less than Algorithm " + 
+                                algo.__class__.__name__ + " already has in stocks.")
                 return
+            if cash > self.cash:
+                raise Exception("You are trying to allocate more cash than you have to an Algorithm. " + 
+                                "Either sell those other stocks, transfer them into the algorithm "
+                                "with assignstocks(stocks,algo), or lower your allocation.")
             newcash[algo] = (startingcapital, cash)
-        for algo, (startingcapital, cash) in newcash:
+        for algo, (startingcapital, cash) in newcash.items():
             algo.startingcapital = startingcapital
             algo.cash = cash
 
     # Keep algorithm manager running and enter interactive mode
     # Allows you to view and change class attributes from the command line
-    def interactive(self):
-        code.interact(local=locals())
+    def interactive(self,vars={}):
+        code.interact(local={**locals(),**vars})
 
     # Opens GUI of all algorithms in the manager
     def gui(self):
@@ -243,6 +245,7 @@ class Manager:
                         shareprice = abs((self.cash - self.lastcash) / amountdiff)
                         # TODO: ^^ update shareprice to position[ last traded price ]
                         algo.cash -= shareprice * algo.openorders[name]
+                        algo.cash = round(algo.cash,2)
                         del algo.openorders[name]
             if amount == 0:
                 self.stocks.pop(name, None)
@@ -257,6 +260,7 @@ class Manager:
     # 		'none' (which removes everything), or a string of the symbol (allocates all shares)
     # algo: The algorithm you are moving the stocks to
     def assignstocks(self, stocks, algo):
+        # Assign stocks to the algo
         if stocks == 'all':
             for stock, amount in self.stocks.items():
                 algo.stocks[stock] = (amount - self.numstockinalgos(stock, algo))
@@ -270,6 +274,11 @@ class Manager:
                 algo.stocks[stock] = (min(amount, self.stocks[stock]) - self.numstockinalgos(stock, algo))
         else:
             algo.stocks[stocks] = (self.stocks[stocks] - self.numstockinalgos(stocks, algo))
+        # Update the algo's value
+        value = 0
+        for stock, amount in algo.stocks.items():
+            value += price(stock) * amount
+        algo.value = value + algo.cash
 
     # Helper function for assignstocks.
     # Gets the total number of a given stock in all algos (except given algo, if given)
@@ -335,6 +344,8 @@ class Algorithm(object):
         for stock, amount in list(self.stocks.items()):
             stockvalue += self.quote(stock) * amount
         self.value = self.cash + stockvalue
+        self.value = round(self.value,2)
+        self.cash = round(self.cash,2)
         self.datetime = datetime.datetime.now()
 
     # Update function called every minute
@@ -451,7 +462,7 @@ class Algorithm(object):
     # verbose: prints out order
     # noverify: assume that the order went through at the current price,
     #			as opposed to waiting for the manager to verify it (default off)
-    def order(self, stock, amount, verbose=False, noverify=False):
+    def order(self, stock, amount, verbose=False):
         #Guard condition for sell
         if amount < 0 and (stock in self.stocks) and (-amount > self.stocks[stock]):
             print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
@@ -466,7 +477,7 @@ class Algorithm(object):
         if amount == 0:
             return None
         #Stage the order
-        if noverify or not self.running:
+        if not self.running:
             if stock in self.stocks:
                 self.stocks[stock] += amount
             else:
@@ -991,13 +1002,13 @@ def backtester(algo, capital=None, benchmark=None):
 # Input: stock symbol as a string, number of shares as an int
 def buy(stock, amount):
     if broker == 'robinhood':
-        stockobj = robinhood.instruments(stock)
+        stockobj = robinhood.instruments(stock)[0]
         robinhood.place_buy_order(stockobj, amount)
 
 # Input: stock symbol as a string, number of shares as an int
 def sell(stock, amount):
     if broker == 'robinhood':
-        stockobj = robinhood.instruments(stock)
+        stockobj = robinhood.instruments(stock)[0]
         robinhood.place_sell_order(stockobj, amount)
 
 # Input: stock symbol as a string
@@ -1025,13 +1036,19 @@ def portfoliodata():
     portfolio = {}
     if broker == 'robinhood':
         robinhoodportfolio = robinhood.portfolios()
-        if not (robinhoodportfolio['extended_hours_equity'] is None):
+        if robinhoodportfolio['extended_hours_equity'] is not None:
             portfolio["value"] = float(robinhoodportfolio['extended_hours_equity'])
         else:
             portfolio["value"] = float(robinhoodportfolio['equity'])
-        portfolio["cash"] = float(robinhoodportfolio['withdrawable_amount'])
+        if robinhoodportfolio['extended_hours_market_value'] is not None:
+            portfolio["cash"] = portfolio["value"] - float(robinhoodportfolio['extended_hours_market_value'])
+        else:
+            portfolio["cash"] = portfolio["value"] - float(robinhoodportfolio['market_value'])
         portfolio["day change"] = 100 * (portfolio["value"] - float(robinhoodportfolio['adjusted_equity_previous_close'])) / \
                                                               float(robinhoodportfolio['adjusted_equity_previous_close'])
+    portfolio["value"] = round(portfolio["value"],2)
+    portfolio["cash"] = round(portfolio["cash"],2)
+    portfolio["day change"] = round(portfolio["day change"],2)
     return portfolio
 
 
@@ -1041,9 +1058,11 @@ def portfoliodata():
 # TODO: TEST other technical indicators in backtesting. Check that they return lists of floats (perhaps switch to numpy)
 
 # Medium priority
+# TODO: Update buy function. Robinhood can only buy with 95% of your current cash
 # TODO: Use yahoo-finance data when alphavantage fails
 # TODO: Comment functions that don't have descriptions
 # TODO: load and save data when closed/opened
+# TODO: Avoid running every second and logging when not in market hours
 
 # Low Priority
 # Add support for more brokers
