@@ -6,6 +6,7 @@ import datetime
 class Yavois(Algorithm):
 
     def initialize(self):
+        self.times = [(9,30),(15,59)]
         self.nextdaybuy = False
         self.nextdaysell = False
         self.rsi2thres = 75

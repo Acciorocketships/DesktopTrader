@@ -11,8 +11,6 @@ import tradingdays
 from empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio
 import math
 import requests
-import tweepy
-from Twitter import TweetCriteria, TweetManager
 from pytrends.request import TrendReq
 import re
 import numpy as np
@@ -51,9 +49,6 @@ robinhood.login(username=creds[0], password=creds[1])
 
 data = TimeSeries(key=creds[2], output_format='pandas')
 tech = TechIndicators(key=creds[2], output_format='pandas')
-
-auth = tweepy.OAuthHandler('oTnChKqeNn6pJDCqhzTKKBonN','DN4tiOh4OvBZlH3Iwe2Ok3OkVcrcVUMJEH0Va1E5Uhv1zIVFUE')
-twitter = tweepy.API(auth)
 
 pytrends = TrendReq(hl='en-US', tz=360)
 
@@ -668,22 +663,6 @@ class Algorithm(object):
         changes = [(current - last) / last for last, current in zip(prices[-length:-1], prices[-length+1:])]
         return changes
 
-    # Returns the twitter sentiment for a query
-    # To search for a symbol: "$SPY"
-    def twitter(self, query):
-        # Get Tweets
-        tweets = [tweet.text for tweet in twitter.search(query,lang='en',count=100)]
-        tokens = pd.DataFrame(re.findall("[A-Z]{2,}(?![a-z])|[A-Z][a-z]+(?=[A-Z])|[\'\w\-]+",reduce(lambda x,y: x + y.lower(), tweets)),columns=['words'])
-        # Load good/bad word datasets
-        neg=pd.read_csv("negative-words.txt",encoding='cp1252',delimiter="\n",names=['words'])
-        pos=pd.read_csv("positive-words.txt",encoding='cp1252',delimiter="\n",names=['words'])
-        # Find number of good and bad words in tweets
-        negscore = pd.merge(neg,tokens).size
-        posscore = pd.merge(pos,tokens).size
-        # Compute score
-        score = float(posscore-negscore)/(posscore+negscore) if (posscore!=0 and negscore!=0) else 0
-        return score
-
     # Returns the google trends for interest over time in a given query
     # interval: 60min, daily (changes to weekly if length is too long)
     def google(self, query, interval='daily', length=100, financial=True):
@@ -1032,33 +1011,6 @@ class Backtester(Algorithm):
         if length is None:
             length = idx
         return changes[idx-length : idx]
-
-    # Returns the twitter sentiment for a query
-    # To search for a symbol: "$SPY"
-    def twitter(self,query):
-        numtweets = 20
-        startdate = (self.datetime - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-        enddate = self.datetime.strftime("%Y-%m-%d")
-        tweets = []
-        tweetCriteria = got.manager.TweetCriteria().setQuerySearch(query).setSince(startdate).setUntil(enddate).setMaxTweets(numtweets)
-        while numtweets > 1:
-            try:
-                tweetCriteria.setMaxTweets(numtweets)
-                numtweets /= 2
-                tweets = [tweet.text for tweet in TweetManager.getTweets(tweetCriteria)]
-                break
-            except:
-                pass
-
-        if len(tweets) == 0:
-            return 0
-        tokens = pd.DataFrame(re.findall("[A-Z]{2,}(?![a-z])|[A-Z][a-z]+(?=[A-Z])|[\'\w\-]+",reduce(lambda x,y: x + y.lower(), tweets)),columns=['words'])
-        neg=pd.read_csv("negative-words.txt",encoding='cp1252',delimiter="\n",names=['words'])
-        pos=pd.read_csv("positive-words.txt",encoding='cp1252',delimiter="\n",names=['words'])
-        negscore = pd.merge(neg,tokens).size
-        posscore = pd.merge(pos,tokens).size
-        score = float(posscore-negscore)/(posscore+negscore) if (posscore!=0 and negscore!=0) else 0
-        return score
 
 
 
