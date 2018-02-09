@@ -11,6 +11,10 @@ import tradingdays
 from empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio
 import math
 import requests
+import tweepy
+from Twitter import TweetCriteria, TweetManager
+from pytrends.request import TrendReq
+import re
 import numpy as np
 import AlgoGUI as app
 import ManagerGUI as man
@@ -47,6 +51,11 @@ robinhood.login(username=creds[0], password=creds[1])
 
 data = TimeSeries(key=creds[2], output_format='pandas')
 tech = TechIndicators(key=creds[2], output_format='pandas')
+
+auth = tweepy.OAuthHandler('oTnChKqeNn6pJDCqhzTKKBonN','DN4tiOh4OvBZlH3Iwe2Ok3OkVcrcVUMJEH0Va1E5Uhv1zIVFUE')
+twitter = tweepy.API(auth)
+
+pytrends = TrendReq(hl='en-US', tz=360)
 
 
 
@@ -244,6 +253,7 @@ class Manager:
                     if (name in algo.openorders) and (algo.openorders[name] == amountdiff):
                         shareprice = abs((self.cash - self.lastcash) / amountdiff)
                         # TODO: ^^ update shareprice to position[ last traded price ]
+                        # TODO: delete symbol from algo.stocks if amount is 0
                         algo.cash -= shareprice * algo.openorders[name]
                         algo.cash = round(algo.cash,2)
                         del algo.openorders[name]
@@ -338,6 +348,7 @@ class Algorithm(object):
 
     ### PRIVATE METHODS ###
 
+
     # Update function called every second
     def updatetick(self):
         stockvalue = 0
@@ -352,7 +363,7 @@ class Algorithm(object):
     def updatemin(self):
         self.chartminute.append(self.value)
         self.chartminutetimes.append(datetime.datetime.now())
-        for stock in self.stocks:
+        for stock in (self.stopgains.keys() | self.stoplosses.keys()):
             self.checksellthresholds(stock)
 
     # Update function called every day
@@ -367,10 +378,14 @@ class Algorithm(object):
     def checksellthresholds(self,stock):
         if (stock in self.stocks) and (stock in self.stoplosses):
             if self.quote(stock) <= self.stoplosses[stock]:
-                self.orderpercent(stock,0)
+                print("Stoploss for " + stock + " kicking in.")
+                del self.stoplosses[stock]
+                self.orderpercent(stock,0,verbose=True)
         elif (stock in self.stocks) and (stock in self.stopgains):
             if self.quote(stock) >= self.stopgains[stock]:
-                self.orderpercent(stock,0)
+                print("Stopgain for " + stock + " kicking in.")
+                del self.stopgains[stock]
+                self.orderpercent(stock,0,verbose=True)
 
     # Returns the list of datetime objects associated with the entries of a pandas dataframe
     def dateidxs(self, arr):
@@ -452,6 +467,7 @@ class Algorithm(object):
     # Adds stop loss or stop gain to a particular stock until it is sold (then you need to re-add it)
     # If change == 0.05, then the stock will be sold if it goes 5% over the current price
     # If change == -0.05, then the stock will be sold if it goes 5% below the current price
+    # TODO: Add same thing for buying
     def stopsell(self,stock,change):
         if change > 0:
             self.stopgains[stock] = (1+change)*self.quote(stock)
@@ -461,8 +477,6 @@ class Algorithm(object):
     # stock: stock symbol (string)
     # amount: number of shares of that stock to order (+ for buy, - for sell)
     # verbose: prints out order
-    # noverify: assume that the order went through at the current price,
-    #			as opposed to waiting for the manager to verify it (default off)
     def order(self, stock, amount, verbose=False):
         #Guard condition for sell
         if amount < 0 and (stock in self.stocks) and (-amount > self.stocks[stock]):
@@ -487,7 +501,10 @@ class Algorithm(object):
         else:
             self.openorders[stock] = self.openorders.get(stock, 0) + amount
         if verbose:
-            print(("Stock buy/sell" + str(amount) + " shares of " + stock))
+            if amount >= 0:
+                print( "Buying " + str(amount) + " shares of " + stock + " at $" + str(cost))
+            else:
+                print( "Selling " + str(amount) + " shares of " + stock + " at $" + str(cost))
         if self.running:
             if amount > 0:
                 return buy(stock, amount)
@@ -495,7 +512,7 @@ class Algorithm(object):
                 return sell(stock, amount)
 
     # Buy or sell to reach a target percent of the algorithm's total allocation
-    def orderpercent(self, stock, percent, verbose=False, noverify=False):
+    def orderpercent(self, stock, percent, verbose=False):
         stockprice = self.quote(stock)
         currentpercent = 0.0
         if stock in self.stocks:
@@ -503,14 +520,10 @@ class Algorithm(object):
         percentdiff = percent - currentpercent
         if percentdiff < 0:
             amount = round(-percentdiff * self.value / stockprice)
-            if verbose:
-                print(("percentdiff: (" + stock + ", " + str(amount) + ")"))
-            return self.order(stock, -amount, verbose, noverify)
+            return self.order(stock, -amount, verbose)
         else:
             amount = math.floor(percentdiff * self.value / stockprice)
-            if verbose:
-                print(("percentdiff: (" + stock + ", " + str(amount) + ")"))
-            return self.order(stock, amount, verbose, noverify)
+            return self.order(stock, amount, verbose)
 
     # Sells all held stocks
     def sellall(self):
@@ -604,7 +617,7 @@ class Algorithm(object):
             length = self.datetolength(length,r)
         if length is None:
             length = len(r)
-        return r[-length:]
+        return r["RSI"][-length:]
 
     # stock: stock symbol (string)
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
@@ -620,7 +633,7 @@ class Algorithm(object):
 
     # stock: stock symbol (string)
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
-    # length: number of data points (default is only the last)
+    # length: number of data points (default is only the last), or starting datetime
     # mawindow: number of days to average in moving average
     def ema(self, stock, interval='daily', length=1, mawindow=20):
         ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow)
@@ -643,7 +656,7 @@ class Algorithm(object):
 
     # stock: stock symbol (string)
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
-    # length: number of data points (default is only the last)
+    # length: number of data points (default is only the last), or starting datetime
     def percentchange(self, stock, interval='daily', length=1):
         prices = self.history(stock, interval=interval, length=None)
         if isinstance(length,datetime.datetime):
@@ -655,6 +668,45 @@ class Algorithm(object):
         changes = [(current - last) / last for last, current in zip(prices[-length:-1], prices[-length+1:])]
         return changes
 
+    # Returns the twitter sentiment for a query
+    # To search for a symbol: "$SPY"
+    def twitter(self, query):
+        # Get Tweets
+        tweets = [tweet.text for tweet in twitter.search(query,lang='en',count=100)]
+        tokens = pd.DataFrame(re.findall("[A-Z]{2,}(?![a-z])|[A-Z][a-z]+(?=[A-Z])|[\'\w\-]+",reduce(lambda x,y: x + y.lower(), tweets)),columns=['words'])
+        # Load good/bad word datasets
+        neg=pd.read_csv("negative-words.txt",encoding='cp1252',delimiter="\n",names=['words'])
+        pos=pd.read_csv("positive-words.txt",encoding='cp1252',delimiter="\n",names=['words'])
+        # Find number of good and bad words in tweets
+        negscore = pd.merge(neg,tokens).size
+        posscore = pd.merge(pos,tokens).size
+        # Compute score
+        score = float(posscore-negscore)/(posscore+negscore) if (posscore!=0 and negscore!=0) else 0
+        return score
+
+    # Returns the google trends for interest over time in a given query
+    # interval: 60min, daily (changes to weekly if length is too long)
+    def google(self, query, interval='daily', length=100, financial=True):
+        enddate = self.datetime
+        if isinstance(length, datetime.datetime):
+            startdate = length
+        else:
+            length += 1
+        if interval == 'daily':
+            startdate = enddate - datetime.timedelta(days=length)
+        elif interval == '60min' or interval == 'hourly':
+            startdate = enddate - datetime.timedelta(hours=length)
+        if interval == 'daily':
+            startdate = startdate.strftime("%Y-%m-%d")
+            enddate = enddate.strftime("%Y-%m-%d")
+        elif interval == '60min' or interval == 'hourly':
+            startdate = startdate.strftime("%Y-%m-%dT%H")
+            enddate = enddate.strftime("%Y-%m-%dT%H")
+        category = 0
+        if financial:
+            category=1138
+        pytrends.build_payload([query], cat=category, timeframe=startdate + " " + enddate, geo='US')
+        return pytrends.interest_over_time()[query]
 
 
 
@@ -666,7 +718,10 @@ class Backtester(Algorithm):
     def __init__(self, capital=10000.0, times=['every day'], benchmark='SPY'):
         super(Backtester, self).__init__(times)
         # Constants
-        self.logging = 'daily'
+        if times == ['every day']:
+            self.logging = 'daily'
+        else:
+            self.logging = '1min'
         self.startingcapital = capital
         self.cash = capital
         self.times = self.timestorun(times)
@@ -724,6 +779,7 @@ class Backtester(Algorithm):
                 for minute in range(391):
                     self.minutesago = 391 * self.daysago - minute
                     self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)
+                    self.updatemin()
                     if minute in self.times:
                         self.update()
                         self.run()
@@ -743,6 +799,11 @@ class Backtester(Algorithm):
         self.sharpe = round(sharpe_ratio(changes),3)
         self.volatility = round(annual_volatility(changes),3)
         self.maxdrawdown = round(max_drawdown(changes),3)
+
+
+    def updatemin(self):
+        for stock in (self.stopgains.keys() | self.stoplosses.keys()):
+            self.checksellthresholds(stock)
 
     def update(self):
         stockvalue = 0
@@ -805,7 +866,10 @@ class Backtester(Algorithm):
         self.cash -= cost * amount
         self.cash = round(self.cash,2)
         if verbose:
-            print(("Stock buy/sell" + str(amount) + " shares of " + stock))
+            if amount >= 0:
+                print( "Buying " + str(amount) + " shares of " + stock + " at $" + str(cost))
+            else:
+                print( "Selling " + str(amount) + " shares of " + stock + " at $" + str(cost))
 
     def orderpercent(self, stock, percent, verbose=False):
         stockprice = self.history(stock, interval=self.logging)[0].item()
@@ -815,13 +879,9 @@ class Backtester(Algorithm):
         percentdiff = percent - currentpercent
         if percentdiff < 0:
             amount = round(-percentdiff * self.value / stockprice)
-            if verbose:
-                print(("percentdiff: (" + stock + ", " + str(amount) + ")"))
             return self.order(stock, -amount, verbose)
         else:
             amount = math.floor(percentdiff * self.value / stockprice)
-            if verbose:
-                print(("percentdiff: (" + stock + ", " + str(amount) + ")"))
             return self.order(stock, amount, verbose)
 
     def macd(self, stock, interval='daily', length=1, fastmawindow=12, slowmawindow=26, signalmawindow=9, fastmatype=1,
@@ -887,7 +947,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return r[idx-length : idx]
+        return r["RSI"][idx-length : idx]
 
     def sma(self, stock, interval='daily', length=1, mawindow=20):
         key = ('sma', tuple(locals().values()))
@@ -973,6 +1033,33 @@ class Backtester(Algorithm):
             length = idx
         return changes[idx-length : idx]
 
+    # Returns the twitter sentiment for a query
+    # To search for a symbol: "$SPY"
+    def twitter(self,query):
+        numtweets = 20
+        startdate = (self.datetime - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+        enddate = self.datetime.strftime("%Y-%m-%d")
+        tweets = []
+        tweetCriteria = got.manager.TweetCriteria().setQuerySearch(query).setSince(startdate).setUntil(enddate).setMaxTweets(numtweets)
+        while numtweets > 1:
+            try:
+                tweetCriteria.setMaxTweets(numtweets)
+                numtweets /= 2
+                tweets = [tweet.text for tweet in TweetManager.getTweets(tweetCriteria)]
+                break
+            except:
+                pass
+
+        if len(tweets) == 0:
+            return 0
+        tokens = pd.DataFrame(re.findall("[A-Z]{2,}(?![a-z])|[A-Z][a-z]+(?=[A-Z])|[\'\w\-]+",reduce(lambda x,y: x + y.lower(), tweets)),columns=['words'])
+        neg=pd.read_csv("negative-words.txt",encoding='cp1252',delimiter="\n",names=['words'])
+        pos=pd.read_csv("positive-words.txt",encoding='cp1252',delimiter="\n",names=['words'])
+        negscore = pd.merge(neg,tokens).size
+        posscore = pd.merge(pos,tokens).size
+        score = float(posscore-negscore)/(posscore+negscore) if (posscore!=0 and negscore!=0) else 0
+        return score
+
 
 
 
@@ -1054,6 +1141,8 @@ def portfoliodata():
 
 # High Priority
 # TODO: TEST technical indicators in live trading
+# TODO: Keep placing buy order when waiting for sell to go through
+# TODO: Test all technical indicators in backtest. might need to r["RSI"] index pandas
 
 # Medium priority
 # TODO: Update buy function. Robinhood can only buy with 95% of your current cash
