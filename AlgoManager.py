@@ -545,8 +545,14 @@ class Algorithm(object):
     # stock: stock symbol (string)
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
     # length: number of data points (default is only the last)
-    # datatype: 'adjusted close','close','open','volume','high','low' (default close)
-    def history(self, stock, interval='1min', length=1, datatype='4. close'):
+    # datatype: 'close','open','volume' (default close)
+    def history(self, stock, interval='1min', length=1, datatype='close'):
+        if 'close' in datatype:
+            datatype = '4. close'
+        elif 'volume' in datatype:
+            datatype = '6. volume'
+        elif 'open' in datatype:
+            datatype = '1. open'
         if length <= 100:
             size = 'compact'
         else:
@@ -571,7 +577,7 @@ class Algorithm(object):
     # length: number of data points (default is only the last)
     # matype: 0 for SMA, 1 for EMA, 2 for WMA (Weighted), 3 for DEMA (Double Exponential), 4 for TEMA (Triple Exponential)
     # mawindow: number of days to average in moving average
-    # returns dict of {'macd' : macd (list), 'signal' : signal (list), 'macd hist' : macd histogram (list)}
+    # Returns Series of the MACD Histogram (Signal - (FastMA - SlowMA))
     def macd(self, stock, interval='daily', length=1, fastmawindow=12, slowmawindow=26, signalmawindow=9, fastmatype=1,
              slowmatype=1, signalmatype=1):
         md, _ = tech.get_macdext(stock, interval=interval, \
@@ -581,8 +587,7 @@ class Algorithm(object):
             length = self.datetolength(length,md)
         if length is None:
             length = len(md)
-        return {'macd': md['MACD'][-length:], 'signal': md['MACD_Signal'][-length:],
-                'macd hist': md['MACD_Hist'][-length:]}
+        return md['MACD_Hist'][-length:]
 
     # nbdevup: multiplier for standard deviations of the top band above the middle band
     # nbdevdn: multiplier for standard deviations of the bottom band below the middle band
@@ -591,7 +596,7 @@ class Algorithm(object):
     # length: number of data points (default is only the last)
     # matype: 0 for SMA, 1 for EMA, 2 for WMA (Weighted), 3 for DEMA (Double Exponential), 4 for TEMA (Triple Exponential)
     # mawindow: number of days to average in moving average
-    # Returns dict of {'top': topband (list), 'bottom': bottomband (list), 'middle': middleband (list)}
+    # Returns Dataframe with 'Real Upper Band', 'Real Lower Band' and 'Real Middle Band'.
     def bollinger(self, stock, interval='daily', length=1, nbdevup=2, nbdevdn=2, matype=1, mawindow=20):
         bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
                                 time_period=mawindow)
@@ -599,13 +604,13 @@ class Algorithm(object):
             length = self.datetolength(length,bb)
         if length is None:
             length = len(bb)
-        return {'top': bb['Real Upper Band'][-length:], 'bottom': bb['Real Lower Band'][-length:],
-                'middle': bb['Real Middle Band'][-length:]}
+        return bb[-length:]
 
     # stock: stock symbol (string)
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
     # length: number of data points (default is only the last)
     # mawindow: number of days to average in moving average
+    # Returns Series with RSI values
     def rsi(self, stock, interval='daily', length=1, mawindow=20):
         r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow)
         if isinstance(length,datetime.datetime):
@@ -618,27 +623,29 @@ class Algorithm(object):
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
     # length: number of data points (default is only the last)
     # mawindow: number of days to average in moving average
+    # Returns Series with SMA values
     def sma(self, stock, interval='daily', length=1, mawindow=20):
         ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow)
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,ma)
         if length is None:
             length = len(ma)
-        return ma[-length:]
+        return ma["SMA"][-length:]
 
     # stock: stock symbol (string)
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
     # length: number of data points (default is only the last), or starting datetime
     # mawindow: number of days to average in moving average
+    # Returns Series with EMA values
     def ema(self, stock, interval='daily', length=1, mawindow=20):
         ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow)
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,ma)
         if length is None:
             length = len(ma)
-        return ma[-length:]
+        return ma["EMA"][-length:]
 
-    # ADD DOCUMENTATION
+    # Returns dataframe with "SlowD" and "SlowK"
     def stoch(self, stock, interval='daily', length=1, fastkperiod=12, 
                 slowkperiod=26, slowdperiod=26, slowkmatype=0, slowdmatype=0):
         s = tech.get_stoch(stock, interval=interval, fastkperiod=fastkperiod,
@@ -652,7 +659,13 @@ class Algorithm(object):
     # stock: stock symbol (string)
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
     # length: number of data points (default is only the last), or starting datetime
-    def percentchange(self, stock, interval='daily', length=1):
+    def percentchange(self, stock, interval='daily', length=1, datatype='close'):
+        if 'close' in datatype:
+            datatype = '4. close'
+        elif 'volume' in datatype:
+            datatype = '6. volume'
+        elif 'open' in datatype:
+            datatype = '1. open'
         prices = self.history(stock, interval=interval, length=None)
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,ma)
@@ -660,11 +673,12 @@ class Algorithm(object):
             length = len(ma)
         else:
             length += 1
-        changes = [(current - last) / last for last, current in zip(prices[-length:-1], prices[-length+1:])]
-        return changes
+        changes = prices[datatype].pct_change()
+        return changes[-length:]
 
-    # Returns the google trends for interest over time in a given query
+    # The google trends for interest over time in a given query
     # interval: 60min, daily (changes to weekly if length is too long)
+    # Returns Series of numbers from 0 to 100 for relative interest over time
     def google(self, query, interval='daily', length=100, financial=True):
         enddate = self.datetime
         if isinstance(length, datetime.datetime):
@@ -735,7 +749,7 @@ class Backtester(Algorithm):
 
     # Starts the backtest (calls startbacktest in a new thread)
     # Times can be in the form of datetime objects or tuples (day,month,year)
-    def start(self, startdate=datetime.datetime.today().date() - datetime.timedelta(days=10),
+    def start(self, startdate=datetime.datetime.today().date() - datetime.timedelta(days=14),
               enddate=datetime.datetime.today().date()):
         backtestthread = threading.Thread(target=self.startbacktest, args=(startdate, enddate))
         backtestthread.start()
@@ -746,7 +760,7 @@ class Backtester(Algorithm):
             startdate = datetime.date(startdate[2], startdate[1], startdate[0])
         if type(enddate) == tuple:
             enddate = datetime.date(enddate[2], enddate[1], enddate[0])
-        if (datetime.datetime.today().date() - startdate) < datetime.timedelta(days=10):
+        if (datetime.datetime.today().date() - startdate) < datetime.timedelta(days=15):
             self.logging = '1min'
         days = list(tradingdays.NYSE_tradingdays(a=startdate, b=enddate))
         self.daysago = len(days) + len(list(tradingdays.NYSE_tradingdays(a=enddate, b=datetime.datetime.today().date())))
@@ -770,15 +784,16 @@ class Backtester(Algorithm):
         self.riskmetrics()
 
     def riskmetrics(self):
-        changes = pd.Series(np.array([(current - last) / last for last, current in zip(self.chartday[:-1], self.chartday[1:])]))
-        benchmarkchanges = pd.Series(np.array(self.percentchange(self.benchmark, length=len(changes))))
+        changes = [(current - last) / last for last, current in zip(self.chartday[:-1], self.chartday[1:])]
+        benchmarkchanges = self.percentchange(self.benchmark, length=len(changes))
+        changes = pd.DataFrame({'date':benchmarkchanges._index,'changes':changes})
+        changes = changes.set_index('date')
         self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
         self.alpha = round(self.alpha,3)
         self.beta = round(self.beta,3)
         self.sharpe = round(sharpe_ratio(changes),3)
         self.volatility = round(annual_volatility(changes),3)
         self.maxdrawdown = round(max_drawdown(changes),3)
-
 
     def updatemin(self):
         for stock in (self.stopgains.keys() | self.stoplosses.keys()):
@@ -802,7 +817,13 @@ class Backtester(Algorithm):
     def quote(self, stock):
         return self.history(stock, interval=self.logging)[0].item()
 
-    def history(self, stock, interval='1min', length=1, datatype='4. close'):
+    def history(self, stock, interval='1min', length=1, datatype='close'):
+        if 'close' in datatype:
+            datatype = '4. close'
+        elif 'volume' in datatype:
+            datatype = '6. volume'
+        elif 'open' in datatype:
+            datatype = '1. open'
         key = ('history', tuple(locals().values()))
         cache = self.cache.get(key)
         exp = None
@@ -883,9 +904,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return {'macd': md['MACD'][idx-length : idx],
-                'signal': md['MACD_Signal'][idx-length : idx],
-                'macd hist': md['MACD_Hist'][idx-length : idx]}
+        return md['MACD_Hist'][idx-length : idx]
 
     def bollinger(self, stock, interval='daily', length=1, nbdevup=2, nbdevdn=2, matype=1, mawindow=20):
         key = ('bollinger', tuple(locals().values()))
@@ -905,9 +924,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return {'top': bb['Real Upper Band'][idx-length : idx],
-                'bottom': bb['Real Lower Band'][idx-length : idx],
-                'middle': bb['Real Middle Band'][idx-length : idx]}
+        return bb[idx-length : idx]
 
     def rsi(self, stock, interval='daily', length=1, mawindow=20):
         key = ('rsi', tuple(locals().values()))
@@ -945,7 +962,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return ma[idx-length : idx]
+        return ma['SMA'][idx-length : idx]
 
     def ema(self, stock, interval='daily', length=1, mawindow=20):
         key = ('ema', tuple(locals().values()))
@@ -964,7 +981,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return ma[idx-length : idx]
+        return ma['EMA'][idx-length : idx]
 
     def stoch(self, stock, interval='daily', length=1, fastkperiod=12, 
                 slowkperiod=26, slowdperiod=26, slowkmatype=0, slowdmatype=0):
@@ -987,7 +1004,13 @@ class Backtester(Algorithm):
             length = idx
         return s[idx-length : idx]
 
-    def percentchange(self, stock, interval='daily', length=1):
+    def percentchange(self, stock, interval='daily', length=1, datatype='close'):
+        if 'close' in datatype:
+            datatype = '4. close'
+        elif 'volume' in datatype:
+            datatype = '6. volume'
+        elif 'open' in datatype:
+            datatype = '1. open'
         key = ('percchng', tuple(locals().values()))
         cache = self.cache.get(key)
         exp = None
@@ -1000,7 +1023,7 @@ class Backtester(Algorithm):
                 prices, _ = data.get_weekly(symbol=stock)
             else:
                 prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
-            changes = [(current - last) / last for last, current in zip(prices['4. close'][:-1], prices['4. close'][1:])]
+            changes = prices[datatype].pct_change()
             dateidxs = self.dateidxs(prices[1:])
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [changes, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -1016,6 +1039,7 @@ class Backtester(Algorithm):
 
 
 ### Wrappers for Broker-Related Functions ###
+
 
 
 def backtester(algo, capital=None, benchmark=None):

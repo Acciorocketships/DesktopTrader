@@ -23,7 +23,7 @@ class Drops(AM.Algorithm):
             self.watchlist[i+1] = self.watchlist[i]
         self.watchlist[0] = []
         for stock in self.stocks:
-            if self.macd(stock=stock, interval='daily')['macd hist'][0] < 0:
+            if self.macd(stock=stock, interval='daily')[0] < 0:
                 print(("selling " + stock))
                 self.orderpercent(stock,0)
         for stock in self.stocksymbols:
@@ -37,7 +37,7 @@ class Drops(AM.Algorithm):
             lowest,sym = self.queue.get()
         counter = 0
         for stock in self.watchlist[0]+self.watchlist[1]+self.watchlist[2]:
-            if self.macd(stock=stock, interval='daily')['macd hist'][0] > 0:
+            if self.macd(stock=stock, interval='daily')[0] > 0:
                 if self.sellifbetterdeal:
                     for heldstock in self.stocks:
                         if self.percentchange(stock=stock, interval='daily')[0] < self.percdiff[heldstock]:
