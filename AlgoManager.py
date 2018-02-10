@@ -246,10 +246,9 @@ class Manager:
             if amountdiff != 0:
                 for algo in list(self.algo_alloc.keys()):
                     if (name in algo.openorders) and (algo.openorders[name] == amountdiff):
-                        shareprice = abs((self.cash - self.lastcash) / amountdiff)
-                        # TODO: ^^ update shareprice to position[ last traded price ]
+                        # TODO: update shareprice to position[ last traded price ]
                         # TODO: delete symbol from algo.stocks if amount is 0
-                        algo.cash -= shareprice * algo.openorders[name]
+                        algo.cash -= abs(self.cash - self.lastcash)
                         algo.cash = round(algo.cash,2)
                         del algo.openorders[name]
             if amount == 0:
@@ -330,6 +329,8 @@ class Algorithm(object):
         self.cache = {}
         self.stoplosses = {}
         self.stopgains = {}
+        self.limitlow = {}
+        self.limithigh = {}
         self.datetime = datetime.datetime.now()
         # User initialization
         self.initialize()
@@ -359,7 +360,12 @@ class Algorithm(object):
         self.chartminute.append(self.value)
         self.chartminutetimes.append(datetime.datetime.now())
         for stock in (self.stopgains.keys() | self.stoplosses.keys()):
-            self.checksellthresholds(stock)
+            self.checkthresholds(stock)
+        for stock, amount in self.openorders.items():
+            if amount > 0:
+                buy(stock,amount)
+            elif amount < 0:
+                sell(stock,abs(amount))
 
     # Update function called every day
     def updateday(self):
@@ -370,17 +376,26 @@ class Algorithm(object):
         self.openorders = {}
 
     # Checks and executes limit/stop orders
-    def checksellthresholds(self,stock):
-        if (stock in self.stocks) and (stock in self.stoplosses):
-            if self.quote(stock) <= self.stoplosses[stock]:
-                print("Stoploss for " + stock + " kicking in.")
-                del self.stoplosses[stock]
-                self.orderpercent(stock,0,verbose=True)
-        elif (stock in self.stocks) and (stock in self.stopgains):
-            if self.quote(stock) >= self.stopgains[stock]:
-                print("Stopgain for " + stock + " kicking in.")
-                del self.stopgains[stock]
-                self.orderpercent(stock,0,verbose=True)
+    # TODO: Custom amounts to buy/sell
+    def checkthresholds(self,stock):
+        price = self.quote(stock)
+        alloc = self.cash / self.value
+        if (stock in self.stocks) and (stock in self.stoplosses) and (price <= self.stoplosses[stock]):
+            print("Stoploss for " + stock + " kicking in.")
+            del self.stoplosses[stock]
+            self.orderpercent(stock,0,verbose=True)
+        elif (stock in self.stocks) and (stock in self.stopgains) and (price >= self.stopgains[stock]):
+            print("Stopgain for " + stock + " kicking in.")
+            del self.stopgains[stock]
+            self.orderpercent(stock,0,verbose=True)
+        elif (stock in self.limitlow) and (price <= self.limitlow[stock]):
+            print("Limit order " + stock + " activated.")
+            del self.limitlow[stock]
+            self.orderpercent(stock,alloc,verbose=True)
+        elif (stock in self.limithigh) and (price >= self.limithigh[stock]):
+            print("Limit order " + stock + " activated.")
+            del self.limithigh[stock]
+            self.orderpercent(stock,alloc,verbose=True)
 
     # Returns the list of datetime objects associated with the entries of a pandas dataframe
     def dateidxs(self, arr):
@@ -462,12 +477,20 @@ class Algorithm(object):
     # Adds stop loss or stop gain to a particular stock until it is sold (then you need to re-add it)
     # If change == 0.05, then the stock will be sold if it goes 5% over the current price
     # If change == -0.05, then the stock will be sold if it goes 5% below the current price
-    # TODO: Add same thing for buying
     def stopsell(self,stock,change):
         if change > 0:
             self.stopgains[stock] = (1+change)*self.quote(stock)
         if change < 0:
             self.stoplosses[stock] = (1+change)*self.quote(stock)
+
+    # Adds order for a stock when it crosses above or below a % change from the current price
+    # If change == 0.05, then the stock will be bought if it goes 5% over the current price
+    # If change == -0.05, then the stock will be bought if it goes 5% below the current price
+    def limitbuy(self,stock,change):
+        if change > 0:
+            self.limithigh[stock] = (1+change)*self.quote(stock)
+        if change < 0:
+            self.limitlow[stock] = (1+change)*self.quote(stock)
 
     # stock: stock symbol (string)
     # amount: number of shares of that stock to order (+ for buy, - for sell)
@@ -779,6 +802,7 @@ class Backtester(Algorithm):
             elif self.logging == 'daily':
                 self.datetime = datetime.datetime.combine(day, datetime.time(9, 30))
                 self.minutesago = 391 * self.daysago
+                self.updatemin()
                 self.update()
                 self.run()
         self.riskmetrics()
@@ -787,7 +811,7 @@ class Backtester(Algorithm):
         changes = [(current - last) / last for last, current in zip(self.chartday[:-1], self.chartday[1:])]
         benchmarkchanges = self.percentchange(self.benchmark, length=len(changes))
         changes = pd.DataFrame({'date':benchmarkchanges._index,'changes':changes})
-        changes = changes.set_index('date')
+        changes = changes.set_index('date')['changes']
         self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
         self.alpha = round(self.alpha,3)
         self.beta = round(self.beta,3)
@@ -797,7 +821,7 @@ class Backtester(Algorithm):
 
     def updatemin(self):
         for stock in (self.stopgains.keys() | self.stoplosses.keys()):
-            self.checksellthresholds(stock)
+            self.checkthresholds(stock)
 
     def update(self):
         stockvalue = 0
@@ -1042,6 +1066,7 @@ class Backtester(Algorithm):
 
 
 
+
 def backtester(algo, capital=None, benchmark=None):
     # Convert
     times = algo.times
@@ -1116,11 +1141,10 @@ def portfoliodata():
 
 
 # High Priority
-# TODO: TEST technical indicators in live trading
-# TODO: Keep placing buy order when waiting for sell to go through
-# TODO: Test all technical indicators in backtest. might need to r["RSI"] index pandas
+# TODO: TEST that it keeps placing buy order when waiting for sell to go through
 
 # Medium priority
+# TODO: TEST technical indicators in live trading
 # TODO: Update buy function. Robinhood can only buy with 95% of your current cash
 # TODO: Use yahoo-finance data when alphavantage fails
 # TODO: Comment functions that don't have descriptions
