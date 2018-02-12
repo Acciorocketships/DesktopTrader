@@ -332,6 +332,11 @@ class Algorithm(object):
         self.limitlow = {}
         self.limithigh = {}
         self.datetime = datetime.datetime.now()
+        self.alpha = None
+        self.beta = None
+        self.volatility = None
+        self.sharpe = None
+        self.maxdrawdown = None
         # User initialization
         self.initialize()
 
@@ -374,6 +379,7 @@ class Algorithm(object):
         self.chartday.append(self.value)
         self.chartdaytimes.append(datetime.datetime.now())
         self.openorders = {}
+        self.riskmetrics()
 
     # Checks and executes limit/stop orders
     # TODO: Custom amounts to buy/sell
@@ -396,6 +402,18 @@ class Algorithm(object):
             print("Limit order " + stock + " activated.")
             del self.limithigh[stock]
             self.orderpercent(stock,alloc,verbose=True)
+
+    def riskmetrics(self):
+        changes = [(current - last) / last for last, current in zip(self.chartday[:-1], self.chartday[1:])]
+        benchmarkchanges = self.percentchange(self.benchmark, length=len(changes))
+        changes = pd.DataFrame({'date':benchmarkchanges._index,'changes':changes})
+        changes = changes.set_index('date')['changes']
+        self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
+        self.alpha = round(self.alpha,3)
+        self.beta = round(self.beta,3)
+        self.sharpe = round(sharpe_ratio(changes),3)
+        self.volatility = round(annual_volatility(changes),3)
+        self.maxdrawdown = round(max_drawdown(changes),3)
 
     # Returns the list of datetime objects associated with the entries of a pandas dataframe
     def dateidxs(self, arr):
@@ -806,18 +824,6 @@ class Backtester(Algorithm):
                 self.update()
                 self.run()
         self.riskmetrics()
-
-    def riskmetrics(self):
-        changes = [(current - last) / last for last, current in zip(self.chartday[:-1], self.chartday[1:])]
-        benchmarkchanges = self.percentchange(self.benchmark, length=len(changes))
-        changes = pd.DataFrame({'date':benchmarkchanges._index,'changes':changes})
-        changes = changes.set_index('date')['changes']
-        self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
-        self.alpha = round(self.alpha,3)
-        self.beta = round(self.beta,3)
-        self.sharpe = round(sharpe_ratio(changes),3)
-        self.volatility = round(annual_volatility(changes),3)
-        self.maxdrawdown = round(max_drawdown(changes),3)
 
     def updatemin(self):
         for stock in (self.stopgains.keys() | self.stoplosses.keys()):

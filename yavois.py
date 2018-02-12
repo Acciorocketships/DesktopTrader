@@ -11,7 +11,7 @@ class Yavois(Algorithm):
         self.nextdaysell = False
         self.rsi2thres = 75
         self.rsi7thres = 25
-        self.long = "XIV"
+        self.long = "SPXY"
         self.hideout = None
         self.takegain = 0.05
         self.takeloss = -0.02
