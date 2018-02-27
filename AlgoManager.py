@@ -813,6 +813,8 @@ class Backtester(Algorithm):
                 for minute in range(391):
                     self.minutesago = 391 * self.daysago - minute
                     self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)
+                    if self.datetime >= datetime.datetime.now():
+                        break
                     self.updatemin()
                     if minute in self.times:
                         self.update()
@@ -820,6 +822,8 @@ class Backtester(Algorithm):
             elif self.logging == 'daily':
                 self.datetime = datetime.datetime.combine(day, datetime.time(9, 30))
                 self.minutesago = 391 * self.daysago
+                if self.datetime >= datetime.datetime.now():
+                    break
                 self.updatemin()
                 self.update()
                 self.run()

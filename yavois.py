@@ -11,7 +11,7 @@ class Yavois(Algorithm):
         self.nextdaysell = False
         self.rsi2thres = 75
         self.rsi7thres = 25
-        self.long = "SPXY"
+        self.long = "SVXY"
         self.hideout = "ARKK"
         self.takegain = 0.05
         self.takeloss = -0.02
@@ -22,6 +22,8 @@ class Yavois(Algorithm):
 
         if self.datetime.time() < datetime.time(12,0,0,0):
 
+            print("\nRunning " + str(self.datetime))
+
             if self.nextdaybuy:
                 self.nextdaybuy = False
                 if self.hideout is not None:
@@ -29,7 +31,6 @@ class Yavois(Algorithm):
                 self.orderpercent(self.long,1,verbose=True)
                 self.stopsell(self.long,self.takegain)
                 self.stopsell(self.long,self.takeloss)
-                print("Buying", self.quote(self.long))
                 return
 
             if self.nextdaysell:
@@ -41,13 +42,19 @@ class Yavois(Algorithm):
 
         else:
 
+            print("\nRunning " + str(self.datetime))
+
             self.rsi2 = self.rsi(self.long,mawindow=2,length=2)
             self.rsi7 = self.rsi(self.long,mawindow=7,length=2)
+
+            print("RSI2: " + str(self.rsi2))
+            print("RSI7: " + str(self.rsi7))
 
             # If RSI7 crosses its threshold and no current position/order, buy now
             if self.rsi7[-1] > self.rsi7thres and self.rsi7[-2] < self.rsi7thres and \
                (self.long not in self.stocks or self.stocks[self.long]==0) and \
                self.long not in self.openorders:
+                print("RSI7 Threshold, Buy Now")
                 if self.hideout is not None:
                     self.orderpercent(self.hideout,0)
                 self.orderpercent(self.long,1,verbose=True)
@@ -59,12 +66,14 @@ class Yavois(Algorithm):
             if self.rsi2[-1] > self.rsi2thres and self.rsi2[-2] < self.rsi2thres and \
                (self.long not in self.stocks or self.stocks[self.long]==0) and \
                 self.long not in self.openorders:
+                print("RSI2 Threshold, Buy Tomorrow")
                 self.nextdaybuy = True
                 return
 
             # If there are currently positions, sell tomorrow
             if (self.long in self.stocks and self.stocks[self.long]>0) and \
                 self.long not in self.openorders:
+                print("Currently Holding Stocks, Sell Tomorrow")
                 self.nextdaysell = True
                 return
 
@@ -74,6 +83,6 @@ class Yavois(Algorithm):
 if __name__ == '__main__':
     algo = Yavois(times=[(9,30),(15,59)])
     algoback = backtester(algo,benchmark="SPY",capital=1000)
-    algoback.start(startdate=(5, 2, 2018))
+    algoback.start()
     algoback.gui()
 
