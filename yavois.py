@@ -12,7 +12,7 @@ class Yavois(Algorithm):
         self.rsi2thres = 75
         self.rsi7thres = 25
         self.long = "SVXY"
-        self.hideout = "ARKK"
+        self.hideout = None
         self.takegain = 0.05
         self.takeloss = -0.02
         self.rsi2 = None
@@ -35,7 +35,7 @@ class Yavois(Algorithm):
 
             if self.nextdaysell:
                 self.nextdaysell = False
-                self.orderpercent(self.long,0)
+                self.orderpercent(self.long,0,verbose=True)
                 if self.hideout is not None:
                     self.orderpercent(self.hideout,1,verbose=True)
                 return

@@ -246,8 +246,9 @@ class Manager:
             if amountdiff != 0:
                 for algo in list(self.algo_alloc.keys()):
                     if (name in algo.openorders) and (algo.openorders[name] == amountdiff):
-                        # TODO: update shareprice to position[ last traded price ]
-                        # TODO: delete symbol from algo.stocks if amount is 0
+                        algo.stocks[stock] = algo.stocks.get(stock,0) + amountdiff
+                        if algo.stocks[stock] == 0:
+                            del algo.stocks[stock]
                         algo.cash -= abs(self.cash - self.lastcash)
                         algo.cash = round(algo.cash,2)
                         del algo.openorders[name]
@@ -366,11 +367,6 @@ class Algorithm(object):
         self.chartminutetimes.append(datetime.datetime.now())
         for stock in (self.stopgains.keys() | self.stoplosses.keys()):
             self.checkthresholds(stock)
-        for stock, amount in self.openorders.items():
-            if amount > 0:
-                buy(stock,amount)
-            elif amount < 0:
-                sell(stock,abs(amount))
 
     # Update function called every day
     def updateday(self):
@@ -529,10 +525,7 @@ class Algorithm(object):
             return None
         #Stage the order
         if not self.running:
-            if stock in self.stocks:
-                self.stocks[stock] += amount
-            else:
-                self.stocks[stock] = amount
+            self.stocks[stock] = self.stocks.get(stock,0) + amount
             self.cash -= cost * amount
         else:
             self.openorders[stock] = self.openorders.get(stock, 0) + amount
@@ -587,7 +580,7 @@ class Algorithm(object):
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
     # length: number of data points (default is only the last)
     # datatype: 'close','open','volume' (default close)
-    def history(self, stock, interval='1min', length=1, datatype='close'):
+    def history(self, stock, interval='daily', length=1, datatype='close'):
         if 'close' in datatype:
             datatype = '4. close'
         elif 'volume' in datatype:
@@ -701,25 +694,36 @@ class Algorithm(object):
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
     # length: number of data points (default is only the last), or starting datetime
     def percentchange(self, stock, interval='daily', length=1, datatype='close'):
+        # Rename inputs
         if 'close' in datatype:
             datatype = '4. close'
         elif 'volume' in datatype:
             datatype = '6. volume'
         elif 'open' in datatype:
             datatype = '1. open'
-        prices = self.history(stock, interval=interval, length=None)
-        if isinstance(length,datetime.datetime):
-            length = self.datetolength(length,ma)
-        elif length is None:
-            length = len(ma)
+        if length < 100:
+            size = 'compact'
         else:
-            length += 1
+            size = 'full'
+        # Get Data
+        if interval == 'daily':
+            prices, _ = data.get_daily_adjusted(symbol=stock, outputsize=size)
+        elif interval == 'weekly':
+            prices, _ = data.get_weekly(symbol=stock)
+        else:
+            prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize=size)
         changes = prices[datatype].pct_change()
+        # Handle Length
+        if isinstance(length,datetime.datetime):
+            length = self.datetolength(length,prices)
+        elif length is None:
+            length = len(prices)
         return changes[-length:]
 
     # The google trends for interest over time in a given query
     # interval: 60min, daily (changes to weekly if length is too long)
     # Returns Series of numbers from 0 to 100 for relative interest over time
+    # WARNING: Data is for all days (other data is just trading days)
     def google(self, query, interval='daily', length=100, financial=True):
         enddate = self.datetime
         if isinstance(length, datetime.datetime):
@@ -851,7 +855,7 @@ class Backtester(Algorithm):
     def quote(self, stock):
         return self.history(stock, interval=self.logging)[0].item()
 
-    def history(self, stock, interval='1min', length=1, datatype='close'):
+    def history(self, stock, interval='daily', length=1, datatype='close'):
         if 'close' in datatype:
             datatype = '4. close'
         elif 'volume' in datatype:
@@ -879,7 +883,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return hist[datatype][idx-length: idx]
+        return hist[datatype][idx-length+1 : idx+1]
 
     def order(self, stock, amount, verbose=False):
         # Guard condition for sell
@@ -938,7 +942,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return md['MACD_Hist'][idx-length : idx]
+        return md['MACD_Hist'][idx-length+1 : idx+1]
 
     def bollinger(self, stock, interval='daily', length=1, nbdevup=2, nbdevdn=2, matype=1, mawindow=20):
         key = ('bollinger', tuple(locals().values()))
@@ -958,7 +962,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return bb[idx-length : idx]
+        return bb[idx-length+1 : idx+1]
 
     def rsi(self, stock, interval='daily', length=1, mawindow=20):
         key = ('rsi', tuple(locals().values()))
@@ -977,7 +981,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return r["RSI"][idx-length : idx]
+        return r["RSI"][idx-length+1 : idx+1]
 
     def sma(self, stock, interval='daily', length=1, mawindow=20):
         key = ('sma', tuple(locals().values()))
@@ -996,7 +1000,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return ma['SMA'][idx-length : idx]
+        return ma['SMA'][idx-length+1 : idx+1]
 
     def ema(self, stock, interval='daily', length=1, mawindow=20):
         key = ('ema', tuple(locals().values()))
@@ -1015,7 +1019,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return ma['EMA'][idx-length : idx]
+        return ma['EMA'][idx-length+1 : idx+1]
 
     def stoch(self, stock, interval='daily', length=1, fastkperiod=12, 
                 slowkperiod=26, slowdperiod=26, slowkmatype=0, slowdmatype=0):
@@ -1036,7 +1040,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return s[idx-length : idx]
+        return s[idx-length+1 : idx+1]
 
     def percentchange(self, stock, interval='daily', length=1, datatype='close'):
         if 'close' in datatype:
@@ -1045,6 +1049,10 @@ class Backtester(Algorithm):
             datatype = '6. volume'
         elif 'open' in datatype:
             datatype = '1. open'
+        if length < 100:
+            size = 'compact'
+        else:
+            size = 'full'
         key = ('percchng', tuple(locals().values()))
         cache = self.cache.get(key)
         exp = None
@@ -1052,11 +1060,11 @@ class Backtester(Algorithm):
             changes, exp, dateidxs, lastidx = cache
         if (cache is None) or (datetime.datetime.now() > exp):
             if interval == 'daily':
-                prices, _ = data.get_daily_adjusted(symbol=stock, outputsize='full')
+                prices, _ = data.get_daily_adjusted(symbol=stock, outputsize=size)
             elif interval == 'weekly':
                 prices, _ = data.get_weekly(symbol=stock)
             else:
-                prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
+                prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize=size)
             changes = prices[datatype].pct_change()
             dateidxs = self.dateidxs(prices[1:])
             lastidx = self.nearestidx(self.datetime, dateidxs)
@@ -1067,7 +1075,7 @@ class Backtester(Algorithm):
             length = self.datetolength(length,dateidxs,idx)
         if length is None:
             length = idx
-        return changes[idx-length : idx]
+        return changes[idx-length+1 : idx+1]
 
 
 
@@ -1101,13 +1109,23 @@ def backtester(algo, capital=None, benchmark=None):
 def buy(stock, amount):
     if broker == 'robinhood':
         stockobj = robinhood.instruments(stock)[0]
-        robinhood.place_buy_order(stockobj, amount)
+        for tries in range(5):
+            try:
+                response = robinhood.place_buy_order(stockobj, amount)
+                return response
+            except Exception as e:
+                print("Buy Order Failed", e)
+                time.sleep(tries)
 
 # Input: stock symbol as a string, number of shares as an int
 def sell(stock, amount):
     if broker == 'robinhood':
         stockobj = robinhood.instruments(stock)[0]
-        robinhood.place_sell_order(stockobj, amount)
+        try:
+            response = robinhood.place_sell_order(stockobj, amount)
+            return response
+        except Exception as e:
+            print("Sell Order Failed", e)
 
 # Input: stock symbol as a string
 # Returns: share price as a float
@@ -1165,3 +1183,6 @@ def portfoliodata():
 # Add support for more brokers
 # TODO: Add python3 type checking to functions
 # TODO: Prevent day trades, Combine concurrent orders for same stock
+
+if __name__ == '__main__':
+    import code; code.interact(local=locals())
