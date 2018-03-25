@@ -1049,10 +1049,6 @@ class Backtester(Algorithm):
             datatype = '6. volume'
         elif 'open' in datatype:
             datatype = '1. open'
-        if length < 100:
-            size = 'compact'
-        else:
-            size = 'full'
         key = ('percchng', tuple(locals().values()))
         cache = self.cache.get(key)
         exp = None
@@ -1060,11 +1056,11 @@ class Backtester(Algorithm):
             changes, exp, dateidxs, lastidx = cache
         if (cache is None) or (datetime.datetime.now() > exp):
             if interval == 'daily':
-                prices, _ = data.get_daily_adjusted(symbol=stock, outputsize=size)
+                prices, _ = data.get_daily_adjusted(symbol=stock, outputsize='full')
             elif interval == 'weekly':
                 prices, _ = data.get_weekly(symbol=stock)
             else:
-                prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize=size)
+                prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
             changes = prices[datatype].pct_change()
             dateidxs = self.dateidxs(prices[1:])
             lastidx = self.nearestidx(self.datetime, dateidxs)
