@@ -555,9 +555,9 @@ class Algorithm(object):
             return self.order(stock, amount, verbose)
 
     # Sells all held stocks
-    def sellall(self):
+    def sellall(self, verbose=False):
         for stock in self.stocks:
-            self.orderpercent(stock,0)
+            self.orderpercent(stock,0,verbose=verbose)
 
     # Returns a list of symbols for high-volume stocks tradable on Robinhood
     def symbols(self):
@@ -591,12 +591,18 @@ class Algorithm(object):
             size = 'compact'
         else:
             size = 'full'
-        if interval == 'daily':
-            hist, _ = data.get_daily_adjusted(symbol=stock, outputsize=size)
-        elif interval == 'weekly':
-            hist, _ = data.get_weekly(symbol=stock)
-        else:
-            hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize=size)
+        hist = None
+        while hist is None:
+            try:
+                if interval == 'daily':
+                    hist, _ = data.get_daily_adjusted(symbol=stock, outputsize=size)
+                elif interval == 'weekly':
+                    hist, _ = data.get_weekly(symbol=stock)
+                else:
+                    hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize=size)
+            except ValueError as err:
+                print(err)
+                time.sleep(5)
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,hist)
         if length is None:
@@ -867,13 +873,19 @@ class Backtester(Algorithm):
         exp = None
         if cache is not None: 
             hist, exp, dateidxs, lastidx = cache 
-        if (cache is None) or (datetime.datetime.now() > exp): 
-            if interval == 'daily':
-                hist, _ = data.get_daily_adjusted(symbol=stock, outputsize='full')
-            elif interval == 'weekly':
-                hist, _ = data.get_weekly(symbol=stock)
-            else:
-                hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
+        if (cache is None) or (datetime.datetime.now() > exp):
+            hist = None
+            while hist is None:
+                try:
+                    if interval == 'daily':
+                        hist, _ = data.get_daily_adjusted(symbol=stock, outputsize='full')
+                    elif interval == 'weekly':
+                        hist, _ = data.get_weekly(symbol=stock)
+                    else:
+                        hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
+                except ValueError as err:
+                    print(err)
+                    time.sleep(5)
             dateidxs = self.dateidxs(hist)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [hist, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -910,7 +922,7 @@ class Backtester(Algorithm):
                 print( "Selling " + str(amount) + " shares of " + stock + " at $" + str(cost))
 
     def orderpercent(self, stock, percent, verbose=False):
-        stockprice = self.history(stock, interval=self.logging)[0].item()
+        stockprice = self.quote(stock)
         currentpercent = 0.0
         if stock in self.stocks:
             currentpercent = self.stocks[stock] * stockprice / self.value
