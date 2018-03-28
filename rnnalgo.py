@@ -55,12 +55,12 @@ class RNN(Algorithm):
 	def indicator(self,stock,length=1,skip=-1):
 		dataX, _ = self.getdata(stock,length,skip)
 		with self.graph.as_default():
-			return self.model.predict(dataX)
+			return self.model.predict(dataX)[:,0]
 
 
 	def train(self):
 		callbacks = []
-		callbacks.append(ModelCheckpoint(self.weights_path, monitor='val_loss', verbose=1, save_best_only=False, save_weights_only=True))
+		callbacks.append(ModelCheckpoint(self.weights_path, monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True))
 		dataX, dataY = self.getdata("SPY",datapoints=3200,skip=1200)
 		dataXval, dataYval = self.getdata("SPY",datapoints=800,skip=400)
 		self.model.fit(dataX,dataY,validation_data=(dataXval,dataYval),callbacks=callbacks,epochs=100)
@@ -68,14 +68,20 @@ class RNN(Algorithm):
 
 
 	def test(self):
-		length = 400
-		predicted = self.indicator(stock="SPY",length=length,skip=0)
-		actual = self.percentchange(stock="SPY",length=length) * 100
+		length = 100
+		skip = 60
+		predicted = self.indicator(stock="SPY",length=length,skip=skip)
+		actual = self.percentchange(stock="SPY",length=length+skip)[:-skip] * 100
 		plt.hold(True)
 		t = np.linspace(1,length,length)
+		correct = (actual * predicted) > 0
 		plt.plot(t,predicted,'go')
+		plt.plot(t[correct],predicted[correct],'b.')
 		plt.plot(t,actual,'r.')
 		plt.plot(np.array([0,length]),np.array([0,0]))
+		plt.title('Accuracy: ' + str(float(predicted[correct].shape[0])/float(predicted.shape[0])))
+		plt.ylabel('SPY Percent Change')
+		plt.xlabel('Green: Predicted (blue dot indicates a correct prediction), Red: Actual')
 		plt.show()
 
 
@@ -110,8 +116,8 @@ class RNN(Algorithm):
 		percchange = percchange * 100
 		volatility = (bollinger['Real Upper Band'] - bollinger['Real Lower Band']) / bollinger['Real Middle Band']
 		rsi2 /= 100
-		ddtrsi14 = rsi14.diff() / 100
-		ddtrsi14[0] = 0
+		# ddtrsi14 = rsi14.diff() / 100
+		# ddtrsi14[0] = 0
 		data = np.concatenate((np.expand_dims(percchange,axis=1),
 							   np.expand_dims(volatility,axis=1),
 							   np.expand_dims(macd,axis=1),
@@ -131,10 +137,9 @@ def test():
 	algo = RNN()
 	algo.test()
 
-def debug():
+def predict():
 	algo = RNN()
-	import pdb; pdb.set_trace()
-	algo.test()
+	print("Percent Change Tomorrow: ", algo.indicator("SPY")[0])
 
 def backtest():
 	algo = backtester(RNN())
@@ -143,5 +148,5 @@ def backtest():
 	import code; code.interact(local=locals())
 
 if __name__ == '__main__':
-	backtest()
+	predict()
 		

@@ -1180,12 +1180,12 @@ def portfoliodata():
 # TODO: TEST that it keeps placing buy order when waiting for sell to go through
 
 # Medium priority
-# TODO: TEST technical indicators in live trading
 # TODO: Update buy function. Robinhood can only buy with 95% of your current cash
 # TODO: Use yahoo-finance data when alphavantage fails
 # TODO: Comment functions that don't have descriptions
 # TODO: load and save data when closed/opened
 # TODO: Avoid running every second and logging when not in market hours
+# TODO: Use daily logging close in backtest for algos that run at 3:59
 
 # Low Priority
 # Add support for more brokers
