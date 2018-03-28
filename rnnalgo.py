@@ -8,11 +8,12 @@ from keras.regularizers import l1
 import keras.backend as K
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 class RNN(Algorithm):
 
 	def initialize(self):
-		self.securities = ['SPY','MSFT','CSCO','NFLX','DIS']
+		self.securities = ["GE","GPRO"]
 		self.sec = 'SPY'
 		self.benchmark = self.sec
 		self.lookback = 3
@@ -50,6 +51,7 @@ class RNN(Algorithm):
 			self.orderpercent(maxsigstock,1,verbose=True)
 		elif maxsig < 0.2:
 			self.sellall(verbose=True)
+		self.stopsell(maxsigstock,-0.02)
 
 
 	def indicator(self,stock,length=1,skip=-1):
@@ -68,10 +70,41 @@ class RNN(Algorithm):
 
 
 	def test(self):
-		length = 100
-		skip = 60
+		length = 10
+		skip = 0
 		predicted = self.indicator(stock="SPY",length=length,skip=skip)
-		actual = self.percentchange(stock="SPY",length=length+skip)[:-skip] * 100
+		actual = self.percentchange(stock="SPY",length=length+skip) * 100
+		if skip != 0:
+			actual = actual[:-skip]
+		plt.hold(True)
+		t = np.linspace(1,length,length)
+		correct = (actual * predicted) > 0
+		plt.plot(t,predicted,'go')
+		plt.plot(t[correct],predicted[correct],'b.')
+		plt.plot(t,actual,'r.')
+		plt.plot(np.array([0,length]),np.array([0,0]))
+		plt.title('Accuracy: ' + str(float(predicted[correct].shape[0])/float(predicted.shape[0])))
+		plt.ylabel('SPY Percent Change')
+		plt.xlabel('Green: Predicted (blue dot indicates a correct prediction), Red: Actual')
+		plt.show()
+
+	def test2(self):
+		length = 10
+		skip = 0
+		predicted = []
+		for i in range(length):
+			while True:
+				try:
+					predicted = [self.indicator(stock="SPY",length=1,skip=skip+i)[0]] + predicted
+					break
+				except ValueError as err:
+					print(err)
+					import time; time.sleep(5)
+		import pdb; pdb.set_trace()
+		predicted = np.array(predicted)
+		actual = self.percentchange(stock="SPY",length=length) * 100
+		if skip != 0:
+			actual = actual[:-skip]
 		plt.hold(True)
 		t = np.linspace(1,length,length)
 		correct = (actual * predicted) > 0
@@ -143,10 +176,19 @@ def predict():
 
 def backtest():
 	algo = backtester(RNN())
-	algo.start(startdate=(1,1,2017))
+	algo.start(startdate=(1,1,2015))
 	algo.gui()
 	import code; code.interact(local=locals())
 
+def debugback():
+	algo = backtester(RNN())
+	algo.datetime = datetime(2018,3,27)
+	import code; code.interact(local=locals())
+
+def debug():
+	algo = RNN()
+	import code; code.interact(local=locals())
+
 if __name__ == '__main__':
-	predict()
+	test()
 		

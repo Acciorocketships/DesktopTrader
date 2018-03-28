@@ -580,13 +580,17 @@ class Algorithm(object):
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
     # length: number of data points (default is only the last)
     # datatype: 'close','open','volume' (default close)
-    def history(self, stock, interval='daily', length=1, datatype='close'):
-        if 'close' in datatype:
+    def history(self, stock, interval='daily', length=1, datatype='open'):
+        if 'open' in datatype:
+            datatype = '1. open'
+        elif 'close' in datatype:
             datatype = '4. close'
         elif 'volume' in datatype:
             datatype = '6. volume'
-        elif 'open' in datatype:
-            datatype = '1. open'
+        elif 'high' in datatype:
+            datatype = '2. high'
+        elif 'low' in datatype:
+            datatype = '3. low'
         if length <= 100:
             size = 'compact'
         else:
@@ -622,7 +626,8 @@ class Algorithm(object):
              slowmatype=1, signalmatype=1):
         md, _ = tech.get_macdext(stock, interval=interval, \
                                  fastperiod=fastmawindow, slowperiod=slowmawindow, signalperiod=signalmawindow, \
-                                 fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype)
+                                 fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype, \
+                                 series_type='open')
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,md)
         if length is None:
@@ -639,7 +644,7 @@ class Algorithm(object):
     # Returns Dataframe with 'Real Upper Band', 'Real Lower Band' and 'Real Middle Band'.
     def bollinger(self, stock, interval='daily', length=1, nbdevup=2, nbdevdn=2, matype=1, mawindow=20):
         bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
-                                time_period=mawindow)
+                                time_period=mawindow, series_type='open')
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,bb)
         if length is None:
@@ -652,7 +657,7 @@ class Algorithm(object):
     # mawindow: number of days to average in moving average
     # Returns Series with RSI values
     def rsi(self, stock, interval='daily', length=1, mawindow=20):
-        r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow)
+        r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow, series_type='open')
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,r)
         if length is None:
@@ -665,7 +670,7 @@ class Algorithm(object):
     # mawindow: number of days to average in moving average
     # Returns Series with SMA values
     def sma(self, stock, interval='daily', length=1, mawindow=20):
-        ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow)
+        ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow, series_type='open')
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,ma)
         if length is None:
@@ -678,7 +683,7 @@ class Algorithm(object):
     # mawindow: number of days to average in moving average
     # Returns Series with EMA values
     def ema(self, stock, interval='daily', length=1, mawindow=20):
-        ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow)
+        ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow, series_type='open')
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,ma)
         if length is None:
@@ -689,7 +694,8 @@ class Algorithm(object):
     def stoch(self, stock, interval='daily', length=1, fastkperiod=12, 
                 slowkperiod=26, slowdperiod=26, slowkmatype=0, slowdmatype=0):
         s = tech.get_stoch(stock, interval=interval, fastkperiod=fastkperiod,
-                slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype)
+                slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype, \
+                series_type='open')
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,s)
         if length is None:
@@ -699,14 +705,18 @@ class Algorithm(object):
     # stock: stock symbol (string)
     # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
     # length: number of data points (default is only the last), or starting datetime
-    def percentchange(self, stock, interval='daily', length=1, datatype='close'):
+    def percentchange(self, stock, interval='daily', length=1, datatype='open'):
         # Rename inputs
-        if 'close' in datatype:
+        if 'open' in datatype:
+            datatype = '1. open'
+        elif 'close' in datatype:
             datatype = '4. close'
         elif 'volume' in datatype:
             datatype = '6. volume'
-        elif 'open' in datatype:
-            datatype = '1. open'
+        elif 'high' in datatype:
+            datatype = '2. high'
+        elif 'low' in datatype:
+            datatype = '3. low'
         if length < 100:
             size = 'compact'
         else:
@@ -858,16 +868,69 @@ class Backtester(Algorithm):
         self.chartday.append(self.value)
         self.chartdaytimes.append(self.datetime)
 
-    def quote(self, stock):
-        return self.history(stock, interval=self.logging)[0].item()
+    def checkthresholds(self,stock):
+        if self.logging == '1min':
+            price = self.quote(stock)
+            alloc = self.cash / self.value
+            if (stock in self.stocks) and (stock in self.stoplosses) and (price <= self.stoplosses[stock]):
+                print("Stoploss for " + stock + " kicking in.")
+                del self.stoplosses[stock]
+                self.orderpercent(stock,0,verbose=True)
+            elif (stock in self.stocks) and (stock in self.stopgains) and (price >= self.stopgains[stock]):
+                print("Stopgain for " + stock + " kicking in.")
+                del self.stopgains[stock]
+                self.orderpercent(stock,0,verbose=True)
+            elif (stock in self.limitlow) and (price <= self.limitlow[stock]):
+                print("Limit order " + stock + " activated.")
+                del self.limitlow[stock]
+                self.orderpercent(stock,alloc,verbose=True)
+            elif (stock in self.limithigh) and (price >= self.limithigh[stock]):
+                print("Limit order " + stock + " activated.")
+                del self.limithigh[stock]
+                self.orderpercent(stock,alloc,verbose=True)
+        else:
+            if (stock in self.stocks) and (stock in self.stoplosses) and (self.history(stock,datatype='3. low')[0] <= self.stoplosses[stock]):
+                amount = self.stocks[stock]
+                self.stocks[stock] = 0
+                self.cash += self.stoplosses[stock] * amount
+                print("Stoploss for " + stock + " kicking in.")
+                print("Selling " + str(amount) + " shares of " + stock + " at $" + str(round(self.stoplosses[stock],2)))
+                del self.stoplosses[stock]
+            elif (stock in self.stocks) and (stock in self.stopgains) and (self.history(stock,datatype='2. high')[0] >= self.stopgains[stock]):
+                amount = self.stocks[stock]
+                self.stocks[stock] = 0
+                self.cash += self.stopgains[stock] * amount
+                print("Stopgain for " + stock + " kicking in.")
+                print("Selling " + str(amount) + " shares of " + stock + " at $" + str(round(self.stopgains[stock],2)))
+                del self.stoplosses[stock]
+            elif (stock in self.limitlow) and (self.history(stock,datatype='3. low')[0] <= self.limitlow[stock]):
+                self.stocks[stock] = math.floor(self.cash / self.limitlow[stock])
+                self.cash -= self.stocks[stock] * self.limitlow[stock]
+                print("Limit order " + stock + " activated.")
+                print("Buying " + str(self.stocks[stock]) + " shares of " + stock + " at $" + str(round(self.limitlow[stock],2)))
+                del self.limitlow[stock]
+            elif (stock in self.limithigh) and (self.history(stock,datatype='2. high')[0] >= self.limithigh[stock]):
+                self.stocks[stock] = math.floor(self.cash / self.limithigh[stock])
+                self.cash -= self.stocks[stock] * self.limithigh[stock]
+                print("Limit order " + stock + " activated.")
+                print("Buying " + str(self.stocks[stock]) + " shares of " + stock + " at $" + str(round(self.limithigh[stock],2)))
+                del self.limithigh[stock]
+            self.cash = round(self.cash,2)
 
-    def history(self, stock, interval='daily', length=1, datatype='close'):
-        if 'close' in datatype:
+    def quote(self, stock):
+        return self.history(stock, interval=self.logging, datatype='open')[0].item()
+
+    def history(self, stock, interval='daily', length=1, datatype='open'):
+        if 'open' in datatype:
+            datatype = '1. open'
+        elif 'close' in datatype:
             datatype = '4. close'
         elif 'volume' in datatype:
             datatype = '6. volume'
-        elif 'open' in datatype:
-            datatype = '1. open'
+        elif 'high' in datatype:
+            datatype = '2. high'
+        elif 'low' in datatype:
+            datatype = '3. low'
         key = ('history', tuple(locals().values()))
         cache = self.cache.get(key)
         exp = None
@@ -896,6 +959,7 @@ class Backtester(Algorithm):
         if length is None:
             length = idx
         return hist[datatype][idx-length+1 : idx+1]
+        
 
     def order(self, stock, amount, verbose=False):
         # Guard condition for sell
@@ -944,7 +1008,8 @@ class Backtester(Algorithm):
         if (cache is None) or (datetime.datetime.now() > exp): 
             md, _ = tech.get_macdext(stock, interval=interval, \
                         fastperiod=fastmawindow, slowperiod=slowmawindow, signalperiod=signalmawindow, \
-                        fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype)
+                        fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype, \
+                        series_type='open')
             dateidxs = self.dateidxs(md)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [md, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -964,7 +1029,7 @@ class Backtester(Algorithm):
             bb, exp, dateidxs, lastidx = cache
         if (cache is None) or (datetime.datetime.now() > exp): 
             bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
-                                    time_period=mawindow)
+                                    time_period=mawindow, series_type='open')
             dateidxs = self.dateidxs(bb)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [bb, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -983,7 +1048,7 @@ class Backtester(Algorithm):
         if cache is not None: 
             r, exp, dateidxs, lastidx = cache
         if (cache is None) or (datetime.datetime.now() > exp): 
-            r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow)
+            r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow, series_type='open')
             dateidxs = self.dateidxs(r)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [r, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -1002,7 +1067,7 @@ class Backtester(Algorithm):
         if cache is not None: 
             ma, exp, dateidxs, lastidx = cache
         if (cache is None) or (datetime.datetime.now() > exp): 
-            ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow)
+            ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow, series_type='open')
             dateidxs = self.dateidxs(ma)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -1021,7 +1086,7 @@ class Backtester(Algorithm):
         if cache is not None: 
             ma, exp, dateidxs, lastidx = cache
         if (cache is None) or (datetime.datetime.now() > exp):
-            ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow)
+            ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow, series_type='open')
             dateidxs = self.dateidxs(ma)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -1042,7 +1107,8 @@ class Backtester(Algorithm):
             s, exp, dateidxs, lastidx = cache
         if (cache is None) or (datetime.datetime.now() > exp):
             s, _ = tech.get_stoch(stock, interval=interval, fastkperiod=fastkperiod,
-                slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype)
+                slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype, \
+                series_type='open')
             dateidxs = self.dateidxs(s)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [s, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -1054,13 +1120,17 @@ class Backtester(Algorithm):
             length = idx
         return s[idx-length+1 : idx+1]
 
-    def percentchange(self, stock, interval='daily', length=1, datatype='close'):
-        if 'close' in datatype:
+    def percentchange(self, stock, interval='daily', length=1, datatype='open'):
+        if 'open' in datatype:
+            datatype = '1. open'
+        elif 'close' in datatype:
             datatype = '4. close'
         elif 'volume' in datatype:
             datatype = '6. volume'
-        elif 'open' in datatype:
-            datatype = '1. open'
+        elif 'high' in datatype:
+            datatype = '2. high'
+        elif 'low' in datatype:
+            datatype = '3. low'
         key = ('percchng', tuple(locals().values()))
         cache = self.cache.get(key)
         exp = None
