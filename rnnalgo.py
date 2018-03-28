@@ -13,7 +13,7 @@ from datetime import datetime
 class RNN(Algorithm):
 
 	def initialize(self):
-		self.securities = ["GE","GPRO"]
+		self.securities = ["SPY", "GE", "SVXY"]
 		self.sec = 'SPY'
 		self.benchmark = self.sec
 		self.lookback = 3
@@ -190,5 +190,5 @@ def debug():
 	import code; code.interact(local=locals())
 
 if __name__ == '__main__':
-	test()
+	backtest()
 		
