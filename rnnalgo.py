@@ -32,10 +32,10 @@ class RNN(Algorithm):
 			print(err)
 		self.model.compile(loss='mean_squared_error',optimizer='adam',metrics=[accuracy])
 		self.graph = tf.get_default_graph()
+		# Features:
 		# percent change * 100
 		# (bollinger upper - bollinger lower) / bollinger middle
 		# macd hist
-		# d/dt (14-day rsi) / 100
 		# ((2-day rsi) - 50) / 100
 
 
@@ -70,51 +70,28 @@ class RNN(Algorithm):
 
 
 	def test(self):
-		length = 100
+		length = 200
 		skip = 0
 		predicted = self.indicator(stock="SPY",length=length,skip=skip)
 		actual = self.percentchange(stock="SPY",length=length+skip) * 100
 		if skip != 0:
 			actual = actual[:-skip]
+		errors = np.absolute(predicted - actual)
+		mean = np.mean(errors)
+		std = np.std(errors)
 		plt.hold(True)
 		t = np.linspace(1,length,length)
 		correct = (actual * predicted) > 0
+		for i in range(predicted.shape[0]):
+			plt.plot([t[i],t[i]],[predicted[i],actual[i]],'c')
 		plt.plot(t,predicted,'go')
 		plt.plot(t[correct],predicted[correct],'b.')
 		plt.plot(t,actual,'r.')
 		plt.plot(np.array([0,length]),np.array([0,0]))
-		plt.title('Accuracy: ' + str(float(predicted[correct].shape[0])/float(predicted.shape[0])))
+		plt.title('Accuracy: ' + str(float(predicted[correct].shape[0])/float(predicted.shape[0])) + \
+				  ',  Mean Error: ' + str(round(mean,2)) + ',  Std Dev Error: ' + str(round(std,2)))
 		plt.ylabel('SPY Percent Change')
-		plt.xlabel('Green: Predicted (blue dot indicates a correct prediction), Red: Actual')
-		plt.show()
-
-	def test2(self):
-		length = 10
-		skip = 0
-		predicted = []
-		for i in range(length):
-			while True:
-				try:
-					predicted = [self.indicator(stock="SPY",length=1,skip=skip+i)[0]] + predicted
-					break
-				except ValueError as err:
-					print(err)
-					import time; time.sleep(5)
-		import pdb; pdb.set_trace()
-		predicted = np.array(predicted)
-		actual = self.percentchange(stock="SPY",length=length) * 100
-		if skip != 0:
-			actual = actual[:-skip]
-		plt.hold(True)
-		t = np.linspace(1,length,length)
-		correct = (actual * predicted) > 0
-		plt.plot(t,predicted,'go')
-		plt.plot(t[correct],predicted[correct],'b.')
-		plt.plot(t,actual,'r.')
-		plt.plot(np.array([0,length]),np.array([0,0]))
-		plt.title('Accuracy: ' + str(float(predicted[correct].shape[0])/float(predicted.shape[0])))
-		plt.ylabel('SPY Percent Change')
-		plt.xlabel('Green: Predicted (blue dot indicates a correct prediction), Red: Actual')
+		plt.xlabel('Green: Predicted, Red: Actual')
 		plt.show()
 
 
@@ -186,5 +163,5 @@ def debug():
 	import code; code.interact(local=locals())
 
 if __name__ == '__main__':
-	backtest()
+	test()
 		
