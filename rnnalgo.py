@@ -45,13 +45,13 @@ class RNN(Algorithm):
 			signals.append(self.indicator(security))
 		maxsig = max(signals)
 		maxsigstock = self.securities[signals.index(maxsig)]
-		if maxsig > 0.2:
+		if maxsig > 0.4:
 			if maxsigstock not in self.stocks:
 				self.sellall(verbose=True)
 			self.orderpercent(maxsigstock,1,verbose=True)
 		elif maxsig < 0.2:
 			self.sellall(verbose=True)
-		self.stopsell(maxsigstock,-0.02)
+		self.stopsell(maxsigstock,-0.01)
 
 
 	def indicator(self,stock,length=1,skip=-1):
@@ -70,7 +70,7 @@ class RNN(Algorithm):
 
 
 	def test(self):
-		length = 10
+		length = 100
 		skip = 0
 		predicted = self.indicator(stock="SPY",length=length,skip=skip)
 		actual = self.percentchange(stock="SPY",length=length+skip) * 100
@@ -134,8 +134,7 @@ class RNN(Algorithm):
 			dataX.append(self.formatdata(percchange[i:i+self.lookback],
 										 bollinger[i:i+self.lookback],
 										 macd[i:i+self.lookback],
-										 rsi2[i:i+self.lookback],
-										 rsi14[i:i+self.lookback]))
+										 rsi2[i:i+self.lookback]))
 			if i+self.lookback < len(percchange):
 				dataY.append(percchange[i+self.lookback] * 100)
 			else:
@@ -145,17 +144,14 @@ class RNN(Algorithm):
 		return (dataX, dataY)
 
 
-	def formatdata(self,percchange,bollinger,macd,rsi2,rsi14):
+	def formatdata(self,percchange,bollinger,macd,rsi2):
 		percchange = percchange * 100
 		volatility = (bollinger['Real Upper Band'] - bollinger['Real Lower Band']) / bollinger['Real Middle Band']
 		rsi2 /= 100
-		# ddtrsi14 = rsi14.diff() / 100
-		# ddtrsi14[0] = 0
 		data = np.concatenate((np.expand_dims(percchange,axis=1),
 							   np.expand_dims(volatility,axis=1),
 							   np.expand_dims(macd,axis=1),
 							   np.expand_dims(rsi2,axis=1)),axis=1)
-							   # np.expand_dims(ddtrsi14,axis=1)
 		return data
 
 
