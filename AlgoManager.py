@@ -1072,6 +1072,8 @@ class Backtester(Algorithm):
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
         idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
+        if idx is None:
+            return None
         self.cache[key][3] = idx
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,dateidxs,idx)
