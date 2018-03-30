@@ -194,10 +194,15 @@ class Graph(FigureCanvasTkAgg):
 
     def plotbenchmark(self, algo):
         if isinstance(algo, alg.Backtester) and algo.benchmark is not None:
-            benchmark = algo.history(algo.benchmark, interval=algo.logging, length=len(
-                algo.chartdaytimes if algo.logging == 'daily' else algo.chartminutetimes))
-            benchmark = [value * algo.startingcapital / benchmark[0] for value in benchmark]
-            self.plot(algo.chartdaytimes, benchmark, color="r-", fill=False)
+            benchmarks = algo.benchmark[:]
+            if type(algo.benchmark) == str:
+                benchmarks = [benchmarks]
+            for stock in benchmarks[::-1]:
+                benchmark = algo.history(stock, interval=algo.logging, length=len(
+                    algo.chartdaytimes if algo.logging == 'daily' else algo.chartminutetimes))
+                benchmark = [value * algo.startingcapital / benchmark[0] for value in benchmark]
+                color = 'r-' if stock==benchmarks[0] else None
+                self.plot(algo.chartdaytimes, benchmark, color=color, fill=False)
 
     def plot(self, x, y, color='b-', fill=True):
         try:

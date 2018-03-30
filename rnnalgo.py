@@ -15,7 +15,7 @@ class RNN(Algorithm):
 	def initialize(self):
 		self.securities = ["SPY", "GE", "SVXY"]
 		self.sec = 'SPY'
-		self.benchmark = self.sec
+		self.benchmark = self.securities
 		self.lookback = 3
 		self.weights_path = 'rnn_weights.h5'
 		# original: LSTM32, Dense128, Dense1
@@ -23,7 +23,6 @@ class RNN(Algorithm):
 		self.model.add(LSTM(32,input_shape=(self.lookback,4),return_sequences=False,dropout=0.2,recurrent_dropout=0.2,kernel_regularizer=l1(0.001),recurrent_regularizer=l1(0.001)))
 		self.model.add(Dropout(0.2))
 		self.model.add(Dense(128,kernel_regularizer=l1(0.001),activation='relu'))
-		#self.model.add(LSTM(32,dropout=0.2,recurrent_dropout=0.2,kernel_regularizer=l1(0.001),recurrent_regularizer=l1(0.001)))
 		self.model.add(Dropout(0.2))
 		self.model.add(Dense(1,kernel_regularizer=l1(0.001)))
 		try:
@@ -42,7 +41,7 @@ class RNN(Algorithm):
 	def run(self):
 		signals = []
 		for security in self.securities:
-			signals.append(self.indicator(security))
+			signals.append(self.indicator(security)[0])
 		maxsig = max(signals)
 		maxsigstock = self.securities[signals.index(maxsig)]
 		if maxsig > 0.4:
@@ -54,7 +53,7 @@ class RNN(Algorithm):
 		self.stopsell(maxsigstock,-0.01)
 
 
-	def indicator(self,stock,length=1,skip=-1):
+	def indicator(self,stock,length=1,skip=0):
 		dataX, _ = self.getdata(stock,length,skip)
 		with self.graph.as_default():
 			return self.model.predict(dataX)[:,0]
@@ -64,6 +63,7 @@ class RNN(Algorithm):
 		callbacks = []
 		callbacks.append(ModelCheckpoint(self.weights_path, monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True))
 		dataX, dataY = self.getdata("SPY",datapoints=3200,skip=1200)
+		import pdb; pdb.set_trace()
 		dataXval, dataYval = self.getdata("SPY",datapoints=800,skip=400)
 		self.model.fit(dataX,dataY,validation_data=(dataXval,dataYval),callbacks=callbacks,epochs=100)
 		self.model.save_weights(self.weights_path)
@@ -95,7 +95,7 @@ class RNN(Algorithm):
 		plt.show()
 
 
-	def getdata(self,stock,datapoints=1,skip=-1):
+	def getdata(self,stock,datapoints=1,skip=0):
 		# returns tuple (inputs, resulting next day price change)
 		# datapoints: number of time steps
 		# skip: number of most recent datapoints to skip 
@@ -163,5 +163,5 @@ def debug():
 	import code; code.interact(local=locals())
 
 if __name__ == '__main__':
-	test()
+	backtest()
 		

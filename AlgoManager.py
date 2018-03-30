@@ -241,22 +241,10 @@ class Manager:
         self.chartminute.append(self.value)
         self.chartminutetimes.append(datetime.datetime.now())
         for name, amount in positions().items():
-            amountdiff = amount - (self.stocks[name] if name in self.stocks else 0)
-            self.stocks[name] = amount
-            if amountdiff != 0:
-                for algo in list(self.algo_alloc.keys()):
-                    if (name in algo.openorders) and (algo.openorders[name] == amountdiff):
-                        algo.stocks[stock] = algo.stocks.get(stock,0) + amountdiff
-                        if algo.stocks[stock] == 0:
-                            del algo.stocks[stock]
-                        algo.cash -= abs(self.cash - self.lastcash)
-                        algo.cash = round(algo.cash,2)
-                        del algo.openorders[name]
             if amount == 0:
                 self.stocks.pop(name, None)
             else:
                 self.stocks[name] = amount
-        self.lastcash = self.cash
 
     # Moves stocks that you already hold into an algorithm
     # It will prevent you from trying to assign more of a stock than you actually own
@@ -326,7 +314,6 @@ class Algorithm(object):
         self.chartday = []
         self.chartdaytimes = []
         self.running = True
-        self.openorders = {}
         self.cache = {}
         self.stoplosses = {}
         self.stopgains = {}
@@ -374,7 +361,6 @@ class Algorithm(object):
         self.chartminutetimes = []
         self.chartday.append(self.value)
         self.chartdaytimes.append(datetime.datetime.now())
-        self.openorders = {}
         self.riskmetrics()
 
     # Checks and executes limit/stop orders
@@ -400,8 +386,9 @@ class Algorithm(object):
             self.orderpercent(stock,alloc,verbose=True)
 
     def riskmetrics(self):
+        benchmark = self.benchmark if type(self.benchmark)==str else self.benchmark[0]
         changes = [(current - last) / last for last, current in zip(self.chartday[:-1], self.chartday[1:])]
-        benchmarkchanges = self.percentchange(self.benchmark, length=len(changes))
+        benchmarkchanges = self.percentchange(benchmark, length=len(changes))
         changes = pd.DataFrame({'date':benchmarkchanges._index,'changes':changes})
         changes = changes.set_index('date')['changes']
         self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
@@ -510,48 +497,62 @@ class Algorithm(object):
     # amount: number of shares of that stock to order (+ for buy, - for sell)
     # verbose: prints out order
     def order(self, stock, amount, verbose=False):
-        #Guard condition for sell
-        if amount < 0 and (stock in self.stocks) and (-amount > self.stocks[stock]):
+        # Guard condition for sell
+        if amount < 0 and (-amount > self.stocks.get(stock,0)):
             print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
-                self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock))
-            return None
+                self.stocks.get(stock,0)) + ") of " + stock))
+            return
         cost = self.quote(stock)
-        #Guard condition for buy
-        if cost * amount > self.cash:
+        # Guard condition for buy
+        if cost * amount > 0.95 * self.cash:
             print(("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
                 amount) + " shares of " + stock))
-            return None
+            return
         if amount == 0:
-            return None
-        #Stage the order
-        if not self.running:
-            self.stocks[stock] = self.stocks.get(stock,0) + amount
-            self.cash -= cost * amount
-        else:
-            self.openorders[stock] = self.openorders.get(stock, 0) + amount
-        if verbose:
-            if amount >= 0:
-                print( "Buying " + str(amount) + " shares of " + stock + " at $" + str(cost))
-            else:
-                print( "Selling " + str(amount) + " shares of " + stock + " at $" + str(cost))
-        if self.running:
+            return
+        # Place order, block until filled, update amount and cash
+        currentcash = portfoliodata()["cash"]
+        currentamount = positions().get(stock,0)
+        newamount = currentamount
+        if self.running:    
             if amount > 0:
-                return buy(stock, amount)
+                buy(stock, amount)
             elif amount < 0:
-                return sell(stock, amount)
+                sell(stock, amount)
+            for i in range(100):
+                newamount = positions().get(stock,0)
+                if newamount != currentamount:
+                    break
+                else:
+                    time.sleep(0.01*i)
+            newcash = portfoliodata()["cash"]
+            amount = newamount - currentamount
+            self.cash += (newcash - currentcash)
+            self.stocks[stock] = self.stocks.get(stock,0) + amount
+        else:
+            self.cash -= cost * amount
+            self.stocks[stock] = self.stocks.get(stock,0) + amount
+        if verbose:
+            if amount > 0:
+                print( "Buying " + str(amount) + " shares of " + stock + " at $" + str(cost))
+            elif amount < 0:
+                print( "Selling " + str(amount) + " shares of " + stock + " at $" + str(cost))
+
 
     # Buy or sell to reach a target percent of the algorithm's total allocation
     def orderpercent(self, stock, percent, verbose=False):
-        stockprice = self.quote(stock)
+        cost = self.quote(stock)
         currentpercent = 0.0
         if stock in self.stocks:
-            currentpercent = self.stocks[stock] * stockprice / self.value
+            currentpercent = self.stocks[stock] * cost / self.value
         percentdiff = percent - currentpercent
         if percentdiff < 0:
-            amount = round(-percentdiff * self.value / stockprice)
+            # Min of (# required to reach target percent) and (# of that stock owned)
+            amount = min( round(-percentdiff * self.value / cost), self.stocks.get(stock,0) )
             return self.order(stock, -amount, verbose)
         else:
-            amount = math.floor(percentdiff * self.value / stockprice)
+            # Min of (# required to reach target percent) and (# that you can buy with 95% of your available cash)
+            amount = min( math.floor(percentdiff * self.value / cost), math.floor(0.95 * self.cash / cost) )
             return self.order(stock, amount, verbose)
 
     # Sells all held stocks
@@ -577,7 +578,7 @@ class Algorithm(object):
 
     # Use Alpha Vantage to get the historical price data of a stock
     # stock: stock symbol (string)
-    # interval: time interval between data points '1min','5min','15min','30min','60min','daily','weekly' (default 1min)
+    # interval: time interval between data points '1min','5min','15min','30min','60min','daily' (default 1min)
     # length: number of data points (default is only the last)
     # datatype: 'close','open','volume' (default close)
     def history(self, stock, interval='daily', length=1, datatype='open'):
@@ -600,8 +601,6 @@ class Algorithm(object):
             try:
                 if interval == 'daily':
                     hist, _ = data.get_daily_adjusted(symbol=stock, outputsize=size)
-                elif interval == 'weekly':
-                    hist, _ = data.get_weekly(symbol=stock)
                 else:
                     hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize=size)
             except ValueError as err:
@@ -894,14 +893,14 @@ class Backtester(Algorithm):
                 self.stocks[stock] = 0
                 self.cash += self.stoplosses[stock] * amount
                 print("Stoploss for " + stock + " kicking in.")
-                print("Selling " + str(amount) + " shares of " + stock + " at $" + str(round(self.stoplosses[stock],2)))
+                print("Selling " + str(-amount) + " shares of " + stock + " at $" + str(round(self.stoplosses[stock],2)))
                 del self.stoplosses[stock]
             elif (stock in self.stocks) and (stock in self.stopgains) and (self.history(stock,datatype='2. high')[0] >= self.stopgains[stock]):
                 amount = self.stocks[stock]
                 self.stocks[stock] = 0
                 self.cash += self.stopgains[stock] * amount
                 print("Stopgain for " + stock + " kicking in.")
-                print("Selling " + str(amount) + " shares of " + stock + " at $" + str(round(self.stopgains[stock],2)))
+                print("Selling " + str(-amount) + " shares of " + stock + " at $" + str(round(self.stopgains[stock],2)))
                 del self.stoplosses[stock]
             elif (stock in self.limitlow) and (self.history(stock,datatype='3. low')[0] <= self.limitlow[stock]):
                 self.stocks[stock] = math.floor(self.cash / self.limitlow[stock])
@@ -942,8 +941,6 @@ class Backtester(Algorithm):
                 try:
                     if interval == 'daily':
                         hist, _ = data.get_daily_adjusted(symbol=stock, outputsize='full')
-                    elif interval == 'weekly':
-                        hist, _ = data.get_weekly(symbol=stock)
                     else:
                         hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
                 except ValueError as err:
