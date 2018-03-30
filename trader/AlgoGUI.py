@@ -1,4 +1,4 @@
-import AlgoManager as alg
+import trader.Algorithm as alg
 from tkinter import *
 import matplotlib
 
