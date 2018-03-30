@@ -623,10 +623,16 @@ class Algorithm(object):
     # Returns Series of the MACD Histogram (Signal - (FastMA - SlowMA))
     def macd(self, stock, interval='daily', length=1, fastmawindow=12, slowmawindow=26, signalmawindow=9, fastmatype=1,
              slowmatype=1, signalmatype=1):
-        md, _ = tech.get_macdext(stock, interval=interval, \
+        md = None
+        while md is None:
+            try:
+                md, _ = tech.get_macdext(stock, interval=interval, \
                                  fastperiod=fastmawindow, slowperiod=slowmawindow, signalperiod=signalmawindow, \
                                  fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype, \
                                  series_type='open')
+            except ValueError as err:
+                print(err)
+                time.sleep(5)
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,md)
         if length is None:
@@ -642,8 +648,14 @@ class Algorithm(object):
     # mawindow: number of days to average in moving average
     # Returns Dataframe with 'Real Upper Band', 'Real Lower Band' and 'Real Middle Band'.
     def bollinger(self, stock, interval='daily', length=1, nbdevup=2, nbdevdn=2, matype=1, mawindow=20):
-        bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
+        bb = None
+        while bb is None:
+            try:
+                bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
                                 time_period=mawindow, series_type='open')
+            except ValueError as err:
+                print(err)
+                time.sleep(5)
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,bb)
         if length is None:
@@ -656,7 +668,13 @@ class Algorithm(object):
     # mawindow: number of days to average in moving average
     # Returns Series with RSI values
     def rsi(self, stock, interval='daily', length=1, mawindow=20):
-        r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow, series_type='open')
+        r = None
+        while r is None:
+            try:
+                r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow, series_type='open')
+            except ValueError as err:
+                print(err)
+                time.sleep(5)
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,r)
         if length is None:
@@ -669,7 +687,13 @@ class Algorithm(object):
     # mawindow: number of days to average in moving average
     # Returns Series with SMA values
     def sma(self, stock, interval='daily', length=1, mawindow=20):
-        ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow, series_type='open')
+        ma = None
+        while ma is None:
+            try:
+                ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow, series_type='open')
+            except ValueError as err:
+                print(err)
+                time.sleep(5)
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,ma)
         if length is None:
@@ -682,7 +706,13 @@ class Algorithm(object):
     # mawindow: number of days to average in moving average
     # Returns Series with EMA values
     def ema(self, stock, interval='daily', length=1, mawindow=20):
-        ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow, series_type='open')
+        ma = None
+        while ma is None:
+            try:
+                ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow, series_type='open')
+            except ValueError as err:
+                print(err)
+                time.sleep(5)
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,ma)
         if length is None:
@@ -692,9 +722,15 @@ class Algorithm(object):
     # Returns dataframe with "SlowD" and "SlowK"
     def stoch(self, stock, interval='daily', length=1, fastkperiod=12, 
                 slowkperiod=26, slowdperiod=26, slowkmatype=0, slowdmatype=0):
-        s = tech.get_stoch(stock, interval=interval, fastkperiod=fastkperiod,
-                slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype, \
-                series_type='open')
+        s = None
+        while s is None:
+            try:
+                s = tech.get_stoch(stock, interval=interval, fastkperiod=fastkperiod,
+                        slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype, \
+                        series_type='open')
+            except ValueError as err:
+                print(err)
+                time.sleep(5)
         if isinstance(length,datetime.datetime):
             length = self.datetolength(length,s)
         if length is None:
@@ -721,12 +757,16 @@ class Algorithm(object):
         else:
             size = 'full'
         # Get Data
-        if interval == 'daily':
-            prices, _ = data.get_daily_adjusted(symbol=stock, outputsize=size)
-        elif interval == 'weekly':
-            prices, _ = data.get_weekly(symbol=stock)
-        else:
-            prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize=size)
+        prices = None
+        while prices is None:
+            try:
+                if interval == 'daily':
+                    prices, _ = data.get_daily_adjusted(symbol=stock, outputsize=size)
+                else:
+                    prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize=size)
+            except ValueError as err:
+                print(err)
+                time.sleep(5)
         changes = prices[datatype].pct_change()
         # Handle Length
         if isinstance(length,datetime.datetime):
@@ -1002,11 +1042,17 @@ class Backtester(Algorithm):
         exp = None
         if cache is not None: 
             md, exp, dateidxs, lastidx = cache
-        if (cache is None) or (datetime.datetime.now() > exp): 
-            md, _ = tech.get_macdext(stock, interval=interval, \
+        if (cache is None) or (datetime.datetime.now() > exp):
+            md = None
+            while md is None:
+                try:
+                    md, _ = tech.get_macdext(stock, interval=interval, \
                         fastperiod=fastmawindow, slowperiod=slowmawindow, signalperiod=signalmawindow, \
                         fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype, \
                         series_type='open')
+                except ValueError as err:
+                    print(err)
+                    time.sleep(5)
             dateidxs = self.dateidxs(md)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [md, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -1024,9 +1070,15 @@ class Backtester(Algorithm):
         exp = None
         if cache is not None: 
             bb, exp, dateidxs, lastidx = cache
-        if (cache is None) or (datetime.datetime.now() > exp): 
-            bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
+        if (cache is None) or (datetime.datetime.now() > exp):
+            bb = None
+            while bb is None:
+                try:
+                    bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
                                     time_period=mawindow, series_type='open')
+                except ValueError as err:
+                    print(err)
+                    time.sleep(5)
             dateidxs = self.dateidxs(bb)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [bb, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -1045,7 +1097,13 @@ class Backtester(Algorithm):
         if cache is not None: 
             r, exp, dateidxs, lastidx = cache
         if (cache is None) or (datetime.datetime.now() > exp): 
-            r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow, series_type='open')
+            r = None
+            while r is None:
+                try:
+                    r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow, series_type='open')
+                except ValueError as err:
+                    print(err)
+                    time.sleep(5)
             dateidxs = self.dateidxs(r)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [r, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -1063,8 +1121,14 @@ class Backtester(Algorithm):
         exp = None
         if cache is not None: 
             ma, exp, dateidxs, lastidx = cache
-        if (cache is None) or (datetime.datetime.now() > exp): 
-            ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow, series_type='open')
+        if (cache is None) or (datetime.datetime.now() > exp):
+            ma = None
+            while ma is None:
+                try:
+                    ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow, series_type='open')
+                except ValueError as err:
+                    print(err)
+                    time.sleep(5)
             dateidxs = self.dateidxs(ma)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -1083,7 +1147,13 @@ class Backtester(Algorithm):
         if cache is not None: 
             ma, exp, dateidxs, lastidx = cache
         if (cache is None) or (datetime.datetime.now() > exp):
-            ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow, series_type='open')
+            ma = None
+            while ma is None:
+                try:
+                    ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow, series_type='open')
+                except ValueError as err:
+                    print(err)
+                    time.sleep(5)
             dateidxs = self.dateidxs(ma)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -1103,9 +1173,15 @@ class Backtester(Algorithm):
         if cache is not None: 
             s, exp, dateidxs, lastidx = cache
         if (cache is None) or (datetime.datetime.now() > exp):
-            s, _ = tech.get_stoch(stock, interval=interval, fastkperiod=fastkperiod,
-                slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype, \
-                series_type='open')
+            s = None
+            while s is None:
+                try:
+                    s, _ = tech.get_stoch(stock, interval=interval, fastkperiod=fastkperiod,
+                        slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype, \
+                        series_type='open')
+                except ValueError as err:
+                    print(err)
+                    time.sleep(5)
             dateidxs = self.dateidxs(s)
             lastidx = self.nearestidx(self.datetime, dateidxs)
             self.cache[key] = [s, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -1134,12 +1210,16 @@ class Backtester(Algorithm):
         if cache is not None: 
             changes, exp, dateidxs, lastidx = cache
         if (cache is None) or (datetime.datetime.now() > exp):
-            if interval == 'daily':
-                prices, _ = data.get_daily_adjusted(symbol=stock, outputsize='full')
-            elif interval == 'weekly':
-                prices, _ = data.get_weekly(symbol=stock)
-            else:
-                prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
+            prices = None
+            while prices = None:
+                try:
+                    if interval == 'daily':
+                        prices, _ = data.get_daily_adjusted(symbol=stock, outputsize='full')
+                    else:
+                        prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
+                except ValueError as err:
+                    print(err)
+                    time.sleep(5)
             changes = prices[datatype].pct_change()
             dateidxs = self.dateidxs(prices[1:])
             lastidx = self.nearestidx(self.datetime, dateidxs)
@@ -1253,6 +1333,7 @@ def portfoliodata():
 # TODO: load and save data when closed/opened
 # TODO: Avoid running every second and logging when not in market hours
 # TODO: Use daily logging close in backtest for algos that run at 3:59
+# TODO: Adaptive allocations
 
 # Low Priority
 # Add support for more brokers

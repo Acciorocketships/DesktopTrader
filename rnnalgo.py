@@ -35,7 +35,7 @@ class RNN(Algorithm):
 		# percent change * 100
 		# (bollinger upper - bollinger lower) / bollinger middle
 		# macd hist
-		# ((2-day rsi) - 50) / 100
+		# (2-day rsi) / 100
 
 
 	def run(self):
@@ -55,6 +55,7 @@ class RNN(Algorithm):
 
 	def indicator(self,stock,length=1,skip=0):
 		dataX, _ = self.getdata(stock,length,skip)
+		import pdb; pdb.set_trace()
 		with self.graph.as_default():
 			return self.model.predict(dataX)[:,0]
 
@@ -63,7 +64,6 @@ class RNN(Algorithm):
 		callbacks = []
 		callbacks.append(ModelCheckpoint(self.weights_path, monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True))
 		dataX, dataY = self.getdata("SPY",datapoints=3200,skip=1200)
-		import pdb; pdb.set_trace()
 		dataXval, dataYval = self.getdata("SPY",datapoints=800,skip=400)
 		self.model.fit(dataX,dataY,validation_data=(dataXval,dataYval),callbacks=callbacks,epochs=100)
 		self.model.save_weights(self.weights_path)
@@ -104,7 +104,6 @@ class RNN(Algorithm):
 		bollinger = self.bollinger(stock,length=skip+datapoints+self.lookback)
 		macd = self.macd(stock,length=skip+datapoints+self.lookback)
 		rsi2 = self.rsi(stock,mawindow=2,length=skip+datapoints+self.lookback)
-		rsi14 = self.rsi(stock,mawindow=14,length=skip+datapoints+self.lookback)
 		dataX = []
 		dataY = []
 		for i in range(datapoints):
@@ -160,8 +159,9 @@ def debugback():
 
 def debug():
 	algo = RNN()
+	dataX, dataY = algo.getdata("SPY",datapoints=100,skip=0)
 	import code; code.interact(local=locals())
 
 if __name__ == '__main__':
-	backtest()
+	debug()
 		
