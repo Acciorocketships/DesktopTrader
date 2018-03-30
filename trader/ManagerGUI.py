@@ -1,7 +1,5 @@
-import AlgoManager as alg
-import AlgoGUI as app
+import trader.AlgoGUI as app
 from tkinter import *
-
 
 class Gui(Tk):
     def __init__(self, manager, root=None):

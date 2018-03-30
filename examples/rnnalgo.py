@@ -1,6 +1,7 @@
 import os, sys
 sys.path.append(os.path.dirname(os.path.realpath("")))
-from AlgoManager import *
+from trader.AlgoManager import *
+from trader.Algorithm import *
 from keras.models import Sequential
 from keras.layers import *
 from keras.callbacks import *
@@ -149,7 +150,7 @@ def predict():
 def backtest():
 	algo = backtester(RNN())
 	algo.start(startdate=(1,1,2015))
-	algo.gui()
+	Manager.gui(algo)
 	import code; code.interact(local=locals())
 
 def debugback():

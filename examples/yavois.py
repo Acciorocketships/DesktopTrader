@@ -1,7 +1,7 @@
-from AlgoManager import *
+from trader.AlgoManager import *
+from trader.Algorithm import *
 import code
 import datetime
-
 
 class Yavois(Algorithm):
 
@@ -84,5 +84,5 @@ if __name__ == '__main__':
     algo = Yavois(times=[(9,30),(15,59)])
     algoback = backtester(algo,benchmark="SPY",capital=1000)
     algoback.start()
-    algoback.gui()
+    Manager.gui(algoback)
 

@@ -6,6 +6,43 @@ from alpha_vantage.timeseries import TimeSeries
 from alpha_vantage.techindicators import TechIndicators
 import pandas as pd
 import numpy as np
+from empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio
+import math
+import requests
+
+import trader.tradingdays as tradingdays
+from pytrends.request import TrendReq
+
+# This is a hack, needs refactored into proper class
+# https://github.com/RomelTorres/alpha_vantage
+# https://github.com/Jamonek/Robinhood
+
+broker = 'robinhood'
+
+creds = []
+credential_file = "creds.txt"
+try:
+    with open(credential_file, "r") as f:
+        creds = f.readlines()
+except IOError:
+    creds.append(input('Robinhood Username: '))
+    creds.append(input('Robinhood Password: '))
+    creds.append(input('Alpha Vantage API Key: '))
+    with open(credential_file, "w") as f:
+        for l in creds:
+            f.write(l + "\n")
+except PermissionError:
+    print("Inadequate permissions to read credentials file.")
+    exit(-1)
+
+creds = [x.strip() for x in creds]
+robinhood = Robinhood()
+robinhood.login(username=creds[0], password=creds[1])
+
+data = TimeSeries(key=creds[2], output_format='pandas')
+tech = TechIndicators(key=creds[2], output_format='pandas')
+
+pytrends = TrendReq(hl='en-US', tz=360)
 
 class Algorithm(object):
 
@@ -159,10 +196,6 @@ class Algorithm(object):
     ### PUBLIC METHODS ###
 
 
-    # Opens the GUI to visualize the Algorithm's performance (also works with Backtests)
-    def gui(self):
-        desktoptrader = app.Gui(self)
-        desktoptrader.mainloop()
 
     # Switches from live trading to paper trading
     # If self.running is False, the algorithm will automatically paper trade

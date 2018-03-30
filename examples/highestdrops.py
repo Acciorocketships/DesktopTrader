@@ -1,10 +1,11 @@
-import AlgoManager as AM
+import trader.AlgoManager as AM
+import trader.Algorithm as Alg
 import code
 import datetime
 from queue import PriorityQueue
 
 
-class Drops(AM.Algorithm):
+class Drops(Alg.Algorithm):
 
     def initialize(self):
         # Constants and Class Variables
@@ -55,6 +56,6 @@ class Drops(AM.Algorithm):
 
 if __name__ == '__main__':
     algo = Drops(times=['every day'])
-    algoback = AM.backtester(algo)
+    algoback = Alg.backtester(algo)
     algoback.start(startdate=(1, 1, 2017))
-    algoback.gui()
+    AM.Manager.gui(algoback)

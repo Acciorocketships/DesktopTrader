@@ -1,47 +1,9 @@
-from Robinhood import Robinhood
-from alpha_vantage.timeseries import TimeSeries
-from alpha_vantage.techindicators import TechIndicators
-import code
-import copy
-import trader.tradingdays
-from empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio
 import math
-import requests
-from pytrends.request import TrendReq
-import re
-import trader.AlgoGUI as app
-import trader.ManagerGUI as man
+import code
+import trader.tradingdays
 from functools import reduce
+import trader.AlgoGUI as app
 
-# https://github.com/RomelTorres/alpha_vantage
-# https://github.com/Jamonek/Robinhood
-
-broker = 'robinhood'
-
-creds = []
-credential_file = "creds.txt"
-try:
-    with open(credential_file, "r") as f:
-        creds = f.readlines()
-except IOError:
-    creds.append(input('Robinhood Username: '))
-    creds.append(input('Robinhood Password: '))
-    creds.append(input('Alpha Vantage API Key: '))
-    with open(credential_file, "w") as f:
-        for l in creds:
-            f.write(l + "\n")
-except PermissionError:
-    print("Inadequate permissions to read credentials file.")
-    exit(-1)
-
-creds = [x.strip() for x in creds]
-robinhood = Robinhood()
-robinhood.login(username=creds[0], password=creds[1])
-
-data = TimeSeries(key=creds[2], output_format='pandas')
-tech = TechIndicators(key=creds[2], output_format='pandas')
-
-pytrends = TrendReq(hl='en-US', tz=360)
 
 class Manager:
     def __init__(self):
@@ -276,6 +238,12 @@ class Manager:
         self.chartminutetimes = []
         self.chartday.append(self.value)
         self.chartdaytimes.append(datetime.datetime.now())
+
+    # Opens the GUI to visualize the Algorithm's performance (also works with Backtests)
+    @staticmethod
+    def gui(algo):
+        desktoptrader = app.Gui(algo)
+        desktoptrader.mainloop()
 
 # High Priority
 # TODO: TEST that it keeps placing buy order when waiting for sell to go through
