@@ -14,6 +14,9 @@ creds.txt
 #PyCharm
 .idea/
 
+# pip
+*egg-info/
+
 #Eddie is developing custom algos
 #in the same directory, ignore for now
 *eddie*
