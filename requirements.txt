@@ -1,0 +1,13 @@
+tensorflow
+keras
+python-dateutil
+alpha-vantage
+simplejson
+pandas
+empyrical
+pytrends
+matplotlib
+h5py
+
+tkinter
+https://github.com/Jamonek/Robinhood

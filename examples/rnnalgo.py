@@ -164,5 +164,5 @@ def debug():
 	import code; code.interact(local=locals())
 
 if __name__ == '__main__':
-	debug()
+	backtest()
 		
