@@ -14,8 +14,9 @@ from datetime import datetime
 class RNN(Algorithm):
 
 	def initialize(self):
-		self.securities = ["SPY", "GE", "SVXY"]
+		self.securities = ["QQQ", "ARKK", "SVXY"]
 		self.sec = 'SPY'
+		self.heldstock = None
 		self.benchmark = self.securities
 		self.lookback = 3
 		self.weights_path = 'rnn_weights.h5'
@@ -46,17 +47,18 @@ class RNN(Algorithm):
 		maxsig = max(signals)
 		maxsigstock = self.securities[signals.index(maxsig)]
 		if maxsig > 0.4:
-			if maxsigstock not in self.stocks:
+			if maxsigstock != self.heldstock:
 				self.sellall(verbose=True)
 			self.orderpercent(maxsigstock,1,verbose=True)
-		elif maxsig < 0.2:
+			self.heldstock = maxsigstock
+		elif self.heldstock in self.stocks and signals[self.securities.index(self.heldstock)] < 0.1:
 			self.sellall(verbose=True)
+			self.heldstock = None
 		self.stopsell(maxsigstock,-0.01)
 
 
 	def indicator(self,stock,length=1,skip=0):
 		dataX, _ = self.getdata(stock,length,skip)
-		import pdb; pdb.set_trace()
 		with self.graph.as_default():
 			return self.model.predict(dataX)[:,0]
 
@@ -70,9 +72,7 @@ class RNN(Algorithm):
 		self.model.save_weights(self.weights_path)
 
 
-	def test(self):
-		length = 200
-		skip = 0
+	def test(self,length=10,skip=0):
 		predicted = self.indicator(stock="SPY",length=length,skip=skip)
 		actual = self.percentchange(stock="SPY",length=length+skip) * 100
 		if skip != 0:
@@ -141,15 +141,15 @@ def train():
 
 def test():
 	algo = RNN()
-	algo.test()
+	algo.test(length=500,skip=0)
 
 def predict():
 	algo = RNN()
-	print("Percent Change Tomorrow: ", algo.indicator("SPY")[0])
+	print("Percent Change Tomorrow: ", algo.indicator("SPY",length=2,skip=-1))
 
 def backtest():
-	algo = backtester(RNN())
-	algo.start(startdate=(1,1,2015))
+	algo = backtester(RNN(),capital=500)
+	algo.start(startdate=(25,3,2018))
 	Manager.gui(algo)
 	import code; code.interact(local=locals())
 

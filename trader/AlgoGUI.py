@@ -156,7 +156,7 @@ class Attributes(Text):
     dontshow = set(
         ['minutesago', 'daysago', 'logging', 'chartday', 'chartdaytimes', 'chartminute', 'running', 'benchmark', \
          'chartminutetimes', 'cache', 'startingcapital', 'cash', 'value', 'stocks', 'times', 'datetime', 'openorders', \
-         'stoplosses', 'stopgains', 'alpha', 'beta', 'maxdrawdown', 'volatility', 'sharpe','exptime'])
+         'stoplosses', 'stopgains', 'limithigh', 'limitlow', 'alpha', 'beta', 'maxdrawdown', 'volatility', 'sharpe','exptime'])
 
     def __init__(self, master, source, bg='sea green'):
         Text.__init__(self, master, bg=bg, wrap=WORD)

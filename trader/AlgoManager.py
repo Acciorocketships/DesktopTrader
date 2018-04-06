@@ -245,22 +245,27 @@ class Manager:
         desktoptrader = app.Gui(algo)
         desktoptrader.mainloop()
 
-# High Priority
-# TODO: TEST that it keeps placing buy order when waiting for sell to go through
-
-# Medium priority
-# TODO: Update buy function. Robinhood can only buy with 95% of your current cash
-# TODO: Use yahoo-finance data when alphavantage fails
-# TODO: Comment functions that don't have descriptions
-# TODO: load and save data when closed/opened
-# TODO: Avoid running every second and logging when not in market hours
-# TODO: Use daily logging close in backtest for algos that run at 3:59
-# TODO: Adaptive allocations
-
-# Low Priority
-# Add support for more brokers
-# TODO: Add python3 type checking to functions
-# TODO: Prevent day trades, Combine concurrent orders for same stock
 
 if __name__ == '__main__':
     import code; code.interact(local=locals())
+
+
+# High Priority
+# TODO: load and save data when closed/opened with pickle https://www.thoughtco.com/using-pickle-to-save-objects-2813661
+
+
+# Medium priority
+# TODO: Avoid running every second and logging when not in market hours
+# TODO: Adaptive allocations
+# TODO: Fix closing gui update issue
+
+
+# Low Priority
+# TODO: Comment functions that don't have descriptions
+# TODO: Add support for more brokers
+# TODO: Use daily logging close in backtest for algos that run at 3:59
+# TODO: Use yahoo-finance data when alphavantage fails
+# TODO: Add python3 type checking to functions
+# TODO: Prevent day trades, Combine concurrent orders for same stock
+
+

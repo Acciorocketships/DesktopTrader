@@ -9,5 +9,5 @@ pytrends
 matplotlib
 h5py
 
-tkinter
-https://github.com/Jamonek/Robinhood
+# tkinter (apt-get install python-tk)
+# https://github.com/Jamonek/Robinhood (git clone, pip install .)

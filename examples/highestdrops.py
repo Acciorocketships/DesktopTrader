@@ -1,20 +1,22 @@
-import trader.AlgoManager as AM
-import trader.Algorithm as Alg
+import os, sys
+sys.path.append(os.path.dirname(os.path.realpath("")))
+from trader.AlgoManager import *
+from trader.Algorithm import *
 import code
 import datetime
 from queue import PriorityQueue
 
 
-class Drops(Alg.Algorithm):
+class Drops(Algorithm):
 
     def initialize(self):
         # Constants and Class Variables
-        self.benchmark = "SPY"
         self.queue = PriorityQueue()
         self.watchlist = {0: [], 1: [], 2: []}
         self.percdiff = {}
         # Variables that the user can tune
-        self.stocksymbols = ["FB","XIV","MSFT","ARKK"] # The stocks that this algorithm will trade
+        self.stocksymbols = ["FB","SVXY","MSFT","ARKK"] # The stocks that this algorithm will trade
+        self.benchmark = self.stocksymbols
         self.swaps = {} # If you want to monitor a stock but buy the leveraged version, add swaps["normal"] = "leveraged"
         self.stockstohold = 1 # Number of stocks to hold at a time
         self.sellifbetterdeal = True # If you are holding a stock but another one drops even further, setting this to true will sell your current stock and buy the new one
@@ -25,8 +27,7 @@ class Drops(Alg.Algorithm):
         self.watchlist[0] = []
         for stock in self.stocks:
             if self.macd(stock=stock, interval='daily')[0] < 0:
-                print(("selling " + stock))
-                self.orderpercent(stock,0)
+                self.orderpercent(stock,0,verbose=True)
         for stock in self.stocksymbols:
             change = self.percentchange(stock=stock, interval='daily')[0]
             self.queue.put((change, stock))
@@ -42,20 +43,20 @@ class Drops(Alg.Algorithm):
                 if self.sellifbetterdeal:
                     for heldstock in self.stocks:
                         if self.percentchange(stock=stock, interval='daily')[0] < self.percdiff[heldstock]:
-                            self.orderpercent(heldstock,0)
+                            self.orderpercent(heldstock,0,verbose=True)
                             break
                     self.percdiff[stock] = self.percentchange(stock=stock, interval='daily')[0]
                 if stock in self.swaps:
                     stock = self.swaps[stock]
-                print(("buying " + stock))
                 counter += 1
-                self.orderpercent(stock,1.0/self.stockstohold)
+                self.orderpercent(stock,1.0/self.stockstohold,verbose=True)
+                self.stopsell(stock,-0.01)
                 if counter >= self.stockstohold:
                     break
 
 
 if __name__ == '__main__':
     algo = Drops(times=['every day'])
-    algoback = Alg.backtester(algo)
+    algoback = backtester(algo)
     algoback.start(startdate=(1, 1, 2017))
-    AM.Manager.gui(algoback)
+    Manager.gui(algoback)
