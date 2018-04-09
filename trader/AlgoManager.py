@@ -2,7 +2,9 @@ import math
 import code
 import trader.tradingdays
 from functools import reduce
-import trader.AlgoGUI as app
+import trader.AlgoGUI as Alg
+import trader.ManagerGUI as Man
+from trader.Algorithm import *
 
 
 class Manager:
@@ -114,7 +116,13 @@ class Manager:
 
     # Opens GUI of all algorithms in the manager
     def gui(self):
-        desktoptrader = man.Gui(self)
+        desktoptrader = Man.Gui(self)
+        desktoptrader.mainloop()
+
+    # Opens the GUI to visualize the Algorithm's performance (also works with Backtests)
+    @staticmethod
+    def algogui(algo):
+        desktoptrader = Alg.Gui(algo)
         desktoptrader.mainloop()
 
     # Graphs portfolio performance
@@ -239,11 +247,6 @@ class Manager:
         self.chartday.append(self.value)
         self.chartdaytimes.append(datetime.datetime.now())
 
-    # Opens the GUI to visualize the Algorithm's performance (also works with Backtests)
-    @staticmethod
-    def gui(algo):
-        desktoptrader = app.Gui(algo)
-        desktoptrader.mainloop()
 
 
 if __name__ == '__main__':

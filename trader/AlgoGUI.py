@@ -1,4 +1,4 @@
-import trader.Algorithm as alg
+from trader.Algorithm import *
 from tkinter import *
 import matplotlib
 
@@ -36,10 +36,10 @@ class Gui(Frame):
         self.stocks = None
         self.stats = None
         self.plotres = StringVar();
-        if self.algo.logging == '1min':
-            self.plotres.set('minute')
-        else:
+        if isinstance(self.algo, Backtester) and self.algo.logging == 'daily':
             self.plotres.set('day')
+        else:
+            self.plotres.set('minute')
         self.plotres.trace("u", self.update())
         # Layout
         self.layout(self)
@@ -117,7 +117,7 @@ class Stats(Text):
     def update(self):
         self.config(state=NORMAL)
         self.delete(1.0, END)
-        if isinstance(self.source, alg.Backtester):
+        if isinstance(self.source, Backtester):
             self.insert(END, 'Date: ' + str(self.source.datetime) + '\n')
         else:
             self.insert(END, 'Date: ' + str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")) + '\n')
@@ -143,7 +143,7 @@ class Stocks(Text):
         self.config(state=NORMAL)
         self.delete(1.0, END)
         for stock, amount in self.source.stocks.items():
-            if isinstance(self.source, alg.Backtester):
+            if isinstance(self.source, Backtester):
                 self.insert(END, str(stock) + ':  ' + str(int(amount)) + '  $' + str(
                     self.source.history(stock, interval=self.source.logging)[0].item()) + '\n')
             else:
@@ -168,7 +168,7 @@ class Attributes(Text):
         if type(self.source) == list:
             for item in source:
                 self.insert(END, str(item))
-        elif isinstance(self.source, alg.Algorithm):
+        elif isinstance(self.source, Algorithm):
             for name, value in self.source.__dict__.items():
                 if name not in Attributes.dontshow:
                     self.insert(END, (" " + str(name) + ": " + str(value)) + "\n")
@@ -192,7 +192,7 @@ class Graph(FigureCanvasTkAgg):
         self.mainplot.cla()
 
     def plotbenchmark(self, algo):
-        if isinstance(algo, alg.Backtester) and algo.benchmark is not None:
+        if isinstance(algo, Backtester) and algo.benchmark is not None:
             benchmarks = algo.benchmark[:]
             if type(algo.benchmark) == str:
                 benchmarks = [benchmarks]

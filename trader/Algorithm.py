@@ -81,9 +81,7 @@ class Algorithm(object):
     def run(self):
         pass
 
-
     ### PRIVATE METHODS ###
-
 
     # Update function called every second
     def updatetick(self):
@@ -192,10 +190,7 @@ class Algorithm(object):
             currentdateidx = len(dateidxs)-1
         return currentdateidx - self.nearestidx(startdate, dateidxs, lastchecked=-currentdateidx)
 
-
     ### PUBLIC METHODS ###
-
-
 
     # Switches from live trading to paper trading
     # If self.running is False, the algorithm will automatically paper trade
@@ -281,7 +276,6 @@ class Algorithm(object):
             elif amount < 0:
                 print( "Selling " + str(amount) + " shares of " + stock + " at $" + str(cost))
 
-
     # Buy or sell to reach a target percent of the algorithm's total allocation
     def orderpercent(self, stock, percent, verbose=False):
         cost = self.quote(stock)
@@ -310,9 +304,7 @@ class Algorithm(object):
             sym = simplejson.load(f)
         return sym
 
-
     ### HISTORY AND INDICATORS ###
-
 
     # Uses broker to get the current price of a stock
     # stock: stock symbol (string)
