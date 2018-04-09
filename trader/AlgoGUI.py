@@ -36,7 +36,10 @@ class Gui(Frame):
         self.stocks = None
         self.stats = None
         self.plotres = StringVar();
-        self.plotres.set('minute')
+        if self.algo.logging == '1min':
+            self.plotres.set('minute')
+        else:
+            self.plotres.set('day')
         self.plotres.trace("u", self.update())
         # Layout
         self.layout(self)
@@ -45,14 +48,10 @@ class Gui(Frame):
     def update(self):
         if self.graph is not None:
             self.graph.clear()
-            if isinstance(self.algo, alg.Backtester):
-                self.graph.plotbenchmark(self.algo)
+            if self.plotres.get() == 'minute':
+                self.graph.plot(self.algo.chartminutetimes, self.algo.chartminute)
+            elif self.plotres.get() == 'day':
                 self.graph.plot(self.algo.chartdaytimes, self.algo.chartday)
-            elif isinstance(self.algo, alg.Algorithm):
-                if self.plotres.get() == 'minute':
-                    self.graph.plot(self.algo.chartminutetimes, self.algo.chartminute)
-                elif self.plotres.get() == 'day':
-                    self.graph.plot(self.algo.chartdaytimes, self.algo.chartday)
         if self.attributes is not None:
             self.attributes.update()
         if self.stocks is not None:
@@ -67,7 +66,7 @@ class Gui(Frame):
         add(graphframe, root, 0, 0, colspan=2)
         graphborder = Frame(master=graphframe, padx=4, pady=4, bg='black')
         graphborder.pack(fill=BOTH, expand=True)
-        if not isinstance(self.algo, alg.Backtester):
+        if len(self.algo.chartminutetimes)>0 and len(self.algo.chartdaytimes)>0:
             # Toolbar
             toolbar = Frame(master=graphborder)
             toolbar.pack(side=BOTTOM, fill=X)

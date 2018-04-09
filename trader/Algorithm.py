@@ -592,13 +592,14 @@ class Backtester(Algorithm):
 
     # Starts the backtest (calls startbacktest in a new thread)
     # Times can be in the form of datetime objects or tuples (day,month,year)
-    def start(self, startdate=datetime.datetime.today().date() - datetime.timedelta(days=14),
-              enddate=datetime.datetime.today().date()):
+    def start(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=14),
+                    enddate=datetime.datetime.today().date()):
         backtestthread = threading.Thread(target=self.startbacktest, args=(startdate, enddate))
         backtestthread.start()
 
     # Starts the backtest
-    def startbacktest(self, startdate, enddate):
+    def startbacktest(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=14),
+                            enddate=datetime.datetime.today().date()):
         if type(startdate) == tuple:
             startdate = datetime.date(startdate[2], startdate[1], startdate[0])
         if type(enddate) == tuple:
@@ -634,6 +635,16 @@ class Backtester(Algorithm):
     def updatemin(self):
         for stock in (self.stopgains.keys() | self.stoplosses.keys()):
             self.checkthresholds(stock)
+        stockvalue = 0
+        for stock, amount in list(self.stocks.items()):
+            if amount == 0:
+                del self.stocks[stock]
+                continue
+            stockvalue += self.quote(stock) * amount
+        self.value = self.cash + stockvalue
+        self.value = round(self.value, 2)
+        self.chartminute.append(self.value)
+        self.chartminutetimes.append(self.datetime)
 
     def update(self):
         stockvalue = 0
@@ -641,10 +652,7 @@ class Backtester(Algorithm):
             if amount == 0:
                 del self.stocks[stock]
                 continue
-            if self.logging == '1min':
-                stockvalue += self.history(stock, interval='1min')[0].item() * amount
-            elif self.logging == 'daily':
-                stockvalue += self.history(stock, interval='daily')[0].item() * amount
+            stockvalue += self.quote(stock) * amount
         self.value = self.cash + stockvalue
         self.value = round(self.value, 2)
         self.chartday.append(self.value)

@@ -149,7 +149,7 @@ def predict():
 
 def backtest():
 	algo = backtester(RNN(),capital=500)
-	algo.start(startdate=(25,3,2018))
+	algo.startbacktest(startdate=(25,3,2018))
 	Manager.gui(algo)
 	import code; code.interact(local=locals())
 
