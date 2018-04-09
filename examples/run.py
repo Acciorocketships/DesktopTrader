@@ -2,7 +2,7 @@ from trader.AlgoManager import *
 from rnnalgo import *
 
 if __name__ == '__main__':
-	rnnalgo = RNN()
+	rnnalgo = RNN(times=[(9,35)])
 	manager = Manager()
 	manager.assignstocks('all',rnnalgo)
 	manager.add(rnnalgo,allocation=1)

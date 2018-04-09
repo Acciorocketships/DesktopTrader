@@ -61,7 +61,7 @@ class RNN(Algorithm):
 
 
 
-	def indicator(self,stock,length=1,skip=0):
+	def indicator(self,stock,length=1,skip=-1):
 		dataX, _ = self.getdata(stock,length,skip)
 		with self.graph.as_default():
 			return self.model.predict(dataX)[:,0]
