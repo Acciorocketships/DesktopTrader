@@ -1,5 +1,3 @@
-import os, sys
-sys.path.append(os.path.dirname(os.path.realpath("")))
 from trader.AlgoManager import *
 from trader.Algorithm import *
 from keras.models import Sequential
@@ -17,6 +15,8 @@ class RNN(Algorithm):
 		self.securities = ["QQQ", "ARKK", "SVXY"]
 		self.sec = 'SPY'
 		self.heldstock = None
+		self.signals = []
+		self.lastrun = None
 		self.benchmark = self.securities
 		self.lookback = 3
 		self.weights_path = 'rnn_weights.h5'
@@ -55,6 +55,10 @@ class RNN(Algorithm):
 			self.sellall(verbose=True)
 			self.heldstock = None
 		self.stopsell(maxsigstock,-0.01)
+		# Extra GUI Variables
+		self.signals = signals
+		self.lastrun = self.datetime
+
 
 
 	def indicator(self,stock,length=1,skip=0):
@@ -145,7 +149,7 @@ def test():
 
 def predict():
 	algo = RNN()
-	print("Percent Change Tomorrow: ", algo.indicator("SPY",length=2,skip=-1))
+	print("Percent Change Today: ", algo.indicator("SPY",length=2,skip=-1))
 
 def backtest():
 	algo = backtester(RNN(),capital=500)

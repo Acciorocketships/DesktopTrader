@@ -1,3 +1,4 @@
+import pkg_resources
 import datetime
 import time
 import threading
@@ -20,7 +21,7 @@ from pytrends.request import TrendReq
 broker = 'robinhood'
 
 creds = []
-credential_file = "creds.txt"
+credential_file = pkg_resources.resource_filename(__name__, "creds.txt")
 try:
     with open(credential_file, "r") as f:
         creds = f.readlines()
@@ -300,7 +301,8 @@ class Algorithm(object):
     # Returns a list of symbols for high-volume stocks tradable on Robinhood
     def symbols(self):
         import simplejson
-        with open('symbols.txt', 'r') as f:
+        symbolstxt = pkg_resources.resource_filename(__name__, 'symbols.txt')
+        with open(symbolstxt, 'r') as f:
             sym = simplejson.load(f)
         return sym
 
@@ -1032,7 +1034,8 @@ def positions():
         for position in robinhoodpositions:
             name = str(requests.get(position['instrument']).json()['symbol'])
             amount = float(position['quantity'])
-            positions[name] = amount
+            if amount != 0:
+                positions[name] = amount
     return positions
 
 # Returns dictionary of

@@ -10,4 +10,4 @@ matplotlib
 h5py
 
 # tkinter (apt-get install python-tk)
-# https://github.com/Jamonek/Robinhood (git clone, pip install .)
+# https://github.com/Jamonek/Robinhood (git clone, sudo -H pip3 install .)
