@@ -1,5 +1,6 @@
 import math
 import code
+import pickle
 import trader.tradingdays
 from functools import reduce
 import trader.AlgoGUI as Alg
@@ -48,11 +49,13 @@ class Manager:
                     else:
                         self.algo_times[datetime.time(hour, 0)] = [algorithm]
             elif time == 'every day':
-                if datetime.time(9, 30) in self.algo_times:
-                    self.algo_times[datetime.time(9, 30)] += [algorithm]
+                if datetime.time(9, 31) in self.algo_times:
+                    self.algo_times[datetime.time(9, 31)] += [algorithm]
                 else:
-                    self.algo_times[datetime.time(9, 30)] = [algorithm]
+                    self.algo_times[datetime.time(9, 31)] = [algorithm]
             elif type(time) is tuple:
+            	if time[0] < 7:
+            		time = (time[0]+12,time[1])
                 if datetime.time(time[0], time[1]) in self.algo_times:
                     self.algo_times[datetime.time(time[0], time[1])] += [algorithm]
                 else:
@@ -161,7 +164,8 @@ class Manager:
             try:
                 currenttime = datetime.time(datetime.datetime.now().hour, datetime.datetime.now().minute)
                 currentday = datetime.datetime.today().date()
-                if len(list(tradingdays.NYSE_tradingdays(a=currentday,b=currentday+datetime.timedelta(days=1)))) > 0:
+                if len(list(tradingdays.NYSE_tradingdays(a=currentday,b=currentday+datetime.timedelta(days=1)))) > 0 and \
+                   currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
                     for algo in list(self.algo_alloc.keys()):
                         algo.updatetick()
                     self.updatetick()
@@ -178,8 +182,8 @@ class Manager:
                         if currenttime in self.algo_times:
                             for algo in self.algo_times[currenttime]:
                                 algo.run()
-            except:
-                pass
+            except Exception as err:
+                print(err)
 
     # Private Method
     # Called every tick
@@ -248,6 +252,18 @@ class Manager:
         self.chartdaytimes.append(datetime.datetime.now())
 
 
+def save(manager_obj,path='managersave'):
+ 	fh = open(path,'wb')
+ 	pickle.dump(manager_obj,path)
+ 	return path
+
+def load(path='managersave')
+	fh = open(path,'rb')
+	manager = pickle.load(fh)
+	return manager
+
+
+
 
 if __name__ == '__main__':
     import code; code.interact(local=locals())
@@ -261,6 +277,7 @@ if __name__ == '__main__':
 # TODO: Avoid running every second and logging when not in market hours
 # TODO: Adaptive allocations
 # TODO: Fix closing gui update issue
+# TODO: Add benchmarks to live
 
 
 # Low Priority

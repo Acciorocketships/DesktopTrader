@@ -61,7 +61,7 @@ class RNN(Algorithm):
 
 
 
-	def indicator(self,stock,length=1,skip=-1):
+	def indicator(self,stock,length=1,skip=0):
 		dataX, _ = self.getdata(stock,length,skip)
 		with self.graph.as_default():
 			return self.model.predict(dataX)[:,0]
@@ -152,8 +152,8 @@ def predict():
 	print("Percent Change Today: ", algo.indicator("SPY",length=2,skip=-1))
 
 def backtest():
-	algo = backtester(RNN(),capital=500)
-	algo.startbacktest(startdate=(25,3,2018))
+	algo = backtester(RNN(),capital=1000)
+	algo.startbacktest(startdate=(1,1,2017))
 	Manager.algogui(algo)
 	import code; code.interact(local=locals())
 

@@ -2,6 +2,7 @@ import pkg_resources
 import datetime
 import time
 import threading
+import pickle
 from Robinhood import Robinhood
 from alpha_vantage.timeseries import TimeSeries
 from alpha_vantage.techindicators import TechIndicators
@@ -1060,3 +1061,19 @@ def portfoliodata():
     portfolio["cash"] = round(portfolio["cash"],2)
     portfolio["day change"] = round(portfolio["day change"],2)
     return portfolio
+
+
+def save_algo(algo_obj,path=None):
+    if path is None:
+        path = algo_obj.__class__.__name__ + "_save"
+    fh = open(path,'wb')
+    pickle.dump(algo_obj,path)
+    return path
+
+def load_algo(path):
+    fh = open(path,'rb')
+    algo = pickle.load(fh)
+    return algo
+
+
+

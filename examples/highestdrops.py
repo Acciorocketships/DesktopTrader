@@ -56,5 +56,5 @@ class Drops(Algorithm):
 if __name__ == '__main__':
     algo = Drops(times=['every day'])
     algoback = backtester(algo)
+    Manager.algogui(algoback)
     algoback.start(startdate=(1, 1, 2017))
-    Manager.gui(algoback)
