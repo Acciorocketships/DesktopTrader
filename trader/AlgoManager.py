@@ -54,8 +54,8 @@ class Manager:
                 else:
                     self.algo_times[datetime.time(9, 31)] = [algorithm]
             elif type(time) is tuple:
-            	if time[0] < 7:
-            		time = (time[0]+12,time[1])
+                if time[0] < 7:
+                    time = (time[0]+12,time[1])
                 if datetime.time(time[0], time[1]) in self.algo_times:
                     self.algo_times[datetime.time(time[0], time[1])] += [algorithm]
                 else:
@@ -252,17 +252,17 @@ class Manager:
         self.chartdaytimes.append(datetime.datetime.now())
 
 
-def save(manager_obj,path='managersave'):
+
+def save_manager(manager_obj,path='manager_save'):
  	fh = open(path,'wb')
  	pickle.dump(manager_obj,path)
  	return path
 
-def load(path='managersave')
+
+def load_manager(path='manager_save'):
 	fh = open(path,'rb')
 	manager = pickle.load(fh)
 	return manager
-
-
 
 
 if __name__ == '__main__':
