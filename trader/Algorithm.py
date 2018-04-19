@@ -135,15 +135,16 @@ class Algorithm(object):
     def riskmetrics(self):
         benchmark = self.benchmark if type(self.benchmark)==str else self.benchmark[0]
         changes = [(current - last) / last for last, current in zip(self.chartday[:-1], self.chartday[1:])]
-        benchmarkchanges = self.percentchange(benchmark, length=len(changes))
-        changes = pd.DataFrame({'date':benchmarkchanges._index,'changes':changes})
-        changes = changes.set_index('date')['changes']
-        self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
-        self.alpha = round(self.alpha,3)
-        self.beta = round(self.beta,3)
-        self.sharpe = round(sharpe_ratio(changes),3)
-        self.volatility = round(annual_volatility(changes),3)
-        self.maxdrawdown = round(max_drawdown(changes),3)
+        if len(changes) > 0:
+            benchmarkchanges = self.percentchange(benchmark, length=len(changes))
+            changes = pd.DataFrame({'date':benchmarkchanges._index,'changes':changes})
+            changes = changes.set_index('date')['changes']
+            self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
+            self.alpha = round(self.alpha,3)
+            self.beta = round(self.beta,3)
+            self.sharpe = round(sharpe_ratio(changes),3)
+            self.volatility = round(annual_volatility(changes),3)
+            self.maxdrawdown = round(max_drawdown(changes),3)
 
     # Returns the list of datetime objects associated with the entries of a pandas dataframe
     def dateidxs(self, arr):
@@ -1055,8 +1056,8 @@ def portfoliodata():
             portfolio["cash"] = portfolio["value"] - float(robinhoodportfolio['extended_hours_market_value'])
         else:
             portfolio["cash"] = portfolio["value"] - float(robinhoodportfolio['market_value'])
-        portfolio["day change"] = 100 * (portfolio["value"] - float(robinhoodportfolio['adjusted_equity_previous_close'])) / \
-                                                              float(robinhoodportfolio['adjusted_equity_previous_close'])
+        portfolio["day change"] = (portfolio["value"] - float(robinhoodportfolio['adjusted_equity_previous_close'])) / \
+                                                        float(robinhoodportfolio['adjusted_equity_previous_close'])
     portfolio["value"] = round(portfolio["value"],2)
     portfolio["cash"] = round(portfolio["cash"],2)
     portfolio["day change"] = round(portfolio["day change"],2)
