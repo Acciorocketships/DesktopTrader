@@ -259,7 +259,7 @@ class Algorithm(object):
             if amount > 0:
                 buy(stock, amount)
             elif amount < 0:
-                sell(stock, amount)
+                sell(stock, abs(amount))
             for i in range(100):
                 newamount = positions().get(stock,0)
                 if newamount != currentamount:
@@ -1017,7 +1017,7 @@ def sell(stock, amount):
     if broker == 'robinhood':
         stockobj = robinhood.instruments(stock)[0]
         try:
-            response = robinhood.place_sell_order(stockobj, amount)
+            response = robinhood.place_sell_order(stockobj, abs(amount))
             return response
         except Exception as e:
             print("Sell Order Failed", e)
