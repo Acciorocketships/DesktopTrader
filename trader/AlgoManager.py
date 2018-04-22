@@ -112,6 +112,7 @@ class Manager:
         for algo, (startingcapital, cash) in newcash.items():
             algo.startingcapital = startingcapital
             algo.cash = cash
+            algo.updatetick()
 
     # Keep algorithm manager running and enter interactive mode
     # Allows you to view and change class attributes from the command line

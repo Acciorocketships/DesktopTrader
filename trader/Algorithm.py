@@ -11,6 +11,7 @@ import numpy as np
 from empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio
 import math
 import requests
+import smtplib
 
 import trader.tradingdays as tradingdays
 from pytrends.request import TrendReq
@@ -30,6 +31,13 @@ except IOError:
     creds.append(input('Robinhood Username: '))
     creds.append(input('Robinhood Password: '))
     creds.append(input('Alpha Vantage API Key: '))
+    email_address = input('Email Address: ')
+    if '@' in email_address:
+        creds.append(email_address)
+        creds.append(input('Email Password: '))
+    else:
+        creds.append("None")
+        creds.append("None")
     with open(credential_file, "w") as f:
         for l in creds:
             f.write(l + "\n")
@@ -237,7 +245,7 @@ class Algorithm(object):
     # stock: stock symbol (string)
     # amount: number of shares of that stock to order (+ for buy, - for sell)
     # verbose: prints out order
-    def order(self, stock, amount, verbose=False):
+    def order(self, stock, amount, verbose=False, notify_address=None):
         # Guard condition for sell
         if amount < 0 and (-amount > self.stocks.get(stock,0)):
             print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
@@ -273,6 +281,16 @@ class Algorithm(object):
         else:
             self.cash -= cost * amount
             self.stocks[stock] = self.stocks.get(stock,0) + amount
+        # Send Notification
+        if notify_address != None:
+            if amount > 0:
+                message = self.datetime.strftime("%Y-%m-%d %H|%M|%S") + " - " + self.__class__.__name__ + " buying " + str(amount) + " shares of " + stock + " at $" + str(cost)
+            else:
+                message = self.datetime.strftime("%Y-%m-%d %H|%M|%S") + " - " + self.__class__.__name__ + " selling " + str(abs(amount)) + " shares of " + stock + " at $" + str(cost)
+            if type(notify_address)==str:
+                self.notify(message,notify_address)
+            elif notify_address:
+                self.notify(message)
         if verbose:
             if amount > 0:
                 print( "Buying " + str(amount) + " shares of " + stock + " at $" + str(cost))
@@ -280,7 +298,9 @@ class Algorithm(object):
                 print( "Selling " + str(amount) + " shares of " + stock + " at $" + str(cost))
 
     # Buy or sell to reach a target percent of the algorithm's total allocation
-    def orderpercent(self, stock, percent, verbose=False):
+    # verbose = True to print out whenever an order is made
+    # notify = "example@gmail.com" to send notification when an order is made (if True, it sends to yourself)
+    def orderpercent(self, stock, percent, verbose=False, notify_address=None):
         cost = self.quote(stock)
         currentpercent = 0.0
         if stock in self.stocks:
@@ -289,11 +309,11 @@ class Algorithm(object):
         if percentdiff < 0:
             # Min of (# required to reach target percent) and (# of that stock owned)
             amount = min( round(-percentdiff * self.value / cost), self.stocks.get(stock,0) )
-            return self.order(stock, -amount, verbose)
+            return self.order(stock, -amount, verbose, notify_address)
         else:
             # Min of (# required to reach target percent) and (# that you can buy with 95% of your available cash)
             amount = min( math.floor(percentdiff * self.value / cost), math.floor(0.95 * self.cash / cost) )
-            return self.order(stock, amount, verbose)
+            return self.order(stock, amount, verbose, notify_address)
 
     # Sells all held stocks
     def sellall(self, verbose=False):
@@ -541,6 +561,47 @@ class Algorithm(object):
         return pytrends.interest_over_time()[query]
 
 
+    # Send a string or a dictionary to an email or a phone number
+    def notify(self, message="", recipient=""):
+        # Send email to yourself by default
+        if len(recipient) == 0:
+            recipient = creds[3]
+        # Send current state of algorithm by default
+        if len(message) == 0:
+            exclude = {"times","chartminute","chartminutetimes","chartday","chartdaytimes","cache","stoplosses","stopgains","limitlow","limithigh"}
+            message = {key: value for (key,value) in self.__dict__.items() if key not in exclude}
+        if type(message) == dict:
+            message = self.dict2string(message)
+        # If recipient is an email address
+        if "@" in recipient:
+            gmail_user = creds[3]
+            gmail_password = creds[4]
+            try:
+                server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+                server.ehlo()
+                server.login(gmail_user, gmail_password)
+                server.sendmail(gmail_user, recipient, message)
+                server.close()
+            except:
+                print("Failed to send notification")
+
+
+    # Converts a dictionary to a string
+    def dict2string(self, dictionary, spaces=0):
+        string = ""
+        if type(dictionary) == dict:
+            for (key,value) in dictionary.items():
+                if type(value) != dict and type(value) != list:
+                    string += (" " * spaces*4) + str(key) + " - " + str(value) + "\n"
+                else:
+                    string += (" " * spaces*4) + str(key) + " - \n"
+                    string += self.dict2string(value,spaces+1)
+        elif type(dictionary) == list:
+            for item in dictionary:
+                string += self.dict2string(item,spaces+1)
+        else:
+            string += (" " * spaces*4) + str(dictionary) + "\n"
+        return string
 
 
 
