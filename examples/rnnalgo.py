@@ -49,7 +49,7 @@ class RNN(Algorithm):
 		if maxsig > 0.4:
 			if maxsigstock != self.heldstock:
 				self.sellall(verbose=True)
-			self.orderpercent(maxsigstock,1,verbose=True)
+			self.orderpercent(maxsigstock,1,verbose=True,notify_address='acciorocketships@gmail.com')
 			self.heldstock = maxsigstock
 		elif self.heldstock in self.stocks and signals[self.securities.index(self.heldstock)] < 0.1:
 			self.sellall(verbose=True)

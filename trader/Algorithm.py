@@ -1093,7 +1093,7 @@ def buy(stock, amount):
                 response = robinhood.place_buy_order(stockobj, amount)
                 return response
             except Exception as e:
-                print("Buy Order Failed", e)
+                print("Buy order for " + str(amount) + " shares of " + stock + " failed. Do you have outstanding orders? Do you have enough cash?")
                 time.sleep(tries)
 
 # Input: stock symbol as a string, number of shares as an int
@@ -1104,7 +1104,7 @@ def sell(stock, amount):
             response = robinhood.place_sell_order(stockobj, abs(amount))
             return response
         except Exception as e:
-            print("Sell Order Failed", e)
+            print("Sell order for " + str(amount) + " shares of " + stock + " failed. Do you have outstanding orders? Do you have enough cash?")
 
 # Input: stock symbol as a string
 # Returns: share price as a float
