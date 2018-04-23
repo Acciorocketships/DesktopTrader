@@ -183,7 +183,7 @@ class Manager:
                                 algo.updateday()
                         if currenttime in self.algo_times:
                             for algo in self.algo_times[currenttime]:
-                                algo.run()
+                                algo.runalgo()
             except Exception as err:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]

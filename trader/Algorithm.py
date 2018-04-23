@@ -1,3 +1,4 @@
+import os, sys
 import pkg_resources
 import datetime
 import time
@@ -90,6 +91,15 @@ class Algorithm(object):
 
     def run(self):
         pass
+
+    def runalgo(self):
+        try:
+            self.run()
+        except Exception as err:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(err)
+            print(exc_type, fname, exc_tb.tb_lineno)
 
     ### PRIVATE METHODS ###
 
@@ -572,10 +582,10 @@ class Algorithm(object):
             message = {key: value for (key,value) in self.__dict__.items() if key not in exclude}
         if type(message) == dict:
             message = self.dict2string(message)
+        gmail_user = creds[3]
+        gmail_password = creds[4]
         # If recipient is an email address
         if "@" in recipient:
-            gmail_user = creds[3]
-            gmail_password = creds[4]
             try:
                 server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
                 server.ehlo()
@@ -583,7 +593,20 @@ class Algorithm(object):
                 server.sendmail(gmail_user, recipient, message)
                 server.close()
             except:
-                print("Failed to send notification")
+                print("Failed to send email notification")
+        # If recipient is an phone number
+        else:
+            textdomains = ["@tmomail.net","@vtext.com","@mms.att.net","@pm.sprint.com"]
+            try:
+                server = smtplib.SMTP('smtp.gmail.com',587)
+                server.starttls()
+                server.login(gmail_user, gmail_password)
+                for domain in textdomains:
+                    server.sendmail(gmail_user, recipient+domain, message)
+                server.close()
+            except Exception as e:
+                print(e, "Failed to send sms notification")
+
 
 
     # Converts a dictionary to a string
