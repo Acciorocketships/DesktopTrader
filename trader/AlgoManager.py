@@ -228,7 +228,7 @@ class Manager:
             for stock in stocks:
                 algo.stocks[stock] = (self.stocks[stock] - self.numstockinalgos(stock, algo))
         elif type(stocks) == dict:
-            for stock, amount in stocks:
+            for (stock, amount) in stocks.items():
                 algo.stocks[stock] = (min(amount, self.stocks[stock]) - self.numstockinalgos(stock, algo))
         else:
             algo.stocks[stocks] = (self.stocks[stocks] - self.numstockinalgos(stocks, algo))
