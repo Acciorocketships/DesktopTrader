@@ -164,26 +164,35 @@ class Manager:
         while self.running:
             time.sleep(1)
             try:
+                # Get time and day
                 currenttime = datetime.time(datetime.datetime.now().hour, datetime.datetime.now().minute)
                 currentday = datetime.datetime.today().date()
+                # If trading is open
                 if len(list(tradingdays.NYSE_tradingdays(a=currentday,b=currentday+datetime.timedelta(days=1)))) > 0 and \
                    currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
+                   # Update tick
                     for algo in list(self.algo_alloc.keys()):
                         algo.updatetick()
                     self.updatetick()
                     if currenttime != lasttime:
-                        lasttime = currenttime
+                        # Update minute
                         for algo in list(self.algo_alloc.keys()):
                             algo.updatemin()
                         self.updatemin()
+                        # Update day
                         if currentday != lastday:
                             lastday = currentday
                             self.updateday()
                             for algo in list(self.algo_alloc.keys()):
                                 algo.updateday()
-                        if currenttime in self.algo_times:
-                            for algo in self.algo_times[currenttime]:
-                                algo.runalgo()
+                        # Run algorithms
+                        while lasttime != currenttime:
+                            # Go through any minutes that might have been missed
+                            lasttime = (lasttime[0],lasttime[1]+1) if (lasttime[1] != 59) else (lasttime[0]+1,0)
+                            if lasttime in self.algo_times:
+                                # Run all algorithms associated with that time
+                                for algo in self.algo_times[lasttime]:
+                                    algo.runalgo()
             except Exception as err:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
