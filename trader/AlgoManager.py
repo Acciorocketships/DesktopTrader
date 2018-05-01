@@ -120,15 +120,23 @@ class Manager:
         code.interact(local={**locals(),**vars})
 
     # Opens GUI of all algorithms in the manager
-    def gui(self):
+    def gui(self,thread=True):
         desktoptrader = Man.Gui(self)
-        desktoptrader.mainloop()
+        if thread:
+            guithread = threading.Thread(target=desktoptrader.mainloop)
+            guithread.start()
+        else:
+            desktoptrader.mainloop()
 
     # Opens the GUI to visualize the Algorithm's performance (also works with Backtests)
     @staticmethod
-    def algogui(algo):
+    def algogui(algo,thread=True):
         desktoptrader = Alg.Gui(algo)
-        desktoptrader.mainloop()
+        if thread:
+            guithread = threading.Thread(target=desktoptrader.mainloop)
+            guithread.start()
+        else:
+            desktoptrader.mainloop()
 
     # Graphs portfolio performance
     # Press 'q' to exit

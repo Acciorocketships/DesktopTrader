@@ -678,19 +678,19 @@ class Backtester(Algorithm):
 
 	# Starts the backtest (calls startbacktest in a new thread)
 	# Times can be in the form of datetime objects or tuples (day,month,year)
-	def start(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=14),
+	def start(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=12),
 					enddate=datetime.datetime.today().date()):
 		backtestthread = threading.Thread(target=self.startbacktest, args=(startdate, enddate))
 		backtestthread.start()
 
 	# Starts the backtest
-	def startbacktest(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=14),
+	def startbacktest(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=12),
 							enddate=datetime.datetime.today().date()):
 		if type(startdate) == tuple:
 			startdate = datetime.date(startdate[2], startdate[1], startdate[0])
 		if type(enddate) == tuple:
 			enddate = datetime.date(enddate[2], enddate[1], enddate[0])
-		if (datetime.datetime.today().date() - startdate) < datetime.timedelta(days=15):
+		if (datetime.datetime.today().date() - startdate) <= datetime.timedelta(days=12):
 			self.logging = '1min'
 		days = list(tradingdays.NYSE_tradingdays(a=startdate, b=enddate))
 		self.daysago = len(days) + len(list(tradingdays.NYSE_tradingdays(a=enddate, b=datetime.datetime.today().date())))
@@ -835,7 +835,7 @@ class Backtester(Algorithm):
 		return hist[datatype][idx-length+1 : idx+1]
 		
 
-	def order(self, stock, amount, verbose=False):
+	def order(self, stock, amount, verbose=False, notify_address=None):
 		# Guard condition for sell
 		if amount < 0 and (stock in self.stocks) and (-amount > self.stocks[stock]):
 			print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
@@ -859,7 +859,7 @@ class Backtester(Algorithm):
 			else:
 				print( "Selling " + str(amount) + " shares of " + stock + " at $" + str(cost))
 
-	def orderpercent(self, stock, percent, verbose=False):
+	def orderpercent(self, stock, percent, verbose=False, notify_address=None):
 		stockprice = self.quote(stock)
 		currentpercent = 0.0
 		if stock in self.stocks:

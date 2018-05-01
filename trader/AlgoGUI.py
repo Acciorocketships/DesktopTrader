@@ -1,12 +1,12 @@
 from trader.Algorithm import *
 from tkinter import *
 import matplotlib
-
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from datetime import datetime
+import time
 import numpy as np
 import code
 
@@ -17,20 +17,22 @@ class Gui(Frame):
         self.algo = algorithm
 
         if root is None:
-            window = Tk()
+            self.window = Tk()
+            self.window.protocol("WM_DELETE_WINDOW",self.close)
             # Window
-            window.title('Desktop Trader')
-            window.geometry('{}x{}'.format(1024, 576))
+            self.window.title('Desktop Trader')
+            self.window.geometry('{}x{}'.format(1024, 576))
             # Transparency
-            window.wm_attributes("-alpha", 0.95)
+            self.window.wm_attributes("-alpha", 0.95)
             #This only works on MacOSX
             if sys.platform.startswith("darwin"):
-                window.config(bg='systemTransparent')
-            Frame.__init__(self, master=window, bg='sea green', width=100, height=100, padx=5, pady=5)
+                self.window.config(bg='systemTransparent')
+            Frame.__init__(self, master=self.window, bg='sea green', width=100, height=100, padx=5, pady=5)
         else:
             Frame.__init__(self, master=root, bg='sea green', width=100, height=100, padx=5, pady=5)
         self.pack(fill=BOTH, expand=True)
         # Graph
+        self.windowisopen = True
         self.graph = None
         self.attributes = None
         self.stocks = None
@@ -40,12 +42,21 @@ class Gui(Frame):
             self.plotres.set('day')
         else:
             self.plotres.set('minute')
-        self.plotres.trace("u", self.update())
+        self.plotres.trace("u", self.update(False))
         # Layout
         self.layout(self)
-        self.after(500, self.update())
+        self.afterid = None
+        self.update()
 
-    def update(self):
+    def close(self):
+        self.windowisopen = False
+        self.after_cancel(self.afterid)
+        self.window.destroy()
+        self.quit()
+
+    def update(self,after=True):
+        if not self.windowisopen:
+            return
         if self.graph is not None:
             self.graph.clear()
             if self.plotres.get() == 'minute':
@@ -58,7 +69,8 @@ class Gui(Frame):
             self.stocks.update()
         if self.stats is not None:
             self.stats.update()
-        self.after(500, self.update)
+        if after:
+            self.afterid = self.after(250, self.update)
 
     def layout(self, root):
         # Graph
@@ -174,7 +186,6 @@ class Attributes(Text):
                     self.insert(END, (" " + str(name) + ": " + str(value)) + "\n")
         self.config(state=DISABLED)
 
-
 class Graph(FigureCanvasTkAgg):
     def __init__(self, master=None):
         plt.xkcd()
@@ -212,8 +223,8 @@ class Graph(FigureCanvasTkAgg):
                 maxy = max(y)
                 self.fig.autofmt_xdate()
                 self.draw()
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     def widget(self):
         return self.get_tk_widget()

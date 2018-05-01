@@ -7,7 +7,7 @@ from keras.regularizers import l1
 import keras.backend as K
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class RNN(Algorithm):
 
@@ -41,6 +41,7 @@ class RNN(Algorithm):
 
 
 	def run(self):
+		print(self.datetime)
 		signals = []
 		for security in self.securities:
 			signals.append(self.indicator(security)[0])
@@ -152,9 +153,10 @@ def predict():
 	print("Percent Change Today: ", algo.indicator("SPY",length=2,skip=-1))
 
 def backtest():
+	start = datetime.now() - timedelta(days=60)
 	algo = backtester(RNN(),capital=1000)
-	algo.startbacktest(startdate=(3,4,2018))
 	Manager.algogui(algo)
+	algo.startbacktest(startdate=(start.day,start.month,start.year))
 	import code; code.interact(local=locals())
 
 def debugback():
