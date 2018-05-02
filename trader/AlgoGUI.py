@@ -63,6 +63,7 @@ class Gui(Frame):
                 self.graph.plot(self.algo.chartminutetimes, self.algo.chartminute)
             elif self.plotres.get() == 'day':
                 self.graph.plot(self.algo.chartdaytimes, self.algo.chartday)
+            self.graph.plotbenchmark(self.algo)
         if self.attributes is not None:
             self.attributes.update()
         if self.stocks is not None:
@@ -130,9 +131,9 @@ class Stats(Text):
         self.config(state=NORMAL)
         self.delete(1.0, END)
         if isinstance(self.source, Backtester):
-            self.insert(END, 'Date: ' + str(self.source.datetime) + '\n')
+            self.insert(END, 'Date: ' + self.source.datetime.strftime("%Y-%m-%d %H:%M:%S") + '\n')
         else:
-            self.insert(END, 'Date: ' + str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")) + '\n')
+            self.insert(END, 'Date: ' + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + '\n')
         self.insert(END, 'Return: ' + str(round(self.source.value / self.source.startingcapital - 1,
                                                 2) if self.source.startingcapital != 0 else 0) + '\n')
         self.insert(END, 'Total Value: $' + str(self.source.value) + '\n')
@@ -190,7 +191,7 @@ class Graph(FigureCanvasTkAgg):
     def __init__(self, master=None):
         plt.xkcd()
         self.fig = plt.figure(figsize=(12, 6), dpi=100)
-        self.mainplot = self.fig.add_subplot(111)
+        self.mainplot = self.fig.add_subplot(1,1,1)
         FigureCanvasTkAgg.__init__(self, self.fig, master=master)
         self.mpl_connect('key_press_event', self.keypress)
         self.draw()
@@ -202,17 +203,17 @@ class Graph(FigureCanvasTkAgg):
     def clear(self):
         self.mainplot.cla()
 
+    # TODO: Check that benchmark datetime lines up with chardaytimes
     def plotbenchmark(self, algo):
-        if isinstance(algo, Backtester) and algo.benchmark is not None:
+        if isinstance(algo, Algorithm) and algo.benchmark is not None:
             benchmarks = algo.benchmark[:]
             if type(algo.benchmark) == str:
                 benchmarks = [benchmarks]
             for stock in benchmarks[::-1]:
-                benchmark = algo.history(stock, interval=algo.logging, length=len(
-                    algo.chartdaytimes if algo.logging == 'daily' else algo.chartminutetimes))
+                benchmark = algo.history(stock, interval=algo.logging, length=len(algo.chartdaytimes if algo.logging == 'daily' else algo.chartminutetimes))
                 benchmark = [value * algo.startingcapital / benchmark[0] for value in benchmark]
                 color = 'r-' if stock==benchmarks[0] else None
-                self.plot(algo.chartdaytimes, benchmark, color=color, fill=False)
+                self.plot(algo.chartdaytimes, benchmark, color=color)
 
     def plot(self, x, y, color='b-', fill=True):
         try:
@@ -224,7 +225,7 @@ class Graph(FigureCanvasTkAgg):
                 self.fig.autofmt_xdate()
                 self.draw()
         except Exception as e:
-            print(e)
+            pass
 
     def widget(self):
         return self.get_tk_widget()

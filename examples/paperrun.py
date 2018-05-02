@@ -3,9 +3,8 @@ from rnnalgo import *
 
 if __name__ == '__main__':
 	rnnalgo = RNN(times=['every minute'])
-	rnnalgo.papertrade()
+	rnnalgo.papertrade(cash=500)
 	manager = Manager()
-	manager.assignstocks('all',rnnalgo)
 	manager.add(rnnalgo,allocation=1)
 	manager.rebalance()
 	manager.start()

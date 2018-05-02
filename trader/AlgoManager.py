@@ -246,7 +246,7 @@ class Manager:
                 algo.stocks[stock] = (self.stocks[stock] - self.numstockinalgos(stock, algo))
         elif type(stocks) == dict:
             for (stock, amount) in stocks.items():
-                algo.stocks[stock] = (min(amount, self.stocks[stock]) - self.numstockinalgos(stock, algo))
+                algo.stocks[stock] = min(amount, self.stocks[stock]-self.numstockinalgos(stock, algo))
         else:
             algo.stocks[stocks] = (self.stocks[stocks] - self.numstockinalgos(stocks, algo))
         # Update the algo's value
