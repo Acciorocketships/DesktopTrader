@@ -167,7 +167,7 @@ class Manager:
     # Updates the data in each algorithm continuously
     # Runs each algorithm at the right time of day
     def run(self):
-        lasttime = None
+        lasttime = (9,29)
         lastday = None
         while self.running:
             time.sleep(1)
