@@ -6,6 +6,6 @@ if __name__ == '__main__':
 	rnnalgo.papertrade(cash=500)
 	manager = Manager()
 	manager.add(rnnalgo,allocation=1)
-	manager.rebalance()
 	manager.start()
+	manager.gui()
 	manager.interactive(vars=locals())

@@ -92,7 +92,10 @@ class Manager:
     # Funds become unbalanced when some algorithms outperform others
     # or algo_alloc is manually edited.
     def rebalance(self):
-        total_allocation = reduce(lambda x, y: x + y, list(self.algo_alloc.values()), 0)
+        total_allocation = 0
+        for algo, alloc in self.algo_alloc.values():
+            if not algo.running:
+                total_allocation += alloc
         if total_allocation > 1:
             raise Exception("You have allocated more than 100%% of your portfolio")
             return
@@ -103,8 +106,8 @@ class Manager:
             if cash < 0:
                 raise Exception("You are trying to allocate less than Algorithm " + 
                                 algo.__class__.__name__ + " already has in stocks.")
-                return
-            if cash > self.cash:
+                continue
+            if cash > self.cash and not algo.running:
                 raise Exception("You are trying to allocate more cash than you have to an Algorithm. " + 
                                 "Either sell those other stocks, transfer them into the algorithm "
                                 "with assignstocks(stocks,algo), or lower your allocation.")
