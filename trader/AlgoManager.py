@@ -170,7 +170,7 @@ class Manager:
     # Updates the data in each algorithm continuously
     # Runs each algorithm at the right time of day
     def run(self):
-        lasttime = (9,29)
+        lasttime = None
         lastday = None
         while self.running:
             time.sleep(1)
@@ -180,7 +180,8 @@ class Manager:
                 currentday = datetime.datetime.today().date()
                 # If trading is open
                 if len(list(tradingdays.NYSE_tradingdays(a=currentday,b=currentday+datetime.timedelta(days=1)))) > 0 and \
-                   currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
+                   currenttime >= datetime.time(9,30) and \
+                   currenttime <= datetime.time(16,0):
                    # Update tick
                     for algo in list(self.algo_alloc.keys()):
                         algo.updatetick()
@@ -197,13 +198,13 @@ class Manager:
                             for algo in list(self.algo_alloc.keys()):
                                 algo.updateday()
                         # Run algorithms
-                        while lasttime != currenttime:
-                            # Go through any minutes that might have been missed
-                            lasttime = (lasttime[0],lasttime[1]+1) if (lasttime[1] != 59) else (lasttime[0]+1,0)
+                        if lasttime != currenttime:
+                            lasttime = currenttime
                             if lasttime in self.algo_times:
                                 # Run all algorithms associated with that time
-                                for algo in self.algo_times[lasttime]:
-                                    algo.runalgo()
+                                for algo in self.algo_times[currenttime]:
+                                    algothread = threading.Thread(target=algo.runalgo)
+                                    algothread.start()
             except Exception as err:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
@@ -234,8 +235,8 @@ class Manager:
     # Moves stocks that you already hold into an algorithm
     # It will prevent you from trying to assign more of a stock than you actually own
     # stocks: Can be a list of symbols (moves all shares of each given stock),
-    # 		a dict of {symbol: shares to have in algo}, 'all' (which allocates everything),
-    # 		'none' (which removes everything), or a string of the symbol (allocates all shares)
+    #       a dict of {symbol: shares to have in algo}, 'all' (which allocates everything),
+    #       'none' (which removes everything), or a string of the symbol (allocates all shares)
     # algo: The algorithm you are moving the stocks to
     def assignstocks(self, stocks, algo):
         # Assign stocks to the algo
@@ -279,15 +280,15 @@ class Manager:
 
 
 def save_manager(manager_obj,path='manager_save'):
- 	fh = open(path,'wb')
- 	pickle.dump(manager_obj,path)
- 	return path
+    fh = open(path,'wb')
+    pickle.dump(manager_obj,path)
+    return path
 
 
 def load_manager(path='manager_save'):
-	fh = open(path,'rb')
-	manager = pickle.load(fh)
-	return manager
+    fh = open(path,'rb')
+    manager = pickle.load(fh)
+    return manager
 
 
 if __name__ == '__main__':

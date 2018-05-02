@@ -41,7 +41,7 @@ class RNN(Algorithm):
 
 
 	def run(self):
-		print(self.datetime)
+		print(self.datetime.strftime("%Y-%m-%d %H:%M:%S"))
 		signals = []
 		for security in self.securities:
 			signals.append(self.indicator(security)[0])
