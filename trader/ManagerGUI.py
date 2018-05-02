@@ -6,6 +6,7 @@ class Gui(Tk):
         self.manager = manager
         Tk.__init__(self, root)
         if root is None:
+            self.protocol("WM_DELETE_WINDOW",self.close)
             # Window
             self.title('Desktop Trader')
             self.geometry('{}x{}'.format(1024, 576))
@@ -23,6 +24,13 @@ class Gui(Tk):
         self.activepage.trace("u", self.changepage())
         # Layout
         self.layout(self.background, manager)
+
+    def close(self):
+        for name, algogui in self.pages.items():
+            algogui.windowisopen = False
+            algogui.after_cancel(algogui.afterid)
+        self.destroy()
+        self.quit()
 
     def layout(self, root, manager):
         # Navigation

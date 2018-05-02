@@ -93,7 +93,7 @@ class Manager:
     # or algo_alloc is manually edited.
     def rebalance(self):
         total_allocation = 0
-        for algo, alloc in self.algo_alloc.values():
+        for algo, alloc in self.algo_alloc.items():
             if not algo.running:
                 total_allocation += alloc
         if total_allocation > 1:
