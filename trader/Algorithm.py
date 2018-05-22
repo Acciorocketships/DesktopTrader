@@ -1,6 +1,7 @@
 import os, sys
 import pkg_resources
 import datetime
+from pytz import timezone
 import time
 import threading
 import pickle
@@ -77,7 +78,7 @@ class Algorithm(object):
 		self.stopgains = {}
 		self.limitlow = {}
 		self.limithigh = {}
-		self.datetime = datetime.datetime.now()
+		self.datetime = datetime.datetime.now(timezone('US/Eastern'))
 		self.alpha = None
 		self.beta = None
 		self.volatility = None
@@ -111,12 +112,12 @@ class Algorithm(object):
 		self.value = self.cash + stockvalue
 		self.value = round(self.value,2)
 		self.cash = round(self.cash,2)
-		self.datetime = datetime.datetime.now()
+		self.datetime = datetime.datetime.now(timezone('US/Eastern'))
 
 	# Update function called every minute
 	def updatemin(self):
 		self.chartminute.append(self.value)
-		self.chartminutetimes.append(datetime.datetime.now())
+		self.chartminutetimes.append(datetime.datetime.now(timezone('US/Eastern')))
 		for stock in (self.stopgains.keys() | self.stoplosses.keys()):
 			self.checkthresholds(stock)
 
@@ -125,7 +126,7 @@ class Algorithm(object):
 		self.chartminute = []
 		self.chartminutetimes = []
 		self.chartday.append(self.value)
-		self.chartdaytimes.append(datetime.datetime.now())
+		self.chartdaytimes.append(datetime.datetime.now(timezone('US/Eastern')))
 		self.riskmetrics()
 
 	# Checks and executes limit/stop orders
@@ -705,7 +706,7 @@ class Backtester(Algorithm):
 				for minute in range(391):
 					self.minutesago = 391 * self.daysago - minute
 					self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)
-					if self.datetime >= datetime.datetime.now():
+					if self.datetime >= datetime.datetime.now(timezone('US/Eastern')):
 						break
 					self.updatemin()
 					if minute in self.times:
@@ -714,7 +715,7 @@ class Backtester(Algorithm):
 			elif self.logging == 'daily':
 				self.datetime = datetime.datetime.combine(day, datetime.time(9, 30))
 				self.minutesago = 391 * self.daysago
-				if self.datetime >= datetime.datetime.now():
+				if self.datetime >= datetime.datetime.now(timezone('US/Eastern')):
 					break
 				self.updatemin()
 				self.update()
@@ -815,7 +816,7 @@ class Backtester(Algorithm):
 		exp = None
 		if cache is not None: 
 			hist, exp, dateidxs, lastidx = cache 
-		if (cache is None) or (datetime.datetime.now() > exp):
+		if (cache is None) or (datetime.datetime.now(timezone('US/Eastern')) > exp):
 			hist = None
 			while hist is None:
 				try:
@@ -828,7 +829,7 @@ class Backtester(Algorithm):
 					time.sleep(5)
 			dateidxs = self.dateidxs(hist)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [hist, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+			self.cache[key] = [hist, datetime.datetime.now(timezone('US/Eastern')) + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
 		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
 		self.cache[key][3] = idx
 		if isinstance(length,datetime.datetime):
@@ -883,7 +884,7 @@ class Backtester(Algorithm):
 		exp = None
 		if cache is not None: 
 			md, exp, dateidxs, lastidx = cache
-		if (cache is None) or (datetime.datetime.now() > exp):
+		if (cache is None) or (datetime.datetime.now(timezone('US/Eastern')) > exp):
 			md = None
 			while md is None:
 				try:
@@ -896,7 +897,7 @@ class Backtester(Algorithm):
 					time.sleep(5)
 			dateidxs = self.dateidxs(md)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [md, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+			self.cache[key] = [md, datetime.datetime.now(timezone('US/Eastern')) + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
 		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
 		self.cache[key][3] = idx
 		if isinstance(length,datetime.datetime):
@@ -911,7 +912,7 @@ class Backtester(Algorithm):
 		exp = None
 		if cache is not None: 
 			bb, exp, dateidxs, lastidx = cache
-		if (cache is None) or (datetime.datetime.now() > exp):
+		if (cache is None) or (datetime.datetime.now(timezone('US/Eastern')) > exp):
 			bb = None
 			while bb is None:
 				try:
@@ -922,7 +923,7 @@ class Backtester(Algorithm):
 					time.sleep(5)
 			dateidxs = self.dateidxs(bb)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [bb, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+			self.cache[key] = [bb, datetime.datetime.now(timezone('US/Eastern')) + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
 		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
 		self.cache[key][3] = idx
 		if isinstance(length,datetime.datetime):
@@ -937,7 +938,7 @@ class Backtester(Algorithm):
 		exp = None
 		if cache is not None: 
 			r, exp, dateidxs, lastidx = cache
-		if (cache is None) or (datetime.datetime.now() > exp): 
+		if (cache is None) or (datetime.datetime.now(timezone('US/Eastern')) > exp): 
 			r = None
 			while r is None:
 				try:
@@ -947,7 +948,7 @@ class Backtester(Algorithm):
 					time.sleep(5)
 			dateidxs = self.dateidxs(r)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [r, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+			self.cache[key] = [r, datetime.datetime.now(timezone('US/Eastern')) + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
 		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
 		self.cache[key][3] = idx
 		if isinstance(length,datetime.datetime):
@@ -962,7 +963,7 @@ class Backtester(Algorithm):
 		exp = None
 		if cache is not None: 
 			ma, exp, dateidxs, lastidx = cache
-		if (cache is None) or (datetime.datetime.now() > exp):
+		if (cache is None) or (datetime.datetime.now(timezone('US/Eastern')) > exp):
 			ma = None
 			while ma is None:
 				try:
@@ -972,7 +973,7 @@ class Backtester(Algorithm):
 					time.sleep(5)
 			dateidxs = self.dateidxs(ma)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+			self.cache[key] = [ma, datetime.datetime.now(timezone('US/Eastern')) + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
 		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
 		self.cache[key][3] = idx
 		if isinstance(length,datetime.datetime):
@@ -987,7 +988,7 @@ class Backtester(Algorithm):
 		exp = None
 		if cache is not None: 
 			ma, exp, dateidxs, lastidx = cache
-		if (cache is None) or (datetime.datetime.now() > exp):
+		if (cache is None) or (datetime.datetime.now(timezone('US/Eastern')) > exp):
 			ma = None
 			while ma is None:
 				try:
@@ -997,7 +998,7 @@ class Backtester(Algorithm):
 					time.sleep(5)
 			dateidxs = self.dateidxs(ma)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [ma, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+			self.cache[key] = [ma, datetime.datetime.now(timezone('US/Eastern')) + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
 		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
 		self.cache[key][3] = idx
 		if isinstance(length,datetime.datetime):
@@ -1013,7 +1014,7 @@ class Backtester(Algorithm):
 		exp = None
 		if cache is not None: 
 			s, exp, dateidxs, lastidx = cache
-		if (cache is None) or (datetime.datetime.now() > exp):
+		if (cache is None) or (datetime.datetime.now(timezone('US/Eastern')) > exp):
 			s = None
 			while s is None:
 				try:
@@ -1025,7 +1026,7 @@ class Backtester(Algorithm):
 					time.sleep(5)
 			dateidxs = self.dateidxs(s)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [s, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+			self.cache[key] = [s, datetime.datetime.now(timezone('US/Eastern')) + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
 		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
 		self.cache[key][3] = idx
 		if isinstance(length,datetime.datetime):
@@ -1050,7 +1051,7 @@ class Backtester(Algorithm):
 		exp = None
 		if cache is not None: 
 			changes, exp, dateidxs, lastidx = cache
-		if (cache is None) or (datetime.datetime.now() > exp):
+		if (cache is None) or (datetime.datetime.now(timezone('US/Eastern')) > exp):
 			prices = None
 			while prices is None:
 				try:
@@ -1064,7 +1065,7 @@ class Backtester(Algorithm):
 			changes = prices[datatype].pct_change()
 			dateidxs = self.dateidxs(prices[1:])
 			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [changes, datetime.datetime.now() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+			self.cache[key] = [changes, datetime.datetime.now(timezone('US/Eastern')) + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
 		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
 		self.cache[key][3] = idx
 		if isinstance(length,datetime.datetime):

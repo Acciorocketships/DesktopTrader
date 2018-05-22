@@ -8,6 +8,7 @@ empyrical
 pytrends
 matplotlib
 h5py
+"requests[security]"
 
 # tkinter (apt-get install python-tk)
 # https://github.com/Jamonek/Robinhood (git clone, sudo -H pip3 install .)

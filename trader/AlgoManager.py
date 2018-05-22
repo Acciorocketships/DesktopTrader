@@ -1,5 +1,7 @@
 import sys, os
 import math
+import datetime
+import pytz
 import code
 import pickle
 import trader.tradingdays
@@ -176,8 +178,8 @@ class Manager:
             time.sleep(1)
             try:
                 # Get time and day
-                currenttime = datetime.time(datetime.datetime.now().hour, datetime.datetime.now().minute)
-                currentday = datetime.datetime.today().date()
+                currenttime = datetime.time(datetime.datetime.now(timezone('US/Eastern')).hour, datetime.datetime.now(timezone('US/Eastern')).minute)
+                currentday = datetime.datetime.now(timezone('US/Eastern')).date()
                 # If trading is open
                 if len(list(tradingdays.NYSE_tradingdays(a=currentday,b=currentday+datetime.timedelta(days=1)))) > 0 and \
                    currenttime >= datetime.time(9,30) and \
@@ -225,7 +227,7 @@ class Manager:
     # Updates the data in the Manager
     def updatemin(self):
         self.chartminute.append(self.value)
-        self.chartminutetimes.append(datetime.datetime.now())
+        self.chartminutetimes.append(datetime.datetime.now(timezone('US/Eastern')))
         for name, amount in positions().items():
             if amount == 0:
                 self.stocks.pop(name, None)
@@ -275,7 +277,7 @@ class Manager:
         self.chartminute = []
         self.chartminutetimes = []
         self.chartday.append(self.value)
-        self.chartdaytimes.append(datetime.datetime.now())
+        self.chartdaytimes.append(datetime.datetime.now(timezone('US/Eastern')))
 
 
 
