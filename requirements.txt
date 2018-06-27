@@ -10,5 +10,5 @@ matplotlib
 h5py
 requests[security]
 
-# tkinter (apt-get install python-tk)
+# tkinter (apt-get install python3-tk)
 # https://github.com/Jamonek/Robinhood (git clone, sudo -H pip3 install .)

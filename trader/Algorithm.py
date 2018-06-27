@@ -550,6 +550,7 @@ class Algorithm(object):
 				print(err)
 				time.sleep(5)
 		changes = prices[datatype].pct_change()
+		changes = changes.rename("Percent Change from Previous Day")
 		# Handle Length
 		if isinstance(length,datetime.datetime):
 			length = self.datetolength(length,prices)
@@ -638,6 +639,10 @@ class Algorithm(object):
 		else:
 			string += (" " * spaces*4) + str(dictionary) + "\n"
 		return string
+
+
+	def nexttradingday(self,startdate=datetime.datetime.today().date()+datetime.timedelta(days=1),count=1):
+		return list(tradingdays.NYSE_tradingdays(a=startdate,count=count))
 
 
 
@@ -1066,6 +1071,7 @@ class Backtester(Algorithm):
 					print(err)
 					time.sleep(5)
 			changes = prices[datatype].pct_change()
+			changes = changes.rename("Percent Change from Previous Day")
 			dateidxs = self.dateidxs(prices[1:])
 			lastidx = self.nearestidx(self.datetime, dateidxs)
 			self.cache[key] = [changes, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
@@ -1126,7 +1132,8 @@ def price(stock):
 			try:
 				return float(robinhood.quote_data(stock)['last_trade_price'])
 			except Exception as e:
-				print("Could not fetch Robinhood quote for " + stock + ".", e)
+				if i == 0:
+					print("Could not fetch Robinhood quote for " + stock + ".", e)
 				time.sleep(0.3*i)
 
 # Returns: list of ("symbol",amount)
@@ -1138,7 +1145,8 @@ def positions():
 				robinhoodpositions = robinhood.positions()['results']
 				break
 			except Exception as e:
-				print("Could not fetch Robinhood positions data.", e)
+				if i == 0:
+					print("Could not fetch Robinhood positions data.", e)
 				time.sleep(0.3*i)
 		for position in robinhoodpositions:
 			name = str(requests.get(position['instrument']).json()['symbol'])

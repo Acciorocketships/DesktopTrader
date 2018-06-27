@@ -38,9 +38,12 @@ def NYSE_holidays(a=datetime.date.today(), b=datetime.date.today() + datetime.ti
 
 # Generate ruleset for NYSE trading days
 
-def NYSE_tradingdays(a=datetime.date.today(), b=datetime.date.today() + datetime.timedelta(days=365)):
+def NYSE_tradingdays(a=datetime.date.today(), b=datetime.date.today() + datetime.timedelta(days=365), count=0):
     rs = rrule.rruleset()
-    rs.rrule(rrule.rrule(rrule.DAILY, dtstart=a, until=b))
+    if count == 0:
+        rs.rrule(rrule.rrule(rrule.DAILY, dtstart=a, until=b))
+    else:
+        rs.rrule(rrule.rrule(rrule.DAILY, dtstart=a, count=count))
 
     # Exclude weekends and holidays
     rs.exrule(rrule.rrule(rrule.WEEKLY, dtstart=a, byweekday=(rrule.SA, rrule.SU)))

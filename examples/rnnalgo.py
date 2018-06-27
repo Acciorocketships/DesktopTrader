@@ -8,11 +8,13 @@ import keras.backend as K
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
+import numpy as np
+import pandas as pd
 
 class RNN(Algorithm):
 
 	def initialize(self):
-		self.securities = ["QQQ", "ARKK", "SVXY"]
+		self.securities = ["MU", "NFLX", "FB"]
 		self.sec = 'SPY'
 		self.heldstock = None
 		self.signals = []
@@ -33,6 +35,7 @@ class RNN(Algorithm):
 			print(err)
 		self.model.compile(loss='mean_squared_error',optimizer='adam',metrics=[accuracy])
 		self.graph = tf.get_default_graph()
+		self.logs = {'signals':[], 'change':[], 'date':[]}
 		# Features:
 		# percent change * 100
 		# (bollinger upper - bollinger lower) / bollinger middle
@@ -44,7 +47,8 @@ class RNN(Algorithm):
 		print(self.datetime.strftime("%Y-%m-%d %H:%M:%S"))
 		signals = []
 		for security in self.securities:
-			signals.append(self.indicator(security)[0])
+			prediction = self.indicator(security)
+			signals.append(prediction[0])
 		maxsig = max(signals)
 		maxsigstock = self.securities[signals.index(maxsig)]
 		if maxsig > 0.4:
@@ -59,13 +63,24 @@ class RNN(Algorithm):
 		# Extra GUI Variables
 		self.signals = signals
 		self.lastrun = self.datetime
+		# Logs
+		if len(self.logs['signals']) != 0:
+			self.logs['change'].append([self.percentchange(stock)[0] for stock in self.stocks])
+		self.logs['signals'].append(signals)
+		self.logs['date'].append(prediction._index[0])
 
 
 
-	def indicator(self,stock,length=1,skip=0):
+	def indicator(self,stock,length=1,skip=-1):
 		dataX, _ = self.getdata(stock,length,skip)
 		with self.graph.as_default():
-			return self.model.predict(dataX)[:,0]
+			dataY = self.model.predict(dataX)[:,0]
+		dates = self.macd(stock,length=skip+length)._index
+		if skip == -1:
+			dates = dates.append(pd.Series([self.nexttradingday()[0].strftime('%Y-%m-%d')]))
+		dataY = pd.DataFrame({'date':dates,'Predicted Price Change from Previous Day':dataY})
+		dataY = dataY.set_index('date')['Predicted Price Change from Previous Day']
+		return dataY
 
 
 	def train(self):
@@ -146,27 +161,21 @@ def train():
 
 def test():
 	algo = RNN()
-	algo.test(length=500,skip=0)
+	algo.test(length=20,skip=0)
 
 def predict():
 	algo = RNN()
 	print("Percent Change Today: ", algo.indicator("SPY",length=2,skip=-1))
 
 def backtest():
-	start = datetime.now() - timedelta(days=60)
 	algo = backtester(RNN(),capital=1000)
 	Manager.algogui(algo)
-	algo.startbacktest(startdate=(start.day,start.month,start.year))
-	import code; code.interact(local=locals())
-
-def debugback():
-	algo = backtester(RNN())
-	algo.datetime = datetime(2018,3,27)
+	algo.startbacktest()
 	import code; code.interact(local=locals())
 
 def debug():
-	algo = RNN()
-	dataX, dataY = algo.getdata("SPY",datapoints=100,skip=0)
+	algo = backtester(RNN())
+	algo.datetime = datetime(2018,3,27)
 	import code; code.interact(local=locals())
 
 if __name__ == '__main__':
