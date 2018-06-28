@@ -68,6 +68,7 @@ class RNN(Algorithm):
 			self.logs['change'].append([self.percentchange(stock)[0] for stock in self.stocks])
 		self.logs['signals'].append(signals)
 		self.logs['date'].append(prediction._index[0])
+		raise ValueError('A very specific bad thing happened.')
 
 
 
@@ -75,7 +76,7 @@ class RNN(Algorithm):
 		dataX, _ = self.getdata(stock,length,skip)
 		with self.graph.as_default():
 			dataY = self.model.predict(dataX)[:,0]
-		dates = self.macd(stock,length=skip+length)._index
+		dates = self.macd(stock,length=skip+length+1)._index[1:length]
 		if skip == -1:
 			dates = dates.append(pd.Series([self.nexttradingday()[0].strftime('%Y-%m-%d')]))
 		dataY = pd.DataFrame({'date':dates,'Predicted Price Change from Previous Day':dataY})
