@@ -68,7 +68,6 @@ class RNN(Algorithm):
 			self.logs['change'].append([self.percentchange(stock)[0] for stock in self.stocks])
 		self.logs['signals'].append(signals)
 		self.logs['date'].append(prediction._index[0])
-		raise ValueError('A very specific bad thing happened.')
 
 
 
