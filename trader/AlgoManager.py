@@ -4,7 +4,6 @@ import datetime
 import pytz
 import code
 import pickle
-import trader.tradingdays
 from functools import reduce
 import trader.AlgoGUI as Alg
 import trader.ManagerGUI as Man

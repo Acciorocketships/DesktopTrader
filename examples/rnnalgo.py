@@ -75,9 +75,9 @@ class RNN(Algorithm):
 		dataX, _ = self.getdata(stock,length,skip)
 		with self.graph.as_default():
 			dataY = self.model.predict(dataX)[:,0]
-		dates = self.macd(stock,length=skip+length+1)._index[1:length]
+		dates = pd.DatetimeIndex(self.macd(stock,length=skip+length+1)._index[1:length])
 		if skip == -1:
-			dates = dates.append(pd.Series([self.nexttradingday()[0].strftime('%Y-%m-%d')]))
+			dates = dates.append(pd.DatetimeIndex([self.nexttradingday()[0].strftime('%Y-%m-%d')]))
 		dataY = pd.DataFrame({'date':dates,'Predicted Price Change from Previous Day':dataY})
 		dataY = dataY.set_index('date')['Predicted Price Change from Previous Day']
 		return dataY

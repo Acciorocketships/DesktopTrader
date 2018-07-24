@@ -102,7 +102,6 @@ class Algorithm(object):
 			fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
 			print(err)
 			print(exc_type, fname, exc_tb.tb_lineno)
-			traceback.print_stack()
 
 	### PRIVATE METHODS ###
 
