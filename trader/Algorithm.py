@@ -1144,16 +1144,16 @@ def positions():
 		for i in range(10):
 			try:
 				robinhoodpositions = robinhood.positions()['results']
+				for position in robinhoodpositions:
+					name = str(requests.get(position['instrument']).json()['symbol'])
+					amount = float(position['quantity'])
+					if amount != 0:
+						positions[name] = amount
 				break
 			except Exception as e:
 				if i == 0:
 					print("Could not fetch Robinhood positions data.", e)
 				time.sleep(0.3*i)
-		for position in robinhoodpositions:
-			name = str(requests.get(position['instrument']).json()['symbol'])
-			amount = float(position['quantity'])
-			if amount != 0:
-				positions[name] = amount
 	return positions
 
 # Returns dictionary of
