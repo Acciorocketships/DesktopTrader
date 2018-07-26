@@ -35,7 +35,7 @@ class RNN(Algorithm):
 			print(err)
 		self.model.compile(loss='mean_squared_error',optimizer='adam',metrics=[accuracy])
 		self.graph = tf.get_default_graph()
-		self.logs = {'signals':[], 'change':[], 'date':[]}
+		self.logs = {'signals': np.zeros((0,0)), 'change': np.zeros(0), 'date': np.zeros(0)}
 		# Features:
 		# percent change * 100
 		# (bollinger upper - bollinger lower) / bollinger middle
@@ -65,9 +65,9 @@ class RNN(Algorithm):
 		self.lastrun = self.datetime
 		# Logs
 		if len(self.logs['signals']) != 0:
-			self.logs['change'].append([self.percentchange(stock)[0] for stock in self.stocks])
-		self.logs['signals'].append(signals)
-		self.logs['date'].append(prediction._index[0])
+			self.logs['change'] = cat(self.logs['change'], [self.percentchange(stock)[0] for stock in self.stocks], 0)
+		self.logs['signals'] = cat(self.logs['signals'], signals, 0)
+		self.logs['date'] = cat(self.logs['date'], prediction._index[0], 0)
 
 
 
@@ -77,7 +77,7 @@ class RNN(Algorithm):
 			dataY = self.model.predict(dataX)[:,0]
 		dates = pd.DatetimeIndex(self.macd(stock,length=skip+length+1)._index[1:length])
 		if skip == -1:
-			dates = dates.append(pd.DatetimeIndex([self.nexttradingday()[0].strftime('%Y-%m-%d')]))
+			dates = dates.append(pd.DatetimeIndex([self.nexttradingday(self.datetime)[0].strftime('%Y-%m-%d')]))
 		dataY = pd.DataFrame({'date':dates,'Predicted Price Change from Previous Day':dataY})
 		dataY = dataY.set_index('date')['Predicted Price Change from Previous Day']
 		return dataY
@@ -152,6 +152,7 @@ class RNN(Algorithm):
 		return data
 
 
+
 def accuracy(y_true,y_pred):
 	return K.sum(tf.to_float(K.equal(K.sign(y_true),K.sign(y_pred)))) / tf.to_float(tf.shape(y_true)[0])
 
@@ -180,4 +181,13 @@ def debug():
 
 if __name__ == '__main__':
 	backtest()
+
+def cat(array,value,dim=0):
+	for i in range(len(array.shape) - len(np.array(value).shape)):
+		value = [value]
+	if len(array) != 0:
+		array = np.append(array,value,dim)
+	else:
+		array = np.array(value)
+	return array
 		
