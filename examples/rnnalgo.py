@@ -14,7 +14,7 @@ import pandas as pd
 class RNN(Algorithm):
 
 	def initialize(self):
-		self.securities = ["MU", "NFLX", "FB"]
+		self.securities = ["FB","SVXY","ARKK","NFLX"]
 		self.sec = 'SPY'
 		self.heldstock = None
 		self.signals = []
@@ -35,7 +35,7 @@ class RNN(Algorithm):
 			print(err)
 		self.model.compile(loss='mean_squared_error',optimizer='adam',metrics=[accuracy])
 		self.graph = tf.get_default_graph()
-		self.logs = {'signals': np.zeros((0,0)), 'change': np.zeros(0), 'date': np.zeros(0)}
+		self.logs = {'signals': np.zeros((0,0)), 'change': np.zeros((0,0)), 'date': np.zeros(0)}
 		# Features:
 		# percent change * 100
 		# (bollinger upper - bollinger lower) / bollinger middle
@@ -65,7 +65,7 @@ class RNN(Algorithm):
 		self.lastrun = self.datetime
 		# Logs
 		if len(self.logs['signals']) != 0:
-			self.logs['change'] = cat(self.logs['change'], [self.percentchange(stock)[0] for stock in self.stocks], 0)
+			self.logs['change'] = cat(self.logs['change'], [self.percentchange(stock)[0] for stock in self.securities], 0)
 		self.logs['signals'] = cat(self.logs['signals'], signals, 0)
 		self.logs['date'] = cat(self.logs['date'], prediction._index[0], 0)
 
