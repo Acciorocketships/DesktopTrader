@@ -136,6 +136,7 @@ class Algorithm(object):
 	# Checks and executes limit/stop orders
 	# TODO: Custom amounts to buy/sell
 	def checkthresholds(self,stock):
+		# Buy/Sell all shares of the stock if its price has crossed the threshold
 		price = self.quote(stock)
 		alloc = self.cash / self.value
 		if (stock in self.stocks) and (stock in self.stoplosses) and (price <= self.stoplosses[stock]):
@@ -154,6 +155,11 @@ class Algorithm(object):
 			print("Limit order " + stock + " activated.")
 			del self.limithigh[stock]
 			self.orderpercent(stock,alloc,verbose=True)
+		# Remove a stock once it is sold
+		if (stock in self.stoplosses) and (self.stocks.get(stock,0) == 0):
+			del self.stoplosses[stock]
+		if stock in self.stopgains and (self.stocks.get(stock,0) == 0):
+			del self.stopgains[stock]
 
 	def riskmetrics(self):
 		benchmark = self.benchmark if type(self.benchmark)==str else self.benchmark[0]
@@ -293,7 +299,7 @@ class Algorithm(object):
 				if newamount != currentamount:
 					break
 				else:
-					time.sleep(0.1*(i ** 0.5))
+					time.sleep(0.5*(i ** 0.5))
 			# If order didn't go through, return.
 			if (newamount - currentamount) == 0:
 				print("Order for " + str(amount) + " shares of " + stock + " did not fill in time. Continuing.")
@@ -387,7 +393,6 @@ class Algorithm(object):
 				else:
 					hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize=size)
 			except ValueError as err:
-				print(err)
 				time.sleep(5)
 		if isinstance(length,datetime.datetime):
 			length = self.datetolength(length,hist)
@@ -414,7 +419,6 @@ class Algorithm(object):
 								 fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype, \
 								 series_type='open')
 			except ValueError as err:
-				print(err)
 				time.sleep(5)
 		if isinstance(length,datetime.datetime):
 			length = self.datetolength(length,md)
@@ -437,7 +441,6 @@ class Algorithm(object):
 				bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
 								time_period=mawindow, series_type='open')
 			except ValueError as err:
-				print(err)
 				time.sleep(5)
 		if isinstance(length,datetime.datetime):
 			length = self.datetolength(length,bb)
@@ -455,8 +458,7 @@ class Algorithm(object):
 		while r is None:
 			try:
 				r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow, series_type='open')
-			except ValueError as err:
-				print(err)
+			except ValueError as err:				
 				time.sleep(5)
 		if isinstance(length,datetime.datetime):
 			length = self.datetolength(length,r)
@@ -475,7 +477,6 @@ class Algorithm(object):
 			try:
 				ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow, series_type='open')
 			except ValueError as err:
-				print(err)
 				time.sleep(5)
 		if isinstance(length,datetime.datetime):
 			length = self.datetolength(length,ma)
@@ -494,7 +495,6 @@ class Algorithm(object):
 			try:
 				ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow, series_type='open')
 			except ValueError as err:
-				print(err)
 				time.sleep(5)
 		if isinstance(length,datetime.datetime):
 			length = self.datetolength(length,ma)
@@ -512,7 +512,6 @@ class Algorithm(object):
 						slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype, \
 						series_type='open')
 			except ValueError as err:
-				print(err)
 				time.sleep(5)
 		if isinstance(length,datetime.datetime):
 			length = self.datetolength(length,s)
@@ -548,7 +547,6 @@ class Algorithm(object):
 				else:
 					prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize=size)
 			except ValueError as err:
-				print(err)
 				time.sleep(5)
 		changes = prices[datatype].pct_change()
 		changes = changes.rename("Percent Change from Previous Day")
@@ -607,8 +605,8 @@ class Algorithm(object):
 				server.login(gmail_user, gmail_password)
 				server.sendmail(gmail_user, recipient, message)
 				server.close()
-			except:
-				print("Failed to send email notification")
+			except Exception as e:
+				print(e, "Failed to send email notification")
 		# If recipient is an phone number
 		else:
 			textdomains = ["@tmomail.net","@vtext.com","@mms.att.net","@pm.sprint.com"]
@@ -660,7 +658,7 @@ class Backtester(Algorithm):
 		self.startingcapital = capital
 		self.cash = capital
 		self.times = self.timestorun(times)
-		self.exptime = 5
+		self.exptime = 450
 		# Variables that change automatically
 		self.daysago = None
 		self.minutesago = None
@@ -750,14 +748,15 @@ class Backtester(Algorithm):
 		for stock, amount in list(self.stocks.items()):
 			if amount == 0:
 				del self.stocks[stock]
-				continue
-			stockvalue += self.quote(stock) * amount
+			else:
+				stockvalue += self.quote(stock) * amount
 		self.value = self.cash + stockvalue
 		self.value = round(self.value, 2)
 		self.chartday.append(self.value)
 		self.chartdaytimes.append(self.datetime)
 
 	def checkthresholds(self,stock):
+		# Enforce Thresholds
 		if self.logging == '1min':
 			price = self.quote(stock)
 			alloc = self.cash / self.value
@@ -805,6 +804,12 @@ class Backtester(Algorithm):
 				print("Buying " + str(self.stocks[stock]) + " shares of " + stock + " at $" + str(round(self.limithigh[stock],2)))
 				del self.limithigh[stock]
 			self.cash = round(self.cash,2)
+			# Remove when the stock is sold
+			if (stock in self.stoplosses) and (self.stocks.get(stock,0) == 0):
+				del self.stoplosses[stock]
+			if stock in self.stopgains and (self.stocks.get(stock,0) == 0):
+				del self.stopgains[stock]
+
 
 	def quote(self, stock):
 		return self.history(stock, interval=self.logging, datatype='open')[0].item()
@@ -834,7 +839,6 @@ class Backtester(Algorithm):
 					else:
 						hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
 				except ValueError as err:
-					print(err)
 					time.sleep(5)
 			dateidxs = self.dateidxs(hist)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
@@ -902,7 +906,6 @@ class Backtester(Algorithm):
 						fastmatype=fastmatype, slowmatype=slowmatype, signalmatype=signalmatype, \
 						series_type='open')
 				except ValueError as err:
-					print(err)
 					time.sleep(5)
 			dateidxs = self.dateidxs(md)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
@@ -928,7 +931,6 @@ class Backtester(Algorithm):
 					bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
 									time_period=mawindow, series_type='open')
 				except ValueError as err:
-					print(err)
 					time.sleep(5)
 			dateidxs = self.dateidxs(bb)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
@@ -953,7 +955,6 @@ class Backtester(Algorithm):
 				try:
 					r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow, series_type='open')
 				except ValueError as err:
-					print(err)
 					time.sleep(5)
 			dateidxs = self.dateidxs(r)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
@@ -978,7 +979,6 @@ class Backtester(Algorithm):
 				try:
 					ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow, series_type='open')
 				except ValueError as err:
-					print(err)
 					time.sleep(5)
 			dateidxs = self.dateidxs(ma)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
@@ -1003,7 +1003,6 @@ class Backtester(Algorithm):
 				try:
 					ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow, series_type='open')
 				except ValueError as err:
-					print(err)
 					time.sleep(5)
 			dateidxs = self.dateidxs(ma)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
@@ -1031,7 +1030,6 @@ class Backtester(Algorithm):
 						slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype, \
 						series_type='open')
 				except ValueError as err:
-					print(err)
 					time.sleep(5)
 			dateidxs = self.dateidxs(s)
 			lastidx = self.nearestidx(self.datetime, dateidxs)
@@ -1069,7 +1067,6 @@ class Backtester(Algorithm):
 					else:
 						prices, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
 				except ValueError as err:
-					print(err)
 					time.sleep(5)
 			changes = prices[datatype].pct_change()
 			changes = changes.rename("Percent Change from Previous Day")
