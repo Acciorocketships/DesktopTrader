@@ -1,4 +1,4 @@
-from AlgoManager import *
+from trader.AlgoManager import *
 import code
 import datetime
 
