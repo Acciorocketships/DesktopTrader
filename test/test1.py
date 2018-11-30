@@ -9,8 +9,7 @@ class Test(Algorithm):
 		pass
 
 	def run(self):
-		# import pdb; pdb.set_trace()
-		val = self.bollinger("SPY",interval='day',length=10,datatype='close')
+		val = self.percentchange("SPY",interval='day',length=10)
 		print(val)
 
 
@@ -24,4 +23,4 @@ def runlive():
 	algo.run()
 
 if __name__ == '__main__':
-	runlive()
+	runback()
