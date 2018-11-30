@@ -4,16 +4,15 @@ import pkg_resources
 import datetime
 from pytz import timezone
 import time
-import threading
-import pickle
+import threading # Runs Backtest in a Thread
+import pickle # Save and Load
 import pandas as pd
 import numpy as np
-from empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio
+from empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio # Risk Metrics
 import math
-import requests
-import smtplib
-import trader.tradingdays as tradingdays
-from pytrends.request import TrendReq
+import requests # Used in Positions() for Robinhood
+import smtplib # Emailing
+from pytrends.request import TrendReq # Google Searches
 
 broker = 'alpaca'
 
@@ -23,7 +22,7 @@ if broker == 'robinhood':
 	from alpha_vantage.techindicators import TechIndicators
 elif broker == 'alpaca':
 	import alpaca_trade_api as tradeapi
-	from ta import *
+	from ta import * # Technical Indicators
 else:
 	print("Choose a broker ('robinhood' or 'alpaca')")
 
@@ -192,50 +191,9 @@ class Algorithm(object):
 			self.volatility = round(annual_volatility(changes),3)
 			self.maxdrawdown = round(max_drawdown(changes),3)
 
-	# Returns the list of datetime objects associated with the entries of a pandas dataframe
-	def dateidxs(self, arr):
-		try:
-			return [pd.to_datetime(item[0]).replace(tzinfo=None).to_pydatetime() for item in arr.iterrows()]
-		except:
-			return [pd.to_datetime(item[0]).replace(tzinfo=None).to_pydatetime() for item in arr.iteritems()]
-
-	# Returns the index of the nearest element in dateidxs that occured before (or at the same time) as time.
-	# If lastchecked==None: Searches backward from the most recent entries
-	# If lastchecked>=0: Searches forward starting at lastchecked
-	# If lastchecked<0: Searches backward starting at -lastchecked
-	def nearestidx(self, time, dateidxs, lastchecked=None):
-		if lastchecked is None:
-			for i in range(len(dateidxs)):
-				index = len(dateidxs) - i - 1
-				if dateidxs[index] <= time:
-					return index
-		elif lastchecked >= 0:
-			for i in range(len(dateidxs)):
-				index = (lastchecked + i - 5) % len(dateidxs)
-				if dateidxs[index] > time:
-					return index-1
-			return len(dateidxs)-1
-		else:
-			for i in range(len(dateidxs)):
-				index = (len(dateidxs) - lastchecked - i) % len(dateidxs)
-				if dateidxs[index] <= time:
-					return index
-		raise Exception("Datetime " + str(time) + " not found in historical data.")
-
-	# Returns the difference of the indexes of startdate and currentdateidx in dateidxs
-	# startdate: datetime in the past
-	# currentdateidx: idx of current date in dateidxs (datetime also accepted) (If None given, it will default to the last value)
-	# dateidxs: list of datetimes (original pandas dataframe also accepted)
-	def datetolength(self, startdate, dateidxs, currentdateidx=None):
-		if isinstance(dateidxs,pd.DataFrame):
-			dateidxs = self.dateidxs(dateidxs)
-		if isinstance(currentdateidx,datetime.datetime):
-			currentdateidx = self.nearestidx(currentdateidx, dateidxs)
-		if currentdateidx is None:
-			currentdateidx = len(dateidxs)-1
-		return currentdateidx - self.nearestidx(startdate, dateidxs, lastchecked=-currentdateidx)
 
 	### PUBLIC METHODS ###
+
 
 	# Switches from live trading to paper trading
 	# If self.running is False, the algorithm will automatically paper trade
@@ -251,6 +209,7 @@ class Algorithm(object):
 			self.chartday = []
 			self.running = False
 
+
 	# Switches from paper trading to live trading
 	def livetrade(self):
 		if not self.running:
@@ -261,6 +220,7 @@ class Algorithm(object):
 			self.chartday = []
 			self.running = True
 
+
 	# Adds stop loss or stop gain to a particular stock until it is sold (then you need to re-add it)
 	# If change == 0.05, then the stock will be sold if it goes 5% over the current price
 	# If change == -0.05, then the stock will be sold if it goes 5% below the current price
@@ -270,6 +230,7 @@ class Algorithm(object):
 		if change < 0:
 			self.stoplosses[stock] = (1+change)*self.quote(stock)
 
+
 	# Adds order for a stock when it crosses above or below a % change from the current price
 	# If change == 0.05, then the stock will be bought if it goes 5% over the current price
 	# If change == -0.05, then the stock will be bought if it goes 5% below the current price
@@ -278,6 +239,7 @@ class Algorithm(object):
 			self.limithigh[stock] = (1+change)*self.quote(stock)
 		if change < 0:
 			self.limitlow[stock] = (1+change)*self.quote(stock)
+
 
 	# stock: stock symbol (string)
 	# amount: number of shares of that stock to order (+ for buy, - for sell)
@@ -340,6 +302,7 @@ class Algorithm(object):
 			elif amount < 0:
 				print( "Selling " + str(-amount) + " shares of " + stock + " at $" + str(cost))
 
+
 	# Buy or sell to reach a target percent of the algorithm's total allocation
 	# verbose = True to print out whenever an order is made
 	# notify = "example@gmail.com" to send notification when an order is made (if True, it sends to yourself)
@@ -358,32 +321,28 @@ class Algorithm(object):
 			amount = min( math.floor(percentdiff * self.value / cost), math.floor(0.95 * self.cash / cost) )
 			return self.order(stock, amount, verbose, notify_address)
 
+
 	# Sells all held stocks
 	def sellall(self, verbose=False, notify_address=None):
 		for stock in self.stocks:
 			self.orderpercent(stock, 0, verbose=verbose, notify_address=None)
 
-	# Returns a list of symbols for high-volume stocks tradable on Robinhood
-	def symbols(self):
-		import simplejson
-		symbolstxt = pkg_resources.resource_filename(__name__, 'symbols.txt')
-		with open(symbolstxt, 'r') as f:
-			sym = simplejson.load(f)
-		return sym
 
 	### HISTORY AND INDICATORS ###
+
 
 	# Uses broker to get the current price of a stock
 	# stock: stock symbol (string)
 	def quote(self, stock):
 		return price(stock)
 
+
 	# Use Alpha Vantage to get the historical price data of a stock
 	# stock: stock symbol (string)
 	# interval: time interval between data points 'day','minute'
 	# length: number of data points (default is only the last)
 	# datatype: 'close','open','volume' (default close)
-	def history(self, stock, interval='day', length=1, datatype='open'):
+	def history(self, stock, interval='day', length=1, datatype='close'):
 		if length <= 100:
 			size = 'compact'
 		else:
@@ -391,212 +350,143 @@ class Algorithm(object):
 		hist = None
 		while hist is None:
 			try:
-				if broker == 'robinhood':
-					if interval == 'day':
-						interval = 'daily'
-						if 'open' in datatype:
-							datatype = '1. open'
-						elif 'close' in datatype:
-							datatype = '4. close'
-						elif 'volume' in datatype:
-							datatype = '6. volume'
-						elif 'high' in datatype:
-							datatype = '2. high'
-						elif 'low' in datatype:
-							datatype = '3. low'
-						hist, _ = data.get_daily_adjusted(symbol=stock, outputsize=size)
-					elif interval == 'minute':
-						interval = '1min'
-						hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize=size)
-				elif broker == 'alpaca':
+				if broker == 'alpaca':
 					hist = api.polygon.historic_agg(interval, stock, limit=length).df
 			except ValueError as err:
 				time.sleep(5)
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,hist)
+		if isdate(length):
+			length = datetolength(length,hist)
 		if length is None:
 			length = len(hist)
 		return hist[datatype][-length:]
 
+
 	# macd line: 12 day MA - 26 day MA
 	# signal line: 9 period MA of the macd line
-	# macd hist: macd - signal
-	# stock: stock symbol (string)
-	# interval: time interval between data points 'day','minute'
-	# length: number of data points (default is only the last)
-	# mawindow: number of days to average in moving average
-	# Returns Series of the MACD Histogram (Signal - (FastMA - SlowMA))
-	def macd(self, stock, interval='day', length=1, fastmawindow=12, slowmawindow=26, signalmawindow=9, datatype='open'):
+	# Returns MACD Indicator: (Signal - (FastMA - SlowMA))
+	def macd(self, stock, interval='day', length=1, fastmawindow=12, slowmawindow=26, signalmawindow=9, matype=1, datatype='close'):
 		md = None
 		while md is None:
 			try:
-				if broker == 'robinhood':
-					if interval == 'day':
-						interval = 'daily'
-					elif interval == 'minute':
-						interval = '1min'
-					md, _ = tech.get_macdext(stock, interval=interval, \
-									 fastperiod=fastmawindow, slowperiod=slowmawindow, signalperiod=signalmawindow, \
-									 fastmatype=1, slowmatype=1, signalmatype=1, series_type=datatype)
-					md = md['MACD_Hist']
-				elif broker == 'alpaca':
-					hist = self.history(stock,interval=interval,length=length+slowmawindow+signalmawindow,datatype=datatype)
-					md = trend.macd_diff(hist, n_fast=fastmawindow, n_slow=slowmawindow, n_sign=signalmawindow, fillna=False)
+				hist = self.history(stock,interval=interval,length=length+slowmawindow+signalmawindow,datatype=datatype)
+				md = trend.macd_diff(hist, n_fast=fastmawindow, n_slow=slowmawindow, n_sign=signalmawindow, fillna=False)
 			except ValueError as err:
 				time.sleep(5)
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,md)
+		if isdate(length):
+			length = datetolength(length,md)
 		if length is None:
 			length = len(md)
 		return md[-length:]
 
-	# nbdevup: multiplier for standard deviations of the top band above the middle band
-	# nbdevdn: multiplier for standard deviations of the bottom band below the middle band
-	# stock: stock symbol (string)
-	# interval: time interval between data points 'day','minute'
-	# length: number of data points (default is only the last)
-	# matype: 0 for SMA, 1 for EMA, 2 for WMA (Weighted), 3 for DEMA (Double Exponential), 4 for TEMA (Triple Exponential)
-	# mawindow: number of days to average in moving average
-	# Returns Dataframe with 'Real Upper Band', 'Real Lower Band' and 'Real Middle Band'.
-	def bollinger(self, stock, interval='day', length=1, nbdevup=2, nbdevdn=2, matype=1, mawindow=20):
+
+	# Returns the number of standard deviations that the price is from the moving average
+	# 0 means the price is at the middle band
+	# 1 means the price is at the upper band
+	# -1 means the price is at the lower band
+	def bollinger(self, stock, interval='day', length=1, mawindow=20, ndev=2, matype=1, datatype='close'):
 		bb = None
 		while bb is None:
 			try:
-				if broker == 'robinhood':
-					if interval == 'day':
-						interval = 'daily'
-					elif interval == 'minute':
-						interval = '1min'
-					bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
-									time_period=mawindow, series_type='open')
-				elif broker == 'alpaca':
-					print("TODO: Not Implemented")
+				hist = self.history(stock,interval=interval,length=length+mawindow,datatype=datatype)
+				upper = volatility.bollinger_hband(hist,mawindow,ndev,fillna=False)
+				lower = volatility.bollinger_lband(hist,mawindow,ndev,fillna=False)
+				middle = (upper + lower) / 2
+				dev = (upper - lower) / 2
+				bb = (hist - middle) / dev
 			except ValueError as err:
 				time.sleep(5)
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,bb)
+		if isdate(length):
+			length = datetolength(length,bb)
 		if length is None:
 			length = len(bb)
 		return bb[-length:]
 
-	# stock: stock symbol (string)
-	# interval: time interval between data points 'day','minute'
-	# length: number of data points (default is only the last)
-	# mawindow: number of days to average in moving average
-	# Returns Series with RSI values
-	def rsi(self, stock, interval='day', length=1, mawindow=20):
+
+	# Shows market trends by looking at the average gain and loss in the window.
+	# Transformed from a scale of [0,100] to [-1,1]
+	# RSI > 0.2 means overbought (sell indicator), RSI < -0.2 means oversold (buy indicator)
+	def rsi(self, stock, interval='day', length=1, window=20, datatype='close'):
 		r = None
 		while r is None:
 			try:
-				if broker == 'robinhood':
-					if interval == 'day':
-						interval = 'daily'
-					elif interval == 'minute':
-						interval = '1min'
-					r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow, series_type='open')
-				elif broker == 'alpaca':
-					print("TODO: Not Implemented")
+				hist = self.history(stock,interval=interval,length=length+window,datatype=datatype)
+				r = momentum.rsi(hist,n=window,fillna=False)
+				r = (r - 50) / 50
 			except ValueError as err:				
 				time.sleep(5)
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,r)
+		if isdate(length):
+			length = datetolength(length,r)
 		if length is None:
 			length = len(r)
-		return r["RSI"][-length:]
+		return r[-length:]
 
-	# stock: stock symbol (string)
-	# interval: time interval between data points 'day','minute'
-	# length: number of data points (default is only the last)
-	# mawindow: number of days to average in moving average
-	# Returns Series with SMA values
-	def sma(self, stock, interval='day', length=1, mawindow=20):
+
+	# Moving Average. matype = 0 means simple, matype = 1 means exponential
+	# If data is given instead of a stock, then it will take the moving average of that
+	def ma(self, stock, interval='day', length=1, mawindow=12, matype=0, datatype='close'):
 		ma = None
 		while ma is None:
-			try:
-				if broker == 'robinhood':
-					if interval == 'day':
-						interval = 'daily'
-					elif interval == 'minute':
-						interval = '1min'
-					ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow, series_type='open')
-				elif broker == 'alpaca':
-					print("TODO: Not Implemented")
-			except ValueError as err:
-				time.sleep(5)
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,ma)
+			if isinstance(stock,str):
+				try:
+					hist = self.history(stock,interval=interval,length=length+mawindow,datatype=datatype)
+				except ValueError as err:
+					time.sleep(5)
+			else:
+				hist = stock
+			if matype == 0:
+				ma = volatility.bollinger_mavg(hist,n=mawindow,fillna=False)
+			elif matype == 1:
+				ma = trend.ema_indicator(hist,n=mawindow,fillna=False)
+		if isdate(length):
+			length = datetolength(length,ma)
 		if length is None:
 			length = len(ma)
-		return ma["SMA"][-length:]
+		return ma[-length:]
 
-	# stock: stock symbol (string)
-	# interval: time interval between data points 'day','minute'
-	# length: number of data points (default is only the last), or starting datetime
-	# mawindow: number of days to average in moving average
-	# Returns Series with EMA values
-	def ema(self, stock, interval='day', length=1, mawindow=20):
-		ma = None
-		while ma is None:
-			try:
-				if broker == 'robinhood':
-					if interval == 'day':
-						interval = 'daily'
-					elif interval == 'minute':
-						interval = '1min'
-					ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow, series_type='open')
-				elif broker == 'alpaca':
-					print("TODO: Not Implemented")
-			except ValueError as err:
-				time.sleep(5)
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,ma)
-		if length is None:
-			length = len(ma)
-		return ma["EMA"][-length:]
 
-	# Returns dataframe with "SlowD" and "SlowK"
-	def stoch(self, stock, interval='day', length=1, fastkperiod=12, 
-				slowkperiod=26, slowdperiod=26):
+	# The price compared to the low and the high within a window
+	# Transformed from a scale of [0,100] to [-1,1]
+	# STOCH > 0.3 means overbought (sell indicator), STOCH < -0.3 means oversold (buy indicator)
+	def stoch(self, stock, interval='day', length=1, window=14):
 		s = None
 		while s is None:
 			try:
-				if broker == 'robinhood':
-					if interval == 'day':
-						interval = 'daily'
-					elif interval == 'minute':
-						interval = '1min'
-					s = tech.get_stoch(stock, interval=interval, fastkperiod=fastkperiod,
-							slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=0, slowdmatype=0, \
-							series_type='open')
-				elif broker == 'alpaca':
-					print("TODO: Not Implemented")
+				high = self.history(stock,interval=interval,length=length,datatype="high")
+				low = self.history(stock,interval=interval,length=length,datatype="low")
+				close = self.history(stock,interval=interval,length=length,datatype="close")
+				s = momentum.stoch(high=high,low=low,close=close,n=window,fillna=False)
+				s = (s - 50) / 50
 			except ValueError as err:
 				time.sleep(5)
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,s)
+		if isdate(length):
+			length = datetolength(length,s)
 		if length is None:
 			length = len(s)
 		return s[-length:]
 
-	# stock: stock symbol (string)
-	# interval: time interval between data points 'day','minute'
-	# length: number of data points (default is only the last), or starting datetime
-	def percentchange(self, stock, interval='day', length=1, datatype='open'):
+
+	# Returns the percent change (as a decimal, not multiplied by 100)
+	# If data is given instead of a stock, it returns the percent change of that
+	def percentchange(self, stock, interval='day', length=1, datatype='close'):
 		# Get Data
 		prices = None
 		while prices is None:
-			try:
-				prices = self.history(stock,interval=interval,length=length,datatype=datatype)
-			except ValueError as err:
-				time.sleep(5)
-		changes = prices[datatype].pct_change()
+			if isinstance(stock,str):
+				try:
+					hist = self.history(stock,interval=interval,length=length+1,datatype=datatype)
+				except ValueError as err:
+					time.sleep(5)
+			else:
+				hist = stock
+		changes = hist.pct_change()
 		changes = changes.rename("Percent Change")
 		# Handle Length
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,prices)
+		if isdate(length):
+			length = datetolength(length,hist)
 		elif length is None:
-			length = len(prices)
+			length = len(hist)
 		return changes[-length:]
+
 
 	# The google trends for interest over time in a given query
 	# interval: hour, day (changes to weekly if length is too long)
@@ -604,7 +494,7 @@ class Algorithm(object):
 	# WARNING: Data is for all days (other data is just trading days)
 	def google(self, query, interval='day', length=100, financial=True):
 		enddate = self.datetime
-		if isinstance(length, datetime.datetime):
+		if isdate(length):
 			startdate = length
 		else:
 			length += 1
@@ -627,6 +517,9 @@ class Algorithm(object):
 
 	# Send a string or a dictionary to an email or a phone number
 	def notify(self, message="", recipient=""):
+		# Dont send messages in backtesting
+		if isinstance(self,Backtester):
+			return
 		# Send email to yourself by default
 		if len(recipient) == 0:
 			recipient = creds[3]
@@ -635,7 +528,7 @@ class Algorithm(object):
 			exclude = {"times","chartminute","chartminutetimes","chartday","chartdaytimes","cache","stoplosses","stopgains","limitlow","limithigh"}
 			message = {key: value for (key,value) in self.__dict__.items() if key not in exclude}
 		if type(message) == dict:
-			message = self.dict2string(message)
+			message = dict2string(message)
 		gmail_user = creds[3]
 		gmail_password = creds[4]
 		# If recipient is an email address
@@ -663,30 +556,6 @@ class Algorithm(object):
 
 
 
-	# Converts a dictionary to a string
-	def dict2string(self, dictionary, spaces=0):
-		string = ""
-		if type(dictionary) == dict:
-			for (key,value) in dictionary.items():
-				if type(value) != dict and type(value) != list:
-					string += (" " * spaces*4) + str(key) + " - " + str(value) + "\n"
-				else:
-					string += (" " * spaces*4) + str(key) + " - \n"
-					string += self.dict2string(value,spaces+1)
-		elif type(dictionary) == list:
-			for item in dictionary:
-				string += self.dict2string(item,spaces+1)
-		else:
-			string += (" " * spaces*4) + str(dictionary) + "\n"
-		return string
-
-
-	def nexttradingday(self,startdate=datetime.datetime.today().date()+datetime.timedelta(days=1),count=1):
-		return list(tradingdays.NYSE_tradingdays(a=startdate,count=count))
-
-
-
-
 # Use self.datetime to get current time (as a datetime object)
 class Backtester(Algorithm):
 	def __init__(self, capital=10000.0, times=['every day'], benchmark='SPY'):
@@ -698,7 +567,7 @@ class Backtester(Algorithm):
 			self.logging = 'minute'
 		self.startingcapital = capital
 		self.cash = capital
-		self.times = self.timestorun(times)
+		self.times = timestorun(times)
 		self.exptime = 450
 		# Variables that change automatically
 		self.daysago = None
@@ -711,22 +580,6 @@ class Backtester(Algorithm):
 		# Variables that the user can change
 		self.benchmark = benchmark
 
-	def timestorun(self, times):
-		runtimes = set()
-		for time in times:
-			if time == 'every minute':
-				for t in range(391):
-					runtimes.add(t)
-			elif time == 'every hour':
-				for t in range(0, 391, 60):
-					runtimes.add(t)
-			elif time == 'every day':
-				runtimes.add(0)
-			elif type(time) is tuple or type(time) is datetime.time:
-				if type(time) is datetime.time:
-					time = (time.hour, time.minute)
-				runtimes.add((time[0] - 9) * 60 + (time[1] - 30))
-		return runtimes
 
 	# Starts the backtest (calls startbacktest in a new thread)
 	# Times can be in the form of datetime objects or tuples (day,month,year)
@@ -735,21 +588,22 @@ class Backtester(Algorithm):
 		backtestthread = threading.Thread(target=self.startbacktest, args=(startdate, enddate))
 		backtestthread.start()
 
+
 	# Starts the backtest
 	def startbacktest(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=12),
 							enddate=datetime.datetime.today().date()):
 		if isinstance(startdate,str):
 			startdate = tuple(startdate.split("-"))
 		if isinstance(enddate,str):
-			startdate = tuple(enddate.split("-"))
+			enddate = tuple(enddate.split("-"))
 		if type(startdate) == tuple:
 			startdate = datetime.date(startdate[0], startdate[1], startdate[2])
 		if type(enddate) == tuple:
 			enddate = datetime.date(enddate[0], enddate[1], enddate[2])
 		if (datetime.datetime.today().date() - startdate) <= datetime.timedelta(days=12):
 			self.logging = 'minute'
-		days = list(tradingdays.NYSE_tradingdays(a=startdate, b=enddate))
-		self.daysago = len(days) + len(list(tradingdays.NYSE_tradingdays(a=enddate, b=datetime.datetime.today().date())))
+		days = tradingdays(start=startdate, end=enddate)
+		self.daysago = len(days) + len(tradingdays(start=enddate, end=datetime.datetime.today().date()))
 		self.datetime = startdate
 		self.update()
 		for day in days:
@@ -775,6 +629,7 @@ class Backtester(Algorithm):
 		import pdb; pdb.set_trace()
 		self.riskmetrics()
 
+
 	def updatemin(self):
 		for stock in (self.stopgains.keys() | self.stoplosses.keys()):
 			self.checkthresholds(stock)
@@ -789,6 +644,7 @@ class Backtester(Algorithm):
 		self.chartminute.append(self.value)
 		self.chartminutetimes.append(self.datetime)
 
+
 	def update(self):
 		stockvalue = 0
 		for stock, amount in list(self.stocks.items()):
@@ -800,6 +656,7 @@ class Backtester(Algorithm):
 		self.value = round(self.value, 2)
 		self.chartday.append(self.value)
 		self.chartdaytimes.append(self.datetime)
+
 
 	def checkthresholds(self,stock):
 		# Enforce Thresholds
@@ -860,7 +717,10 @@ class Backtester(Algorithm):
 	def quote(self, stock):
 		return self.history(stock, interval=self.logging, datatype='open')[0].item()
 
-	def history(self, stock, interval='day', length=1, datatype='open'):
+
+	def history(self, stock, interval='day', length=1, datatype='close'):
+		
+		# Handle Cache
 		key = ('history', tuple(locals().values()))
 		cache = self.cache.get(key)
 		exp = None
@@ -868,13 +728,18 @@ class Backtester(Algorithm):
 			hist, exp, dateidxs, lastidx = cache 
 		if (cache is None) or (self.getdatetime() > exp):
 			hist = None
+			
 			while hist is None:
+
+				# Convert to Datetime
+				if isinstance(length,tuple):
+					length = datetime.datetime(date[0],date[1],date[2])
+				if isinstance(length,str):
+					date = length.split("-")
+					length = datetime.datetime(date[0],date[1],date[2])
+
 				try:
-					if broker == 'robinhood':
-						# Convert Date String to Datetime
-						if isinstance(length,str):
-							date = length.split("-")
-							length = datetime.datetime(date[0],date[1],date[2]) # Year, Month, Day
+					if broker == 'robinhood': # Data from AlphaVantage
 
 						# Convert Datatype String
 						if 'open' in datatype:
@@ -896,35 +761,43 @@ class Backtester(Algorithm):
 							interval = '1min'
 							hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
 
-					elif broker == 'alpaca':
+					elif broker == 'alpaca': # Data from Alpaca
+
 						today = (self.getdatetime() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 						if isinstance(length,str):
 							date = length.split("-")
 							length = datetime.datetime(date[0],date[1],date[2])
-						if isinstance(length,datetime.datetime):
+						if isdate(length):
 							start = (length + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 						else:
 							currday = self.datetime.strftime("%Y-%m-%d")
 							start = api.get_calendar(end = currday)[-length].date.strftime("%Y-%m-%d")
 						hist = api.polygon.historic_agg(interval, stock, _from=start, to=today).df
 
+				# Pause and try again if there is an error
 				except ValueError as err:
+					print(err)
 					time.sleep(5)
 
-			dateidxs = self.dateidxs(hist)
-			lastidx = self.nearestidx(self.datetime, dateidxs)
+			# Save To Cache
+			dateidxs = dateidxs(hist)
+			lastidx = nearestidx(self.datetime, dateidxs)
 			self.cache[key] = [hist, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
 		
+		# Look for current datetime in cached data
 		try:
-			idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
+			idx = nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
 		except Exception: # Happens if we request data farther back than before
 			del self.cache[key]
 			return self.history(stock, interval=interval, length=length, datatype=datatype)
 		self.cache[key][3] = idx
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,dateidxs,idx) # TODO: make sure dates work
+		
+		# Convert length to int
+		if isdate(length):
+			length = datetolength(length,dateidxs,idx) # TODO: make sure dates work
 		if length is None:
 			length = idx
+		
 		return hist[datatype][idx-length+1 : idx+1]
 		
 
@@ -952,6 +825,7 @@ class Backtester(Algorithm):
 			else:
 				print( "Selling " + str(-amount) + " shares of " + stock + " at $" + str(cost))
 
+
 	def orderpercent(self, stock, percent, verbose=False, notify_address=None):
 		stockprice = self.quote(stock)
 		currentpercent = 0.0
@@ -965,233 +839,352 @@ class Backtester(Algorithm):
 			amount = math.floor(percentdiff * self.value / stockprice)
 			return self.order(stock, amount, verbose)
 
-	def macd(self, stock, interval='day', length=1, fastmawindow=12, slowmawindow=26, signalmawindow=9, datatype='open'):
-		key = ('macd', tuple(locals().values()))
-		cache = self.cache.get(key)
-		exp = None
-		if cache is not None: 
-			md, exp, dateidxs, lastidx = cache
-		if (cache is None) or (self.getdatetime() > exp):
-			md = None
-			while md is None:
-				try:
 
-					if broker == 'robinhood':
-						if interval == 'day':
-							interval = 'daily'
-						elif interval == 'minute':
-							interval = '1min'
-						md, _ = tech.get_macdext(stock, interval=interval, \
-							    fastperiod=fastmawindow, slowperiod=slowmawindow, \
-							    signalperiod=signalmawindow, series_type=datatype)
-						md = md['MACD_Hist']
+	# def macd(self, stock, interval='day', length=1, fastmawindow=12, slowmawindow=26, signalmawindow=9, datatype='close'):
+	# 	key = ('macd', tuple(locals().values()))
+	# 	cache = self.cache.get(key)
+	# 	exp = None
+	# 	if cache is not None: 
+	# 		md, exp, dateidxs, lastidx = cache
+	# 	if (cache is None) or (self.getdatetime() > exp):
+	# 		md = None
+	# 		while md is None:
+	# 			try:
 
-					elif broker == 'alpaca':
-						import pdb; pdb.set_trace()
-						hist = self.history(stock, interval=interval, length=length+slowmawindow+signalmawindow, datatype=datatype)
-						md = trend.macd_diff(hist, n_fast=fastmawindow, n_slow=slowmawindow, n_sign=signalmawindow, fillna=False)
+	# 				if broker == 'robinhood':
+	# 					if interval == 'day':
+	# 						interval = 'daily'
+	# 					elif interval == 'minute':
+	# 						interval = '1min'
+	# 					md, _ = tech.get_macdext(stock, interval=interval, \
+	# 						    fastperiod=fastmawindow, slowperiod=slowmawindow, \
+	# 						    signalperiod=signalmawindow, series_type=datatype)
+	# 					md = md['MACD_Hist']
+
+	# 				elif broker == 'alpaca':
+	# 					hist = self.history(stock, interval=interval, length=length+slowmawindow+signalmawindow, datatype=datatype)
+	# 					md = trend.macd_diff(hist, n_fast=fastmawindow, n_slow=slowmawindow, n_sign=signalmawindow, fillna=False)
 				
-				except ValueError as err:
-					time.sleep(5)
+	# 			except ValueError as err:
+	# 				time.sleep(5)
 			
-			dateidxs = self.dateidxs(md)
-			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [md, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+	# 		dateidxs = dateidxs(md)
+	# 		lastidx = nearestidx(self.datetime, dateidxs)
+	# 		self.cache[key] = [md, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
 		
-		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
-		self.cache[key][3] = idx
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,dateidxs,idx)
-		if length is None:
-			length = idx
-		return md[idx-length+1 : idx+1]
+	# 	idx = nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
+	# 	self.cache[key][3] = idx
+	# 	if isdate(length):
+	# 		length = datetolength(length,dateidxs,idx)
+	# 	if length is None:
+	# 		length = idx
+	# 	return md[idx-length+1 : idx+1]
 
-	def bollinger(self, stock, interval='day', length=1, nbdevup=2, nbdevdn=2, matype=1, mawindow=20):
-		key = ('bollinger', tuple(locals().values()))
-		cache = self.cache.get(key)
-		exp = None
-		if cache is not None: 
-			bb, exp, dateidxs, lastidx = cache
-		if (cache is None) or (self.getdatetime() > exp):
-			bb = None
-			while bb is None:
-				try:
-					if broker == 'robinhood':
-						if interval == 'day':
-							interval = 'daily'
-						elif interval == 'minute':
-							interval = '1min'
-						bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
-									time_period=mawindow, series_type='open')
-					elif broker == 'alpaca':
-						print("TODO: Not Implemented")
-				except ValueError as err:
-					time.sleep(5)
-			dateidxs = self.dateidxs(bb)
-			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [bb, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
-		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
-		self.cache[key][3] = idx
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,dateidxs,idx)
-		if length is None:
-			length = idx
-		return bb[idx-length+1 : idx+1]
 
-	def rsi(self, stock, interval='day', length=1, mawindow=20):
-		key = ('rsi', tuple(locals().values()))
-		cache = self.cache.get(key)
-		exp = None
-		if cache is not None: 
-			r, exp, dateidxs, lastidx = cache
-		if (cache is None) or (self.getdatetime() > exp): 
-			r = None
-			while r is None:
-				try:
-					if broker == 'robinhood':
-						if interval == 'day':
-							interval = 'daily'
-						elif interval == 'minute':
-							interval = '1min'
-						r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow, series_type='open')
-					elif broker == 'alpaca':
-						print("TODO: Not Implemented")
-				except ValueError as err:
-					time.sleep(5)
-			dateidxs = self.dateidxs(r)
-			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [r, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
-		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
-		self.cache[key][3] = idx
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,dateidxs,idx)
-		if length is None:
-			length = idx
-		return r["RSI"][idx-length+1 : idx+1]
+	# def bollinger(self, stock, interval='day', length=1, nbdevup=2, nbdevdn=2, matype=1, mawindow=20):
+	# 	key = ('bollinger', tuple(locals().values()))
+	# 	cache = self.cache.get(key)
+	# 	exp = None
+	# 	if cache is not None: 
+	# 		bb, exp, dateidxs, lastidx = cache
+	# 	if (cache is None) or (self.getdatetime() > exp):
+	# 		bb = None
+	# 		while bb is None:
+	# 			try:
+	# 				if broker == 'robinhood':
+	# 					if interval == 'day':
+	# 						interval = 'daily'
+	# 					elif interval == 'minute':
+	# 						interval = '1min'
+	# 					bb, _ = tech.get_bbands(stock, interval=interval, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype,
+	# 								time_period=mawindow, series_type='open')
+	# 				elif broker == 'alpaca':
+	# 					print("TODO: Not Implemented")
+	# 			except ValueError as err:
+	# 				time.sleep(5)
+	# 		dateidxs = dateidxs(bb)
+	# 		lastidx = nearestidx(self.datetime, dateidxs)
+	# 		self.cache[key] = [bb, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+	# 	idx = nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
+	# 	self.cache[key][3] = idx
+	# 	if isdate(length):
+	# 		length = datetolength(length,dateidxs,idx)
+	# 	if length is None:
+	# 		length = idx
+	# 	return bb[idx-length+1 : idx+1]
 
-	def sma(self, stock, interval='day', length=1, mawindow=20):
-		key = ('sma', tuple(locals().values()))
-		cache = self.cache.get(key)
-		exp = None
-		if cache is not None: 
-			ma, exp, dateidxs, lastidx = cache
-		if (cache is None) or (self.getdatetime() > exp):
-			ma = None
-			while ma is None:
-				try:
-					if broker == 'robinhood':
-						if interval == 'day':
-							interval = 'daily'
-						elif interval == 'minute':
-							interval = '1min'
-						ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow, series_type='open')
-					elif broker == 'alpaca':
-						print("TODO: Not Implemented")
-				except ValueError as err:
-					time.sleep(5)
-			dateidxs = self.dateidxs(ma)
-			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [ma, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
-		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
-		self.cache[key][3] = idx
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,dateidxs,idx)
-		if length is None:
-			length = idx
-		return ma['SMA'][idx-length+1 : idx+1]
 
-	def ema(self, stock, interval='day', length=1, mawindow=20):
-		key = ('ema', tuple(locals().values()))
-		cache = self.cache.get(key)
-		exp = None
-		if cache is not None: 
-			ma, exp, dateidxs, lastidx = cache
-		if (cache is None) or (self.getdatetime() > exp):
-			ma = None
-			while ma is None:
-				try:
-					if broker == 'robinhood':
-						if interval == 'day':
-							interval = 'daily'
-						elif interval == 'minute':
-							interval = '1min'
-						ma, _ = tech.get_ema(stock, interval=interval, time_period=mawindow, series_type='open')
-					elif broker == 'alpaca':
-						print("TODO: Not Implemented")
-				except ValueError as err:
-					time.sleep(5)
-			dateidxs = self.dateidxs(ma)
-			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [ma, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
-		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
-		self.cache[key][3] = idx
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,dateidxs,idx)
-		if length is None:
-			length = idx
-		return ma['EMA'][idx-length+1 : idx+1]
+	# def rsi(self, stock, interval='day', length=1, mawindow=20):
+	# 	key = ('rsi', tuple(locals().values()))
+	# 	cache = self.cache.get(key)
+	# 	exp = None
+	# 	if cache is not None: 
+	# 		r, exp, dateidxs, lastidx = cache
+	# 	if (cache is None) or (self.getdatetime() > exp): 
+	# 		r = None
+	# 		while r is None:
+	# 			try:
+	# 				if broker == 'robinhood':
+	# 					if interval == 'day':
+	# 						interval = 'daily'
+	# 					elif interval == 'minute':
+	# 						interval = '1min'
+	# 					r, _ = tech.get_rsi(stock, interval=interval, time_period=mawindow, series_type='open')
+	# 				elif broker == 'alpaca':
+	# 					print("TODO: Not Implemented")
+	# 			except ValueError as err:
+	# 				time.sleep(5)
+	# 		dateidxs = dateidxs(r)
+	# 		lastidx = nearestidx(self.datetime, dateidxs)
+	# 		self.cache[key] = [r, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+	# 	idx = nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
+	# 	self.cache[key][3] = idx
+	# 	if isdate(length):
+	# 		length = datetolength(length,dateidxs,idx)
+	# 	if length is None:
+	# 		length = idx
+	# 	return r["RSI"][idx-length+1 : idx+1]
 
-	def stoch(self, stock, interval='day', length=1, fastkperiod=12, 
-				slowkperiod=26, slowdperiod=26, slowkmatype=0, slowdmatype=0):
-		key = ('stoch', tuple(locals().values()))
-		cache = self.cache.get(key)
-		exp = None
-		if cache is not None: 
-			s, exp, dateidxs, lastidx = cache
-		if (cache is None) or (self.getdatetime() > exp):
-			s = None
-			while s is None:
-				try:
-					if broker == 'robinhood':
-						if interval == 'day':
-							interval = 'daily'
-						elif interval == 'minute':
-							interval = '1min'
-						s, _ = tech.get_stoch(stock, interval=interval, fastkperiod=fastkperiod,
-							slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype, \
-							series_type='open')
-					elif broker == 'alpaca':
-						print("TODO: Not Implemented")
-				except ValueError as err:
-					time.sleep(5)
-			dateidxs = self.dateidxs(s)
-			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [s, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
-		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
-		self.cache[key][3] = idx
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,dateidxs,idx)
-		if length is None:
-			length = idx
-		return s[idx-length+1 : idx+1]
 
-	def percentchange(self, stock, interval='day', length=1, datatype='open'):
-		key = ('percchng', tuple(locals().values()))
-		cache = self.cache.get(key)
-		exp = None
-		if cache is not None: 
-			changes, exp, dateidxs, lastidx = cache
-		if (cache is None) or (self.getdatetime() > exp):
-			prices = None
-			while prices is None:
-				try:
-					prices = self.history(stock, interval=interval, length=length, datatype=datatype)
-				except ValueError as err:
-					time.sleep(5)
-			changes = prices[datatype].pct_change()
-			changes = changes.rename("Percent Change from Previous Day")
-			dateidxs = self.dateidxs(prices[1:])
-			lastidx = self.nearestidx(self.datetime, dateidxs)
-			self.cache[key] = [changes, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
-		idx = self.nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
-		self.cache[key][3] = idx
-		if isinstance(length,datetime.datetime):
-			length = self.datetolength(length,dateidxs,idx)
-		if length is None:
-			length = idx
-		return changes[idx-length+1 : idx+1]
+	# def ma(self, stock, interval='day', length=1, mawindow=20):
+	# 	key = ('ma', tuple(locals().values()))
+	# 	cache = self.cache.get(key)
+	# 	exp = None
+	# 	if cache is not None: 
+	# 		ma, exp, dateidxs, lastidx = cache
+	# 	if (cache is None) or (self.getdatetime() > exp):
+	# 		ma = None
+	# 		while ma is None:
+	# 			try:
+	# 				if broker == 'robinhood':
+	# 					if interval == 'day':
+	# 						interval = 'daily'
+	# 					elif interval == 'minute':
+	# 						interval = '1min'
+	# 					ma, _ = tech.get_sma(stock, interval=interval, time_period=mawindow, series_type='open')
+	# 				elif broker == 'alpaca':
+	# 					print("TODO: Not Implemented")
+	# 			except ValueError as err:
+	# 				time.sleep(5)
+	# 		dateidxs = dateidxs(ma)
+	# 		lastidx = nearestidx(self.datetime, dateidxs)
+	# 		self.cache[key] = [ma, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+	# 	idx = nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
+	# 	self.cache[key][3] = idx
+	# 	if isdate(length):
+	# 		length = datetolength(length,dateidxs,idx)
+	# 	if length is None:
+	# 		length = idx
+	# 	return ma['SMA'][idx-length+1 : idx+1]
+
+
+	# def stoch(self, stock, interval='day', length=1, fastkperiod=12, 
+	# 			slowkperiod=26, slowdperiod=26, slowkmatype=0, slowdmatype=0):
+	# 	key = ('stoch', tuple(locals().values()))
+	# 	cache = self.cache.get(key)
+	# 	exp = None
+	# 	if cache is not None: 
+	# 		s, exp, dateidxs, lastidx = cache
+	# 	if (cache is None) or (self.getdatetime() > exp):
+	# 		s = None
+	# 		while s is None:
+	# 			try:
+	# 				if broker == 'robinhood':
+	# 					if interval == 'day':
+	# 						interval = 'daily'
+	# 					elif interval == 'minute':
+	# 						interval = '1min'
+	# 					s, _ = tech.get_stoch(stock, interval=interval, fastkperiod=fastkperiod,
+	# 						slowkperiod=slowkperiod, slowdperiod=slowdperiod, slowkmatype=slowkmatype, slowdmatype=slowdmatype, \
+	# 						series_type='open')
+	# 				elif broker == 'alpaca':
+	# 					print("TODO: Not Implemented")
+	# 			except ValueError as err:
+	# 				time.sleep(5)
+	# 		dateidxs = dateidxs(s)
+	# 		lastidx = nearestidx(self.datetime, dateidxs)
+	# 		self.cache[key] = [s, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+	# 	idx = nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
+	# 	self.cache[key][3] = idx
+	# 	if isdate(length):
+	# 		length = datetolength(length,dateidxs,idx)
+	# 	if length is None:
+	# 		length = idx
+	# 	return s[idx-length+1 : idx+1]
+
+
+	# def percentchange(self, stock, interval='day', length=1, datatype='open'):
+	# 	key = ('percchng', tuple(locals().values()))
+	# 	cache = self.cache.get(key)
+	# 	exp = None
+	# 	if cache is not None: 
+	# 		changes, exp, dateidxs, lastidx = cache
+	# 	if (cache is None) or (self.getdatetime() > exp):
+	# 		prices = None
+	# 		while prices is None:
+	# 			try:
+	# 				prices = self.history(stock, interval=interval, length=length, datatype=datatype)
+	# 			except ValueError as err:
+	# 				time.sleep(5)
+	# 		changes = prices[datatype].pct_change()
+	# 		changes = changes.rename("Percent Change from Previous Day")
+	# 		dateidxs = dateidxs(prices[1:])
+	# 		lastidx = nearestidx(self.datetime, dateidxs)
+	# 		self.cache[key] = [changes, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidxs, lastidx]
+	# 	idx = nearestidx(self.datetime, dateidxs, lastchecked=lastidx)
+	# 	self.cache[key][3] = idx
+	# 	if isdate(length):
+	# 		length = datetolength(length,dateidxs,idx)
+	# 	if length is None:
+	# 		length = idx
+	# 	return changes[idx-length+1 : idx+1]
+
+
+
+
+### Helper Functions ###
+
+
+# If start and end are both dates, it returns a list of trading days from the start date to the end date
+# If start is a date and end is an int, it returns the date that is end days after start
+# If start is an int and end is a date, it returns the date that is start days before end
+def tradingdays(start=datetime.datetime.today().date(), end=1):
+
+	# Convert Date Datatypes
+	if isinstance(start,str):
+		start = tuple(start.split("-"))
+	if isinstance(end,str):
+		end = tuple(end.split("-"))
+	if type(start) == tuple:
+		start = datetime.date(start[0], start[1], start[2])
+	if type(end) == tuple:
+		end = datetime.date(end[0], end[1], end[2])
+
+	# Range of Dates
+	if isdate(start) and isdate(end):
+		datelist = [day.date.to_pydatetime() for day in api.get_calendar(start = start.strftime("%Y-%m-%d"), end = end.strftime("%Y-%m-%d"))]
+		return datelist
+
+	# n Days Before End
+	if isinstance(start,int) and isdate(end):
+		n = start
+		start = end - datetime.timedelta(days=2*n)
+		datelist = api.get_calendar(start = start.strftime("%Y-%m-%d"), end = end.strftime("%Y-%m-%d"))
+		date = datelist[-n].date.to_pydatetime()
+		return date
+
+	# n Days After Start
+	if isdate(start) and isinstance(end,int):
+		n = end
+		end = start + datetime.timedelta(days=2*n)
+		datelist = api.get_calendar(start = start.strftime("%Y-%m-%d"), end = end.strftime("%Y-%m-%d"))
+		date = datelist[n].date.to_pydatetime()
+		return date
+
+
+def isdate(var):
+	return isinstance(var,datetime.datetime) or isinstance(var,datetime.date)
+
+
+def timestorun(times):
+	runtimes = set()
+	for time in times:
+		if time == 'every minute':
+			for t in range(391):
+				runtimes.add(t)
+		elif time == 'every hour':
+			for t in range(0, 391, 60):
+				runtimes.add(t)
+		elif time == 'every day':
+			runtimes.add(0)
+		elif type(time) is tuple or type(time) is datetime.time:
+			if type(time) is datetime.time:
+				time = (time.hour, time.minute)
+			runtimes.add((time[0] - 9) * 60 + (time[1] - 30))
+	return runtimes
+
+
+# Returns the list of datetime objects associated with the entries of a pandas dataframe
+def dateidxs(arr):
+	try:
+		return [pd.to_datetime(item[0]).replace(tzinfo=None).to_pydatetime() for item in arr.iterrows()]
+	except:
+		return [pd.to_datetime(item[0]).replace(tzinfo=None).to_pydatetime() for item in arr.iteritems()]
+
+
+# Returns the index of the nearest element in dateidxs that occured before (or at the same time) as time.
+# If lastchecked==None: Searches backward from the most recent entries
+# If lastchecked>=0: Searches forward starting at lastchecked
+# If lastchecked<0: Searches backward starting at -lastchecked
+def nearestidx(time, dateidxs, lastchecked=None):
+	if lastchecked is None:
+		for i in range(len(dateidxs)):
+			index = len(dateidxs) - i - 1
+			if dateidxs[index] <= time:
+				return index
+	elif lastchecked >= 0:
+		for i in range(len(dateidxs)):
+			index = (lastchecked + i - 5) % len(dateidxs)
+			if dateidxs[index] > time:
+				return index-1
+		return len(dateidxs)-1
+	else:
+		for i in range(len(dateidxs)):
+			index = (len(dateidxs) - lastchecked - i) % len(dateidxs)
+			if dateidxs[index] <= time:
+				return index
+	raise Exception("Datetime " + str(time) + " not found in historical data.")
+
+
+# Returns the difference of the indexes of startdate and currentdateidx in dateidxs
+# startdate: datetime in the past
+# currentdateidx: idx of current date in dateidxs (datetime also accepted) (If None given, it will default to the last value)
+# dateidxs: list of datetimes (original pandas dataframe also accepted)
+def datetolength(startdate, dateidxs, currentdateidx=None):
+	if isinstance(dateidxs,pd.DataFrame):
+		dateidxs = dateidxs(dateidxs)
+	if isdate(currentdateidx):
+		currentdateidx = nearestidx(currentdateidx, dateidxs)
+	if currentdateidx is None:
+		currentdateidx = len(dateidxs)-1
+	return currentdateidx - nearestidx(startdate, dateidxs, lastchecked=-currentdateidx)
+
+
+# Converts a dictionary to a string
+def dict2string(dictionary, spaces=0):
+	string = ""
+	if type(dictionary) == dict:
+		for (key,value) in dictionary.items():
+			if type(value) != dict and type(value) != list:
+				string += (" " * spaces*4) + str(key) + " - " + str(value) + "\n"
+			else:
+				string += (" " * spaces*4) + str(key) + " - \n"
+				string += dict2string(value,spaces+1)
+	elif type(dictionary) == list:
+		for item in dictionary:
+			string += dict2string(item,spaces+1)
+	else:
+		string += (" " * spaces*4) + str(dictionary) + "\n"
+	return string
+
+
+def save_algo(algo_obj,path=None):
+	if path is None:
+		path = algo_obj.__class__.__name__ + "_save"
+	fh = open(path,'wb')
+	pickle.dump(algo_obj,path)
+	return path
+
+
+def load_algo(path):
+	fh = open(path,'rb')
+	algo = pickle.load(fh)
+	return algo
+
 
 ### Wrappers for Broker-Related Functions ###
+
+
 def backtester(algo, capital=None, benchmark=None):
 	# Convert
 	times = algo.times
@@ -1301,19 +1294,6 @@ def portfoliodata():
 	portfolio["cash"] = round(portfolio["cash"],2)
 	portfolio["day change"] = round(portfolio["day change"],2)
 	return portfolio
-
-
-def save_algo(algo_obj,path=None):
-	if path is None:
-		path = algo_obj.__class__.__name__ + "_save"
-	fh = open(path,'wb')
-	pickle.dump(algo_obj,path)
-	return path
-
-def load_algo(path):
-	fh = open(path,'rb')
-	algo = pickle.load(fh)
-	return algo
 
 
 

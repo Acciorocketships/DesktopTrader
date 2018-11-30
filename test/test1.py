@@ -10,7 +10,7 @@ class Test(Algorithm):
 
 	def run(self):
 		# import pdb; pdb.set_trace()
-		val = self.macd("SPY",interval='day',length=10,datatype='close')
+		val = self.bollinger("SPY",interval='day',length=10,datatype='close')
 		print(val)
 
 
@@ -24,4 +24,4 @@ def runlive():
 	algo.run()
 
 if __name__ == '__main__':
-	runback()
+	runlive()
