@@ -38,7 +38,7 @@ class Gui(Frame):
         self.stocks = None
         self.stats = None
         self.plotres = StringVar();
-        if isinstance(self.algo, Backtester) and self.algo.logging == 'daily':
+        if isinstance(self.algo, Backtester) and self.algo.logging == 'day':
             self.plotres.set('day')
         else:
             self.plotres.set('minute')
@@ -206,12 +206,11 @@ class Graph(FigureCanvasTkAgg):
     # TODO: Check that benchmark datetime lines up with chardaytimes
     def plotbenchmark(self, algo, resolution):
         if algo.benchmark is not None:
-            resolution = '1min' if resolution=='minute' else 'daily'
             benchmarks = algo.benchmark[:]
             if type(algo.benchmark) == str:
                 benchmarks = [benchmarks]
             for stock in benchmarks[::-1]:
-                benchmark = algo.history(stock, interval=resolution, length=len(algo.chartdaytimes if resolution == 'daily' else algo.chartminutetimes))
+                benchmark = algo.history(stock, interval=resolution, length=len(algo.chartdaytimes if resolution == 'day' else algo.chartminutetimes))
                 benchmark = [value * algo.startingcapital / benchmark[0] for value in benchmark]
                 color = 'r-' if stock==benchmarks[0] else None
                 self.plot(algo.chartdaytimes, benchmark, color=color)

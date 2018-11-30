@@ -303,9 +303,9 @@ class Algorithm(object):
 				self.notify(message)
 		if verbose:
 			if amount >= 0:
-				print( "Buying " + str(amount) + " shares of " + stock + " at $" + str(cost))
+				print( "Buying " + str(amount) + " shares of " + stock + " at $" + str(round(cost,2)))
 			elif amount < 0:
-				print( "Selling " + str(-amount) + " shares of " + stock + " at $" + str(cost))
+				print( "Selling " + str(-amount) + " shares of " + stock + " at $" + str(round(cost,2)))
 
 
 	# Buy or sell to reach a target percent of the algorithm's total allocation
@@ -498,7 +498,7 @@ class Algorithm(object):
 		return s[-length:]
 
 
-	# Returns the percent change (as a decimal, not multiplied by 100)
+	# Returns the percent change
 	# If data is given instead of a stock, it returns the percent change of that
 	def percentchange(self, stock, length=1, datatype='close', interval='day'):
 		# Get Data
@@ -513,7 +513,7 @@ class Algorithm(object):
 			else:
 				hist = pd.Series(stock)
 				length = len(hist)-1
-		changes = hist.pct_change()
+		changes = 100 * hist.pct_change()
 		changes = changes.rename("Percent Change")
 		# Handle Length
 		if isdate(length):
@@ -699,37 +699,37 @@ class Backtester(Algorithm):
 			alloc = self.cash / self.value
 			if (stock in self.stocks) and (stock in self.stoplosses) and (price <= self.stoplosses[stock][0]):
 				print("Stoploss for " + stock + " kicking in at $" + str(round(self.stoplosses[stock][0],2)))
-				del self.stoplosses[stock]
 				self.orderpercent(stock,self.stoplosses[stock][1],verbose=True)
+				del self.stoplosses[stock]
 			elif (stock in self.stocks) and (stock in self.stopgains) and (price >= self.stopgains[stock][0]):
 				print("Stopgain for " + stock + " kicking in at $" + str(round(self.stopgains[stock][0],2)))
-				del self.stopgains[stock]
 				self.orderpercent(stock,self.stopgains[stock][1],verbose=True)
+				del self.stopgains[stock]
 			elif (stock in self.limitlow) and (price <= self.limitlow[stock][0]):
 				print("Limit order " + stock + " activated at $" + str(round(self.limitlow[stock][0],2)))
-				del self.limitlow[stock]
 				self.orderpercent(stock,self.limitlow[stock][1],verbose=True)
+				del self.limitlow[stock]
 			elif (stock in self.limithigh) and (price >= self.limithigh[stock][0]):
 				print("Limit order " + stock + " activated at $" + str(round(self.limithigh[stock][0],2)))
-				del self.limithigh[stock]
 				self.orderpercent(stock,self.limithigh[stock][1],verbose=True)
+				del self.limithigh[stock]
 		else: # Check if the day's low or high activates a threshold
 			if (stock in self.stocks) and (stock in self.stoplosses) and (self.history(stock,datatype='low')[0] <= self.stoplosses[stock][0]):
 				print("Stoploss for " + stock + " kicking in at $" + str(round(self.stoplosses[stock][0],2)))
-				del self.stoplosses[stock]
 				self.orderpercent(stock, self.stoplosses[stock][1], cost=self.stoplosses[stock][0], verbose=True)
+				del self.stoplosses[stock]
 			elif (stock in self.stocks) and (stock in self.stopgains) and (self.history(stock,datatype='high')[0] >= self.stopgains[stock][0]):
 				print("Stopgain for " + stock + " kicking in at $" + str(round(self.stopgains[stock][0],2)))
-				del self.stoplosses[stock]
 				self.orderpercent(stock, self.stopgains[stock][1], cost=self.stopgains[stock][0], verbose=True)
+				del self.stoplosses[stock]
 			elif (stock in self.limitlow) and (self.history(stock,datatype='low')[0] <= self.limitlow[stock][0]):
 				print("Limit order " + stock + " activated at $" + str(round(self.limitlow[stock][0],2)))
-				del self.limitlow[stock]
 				self.orderpercent(stock, self.limitlow[stock][1], cost=self.limitlow[stock][0], verbose=True)
+				del self.limitlow[stock]
 			elif (stock in self.limithigh) and (self.history(stock,datatype='high')[0] >= self.limithigh[stock][0]):
 				print("Limit order " + stock + " activated at $" + str(round(self.limithigh[stock][0],2)))
-				del self.limithigh[stock]
 				self.orderpercent(stock, self.limithigh[stock][1], cost=self.limithigh[stock][0], verbose=True)
+				del self.limithigh[stock]
 
 
 	def quote(self, stock):
@@ -820,14 +820,14 @@ class Backtester(Algorithm):
 	def order(self, stock, amount, cost=None, ordertype="market", stop=None, limit=None, verbose=False, notify_address=None):
 		# Guard condition for sell
 		if amount < 0 and (stock in self.stocks) and (-amount > self.stocks[stock]):
-			print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
-				self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock))
+			print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + 
+				str(self.stocks.get(stock,0)) + ") of " + stock))
 			return None
 		if cost is None:
 			cost = self.quote(stock)
 		# Guard condition for buy
 		if cost * amount > self.cash:
-			print(("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
+			print(("Warning: not enough cash ($" + str(round(self.cash,2)) + ") in algorithm to buy " + str(
 				amount) + " shares of " + stock))
 			return None
 		if amount == 0:
@@ -839,9 +839,9 @@ class Backtester(Algorithm):
 			self.cash = round(self.cash,2)
 			if verbose:
 				if amount >= 0:
-					print( "Buying " + str(amount) + " shares of " + stock + " at $" + str(cost))
+					print( "Buying " + str(amount) + " shares of " + stock + " at $" + str(round(cost,2)))
 				else:
-					print( "Selling " + str(-amount) + " shares of " + stock + " at $" + str(cost))
+					print( "Selling " + str(-amount) + " shares of " + stock + " at $" + str(round(cost,2)))
 		# Simulate stop and limit orders
 		elif ordertype == 'stop' or ordertype == 'limit':
 			if limit is None and stop is None:
@@ -858,7 +858,7 @@ class Backtester(Algorithm):
 
 	def orderpercent(self, stock, percent, cost=None, ordertype="market", stop=None, limit=None, verbose=False, notify_address=None):
 		if cost is None:
-			cost = quote(stock)
+			cost = self.quote(stock)
 		currentpercent = self.stocks.get(stock,0) * cost / self.value
 		percentdiff = percent - currentpercent
 		if percentdiff < 0:
@@ -910,7 +910,7 @@ def tradingdays(start=datetime.datetime.today().date(), end=1):
 	# n Days After Start
 	if isdate(start) and isinstance(end,int):
 		n = end
-		end = start + datetime.timedelta(days=2*n)
+		end = start + datetime.timedelta(days=2*n+5)
 		datelist = api.get_calendar(start = start.strftime("%Y-%m-%d"), end = end.strftime("%Y-%m-%d"))
 		date = datelist[n].date.to_pydatetime()
 		return date
@@ -1143,8 +1143,8 @@ def portfoliodata():
 		
 	elif broker == 'alpaca':
 		account = api.get_account()
-		portfolio["value"] = account.portfolio_value
-		portfolio["cash"] = account.buying_power
+		portfolio["value"] = float(account.portfolio_value)
+		portfolio["cash"] = float(account.buying_power)
 	
 	portfolio["value"] = round(portfolio["value"],2)
 	portfolio["cash"] = round(portfolio["cash"],2)

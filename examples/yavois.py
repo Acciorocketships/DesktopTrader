@@ -11,7 +11,7 @@ class Yavois(Algorithm):
         self.nextdaysell = False
         self.rsi2thres = 75
         self.rsi7thres = 25
-        self.long = "SVXY"
+        self.long = "SPY"
         self.hideout = None
         self.takegain = 0.05
         self.takeloss = -0.02
@@ -44,8 +44,8 @@ class Yavois(Algorithm):
 
             print("\nRunning " + str(self.datetime))
 
-            self.rsi2 = self.rsi(self.long,mawindow=2,length=2)
-            self.rsi7 = self.rsi(self.long,mawindow=7,length=2)
+            self.rsi2 = self.rsi(self.long,window=2,length=2)
+            self.rsi7 = self.rsi(self.long,window=7,length=2)
 
             print("RSI2: " + str(self.rsi2))
             print("RSI7: " + str(self.rsi7))
@@ -84,5 +84,5 @@ if __name__ == '__main__':
     algo = Yavois(times=[(9,30),(15,59)])
     algoback = backtester(algo,benchmark="SPY",capital=1000)
     algoback.start()
-    Manager.gui(algoback)
+    Manager.algogui(algoback)
 

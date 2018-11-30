@@ -9,7 +9,7 @@ class Test(Algorithm):
 		pass
 
 	def run(self):
-		val = self.percentchange("SPY",interval='day',length=10)
+		val = self.macd("SPY",interval='day',length=1)[0]
 		print(val)
 
 
@@ -23,4 +23,4 @@ def runlive():
 	algo.run()
 
 if __name__ == '__main__':
-	price("SPY")
+	runback()

@@ -134,7 +134,7 @@ class Manager:
 
     # Opens the GUI to visualize the Algorithm's performance (also works with Backtests)
     @staticmethod
-    def algogui(algo,thread=True):
+    def algogui(algo,thread=False):
         desktoptrader = Alg.Gui(algo)
         if thread:
             guithread = threading.Thread(target=desktoptrader.mainloop)
@@ -145,7 +145,7 @@ class Manager:
     # Graphs portfolio performance
     # Press 'q' to exit
     # timeframe = 'daily', '1min' (plotting resolution)
-    def graph(self, timeframe='daily'):
+    def graph(self, timeframe='day'):
         import matplotlib.pyplot as plt
         plt.ion()
         plt.xkcd()
@@ -180,7 +180,7 @@ class Manager:
                 currenttime = datetime.time(datetime.datetime.now(timezone('US/Eastern')).hour, datetime.datetime.now(timezone('US/Eastern')).minute)
                 currentday = datetime.datetime.now(timezone('US/Eastern')).date()
                 # If trading is open
-                if len(list(tradingdays.NYSE_tradingdays(a=currentday,b=currentday+datetime.timedelta(days=1)))) > 0 and \
+                if len(tradingdays(start=currentday,end=currentday+datetime.timedelta(days=1))) > 0 and \
                    currenttime >= datetime.time(9,30) and \
                    currenttime <= datetime.time(16,0):
                    # Update tick

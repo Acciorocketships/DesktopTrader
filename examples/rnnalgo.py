@@ -21,7 +21,7 @@ class RNN(Algorithm):
 		self.lastrun = None
 		self.benchmark = self.securities
 		self.lookback = 3
-		self.weights_path = 'rnn_weights.h5'
+		self.weights_path = 'rnn_weights1.h5'
 		# original: LSTM32, Dense128, Dense1
 		self.model = Sequential()
 		self.model.add(LSTM(32,input_shape=(self.lookback,4),return_sequences=False,dropout=0.2,recurrent_dropout=0.2,kernel_regularizer=l1(0.001),recurrent_regularizer=l1(0.001)))
@@ -76,9 +76,9 @@ class RNN(Algorithm):
 		dataX, _ = self.getdata(stock,length,skip)
 		with self.graph.as_default():
 			dataY = self.model.predict(dataX)[:,0]
-		dates = pd.DatetimeIndex(self.macd(stock,length=skip+length+1)._index[1:length])
+		dates = pd.DatetimeIndex(self.macd(stock,length=skip+length+1)._index[1:length+1])
 		if skip == -1:
-			dates = dates.append(pd.DatetimeIndex([self.nexttradingday(self.datetime)[0].strftime('%Y-%m-%d')]))
+			dates = dates.append(pd.DatetimeIndex([tradingdays(start=self.datetime,end=1)]))
 		dataY = pd.DataFrame({'date':dates,'Predicted Price Change from Previous Day':dataY})
 		dataY = dataY.set_index('date')['Predicted Price Change from Previous Day']
 		return dataY
@@ -89,13 +89,13 @@ class RNN(Algorithm):
 		callbacks.append(ModelCheckpoint(self.weights_path, monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True))
 		dataX, dataY = self.getdata("SPY",datapoints=3200,skip=1200)
 		dataXval, dataYval = self.getdata("SPY",datapoints=800,skip=400)
-		self.model.fit(dataX,dataY,validation_data=(dataXval,dataYval),callbacks=callbacks,epochs=100)
+		self.model.fit(dataX,dataY,validation_data=(dataXval,dataYval),callbacks=callbacks,epochs=1000)
 		self.model.save_weights(self.weights_path)
 
 
 	def test(self,length=10,skip=0):
 		predicted = self.indicator(stock="SPY",length=length,skip=skip)
-		actual = self.percentchange(stock="SPY",length=length+skip) * 100
+		actual = self.percentchange(stock="SPY",length=length+skip)
 		if skip != 0:
 			actual = actual[:-skip]
 		errors = np.absolute(predicted - actual)
@@ -125,7 +125,7 @@ class RNN(Algorithm):
 		percchange = self.percentchange(stock,length=skip+datapoints+self.lookback)
 		bollinger = self.bollinger(stock,length=skip+datapoints+self.lookback)
 		macd = self.macd(stock,length=skip+datapoints+self.lookback)
-		rsi2 = self.rsi(stock,mawindow=2,length=skip+datapoints+self.lookback)
+		rsi2 = self.rsi(stock,window=2,length=skip+datapoints+self.lookback)
 		dataX = []
 		dataY = []
 		for i in range(datapoints):
@@ -143,11 +143,8 @@ class RNN(Algorithm):
 
 
 	def formatdata(self,percchange,bollinger,macd,rsi2):
-		percchange = percchange * 100
-		volatility = (bollinger['Real Upper Band'] - bollinger['Real Lower Band']) / bollinger['Real Middle Band']
-		rsi2 /= 100
 		data = np.concatenate((np.expand_dims(percchange,axis=1),
-							   np.expand_dims(volatility,axis=1),
+							   np.expand_dims(bollinger,axis=1),
 							   np.expand_dims(macd,axis=1),
 							   np.expand_dims(rsi2,axis=1)),axis=1)
 		return data
@@ -171,17 +168,14 @@ def predict():
 
 def backtest():
 	algo = backtester(RNN(),capital=1000)
+	algo.startbacktest(startdate=(2017,1,1),enddate=(2018,1,1))
 	Manager.algogui(algo)
-	algo.startbacktest()
 	import code; code.interact(local=locals())
 
 def debug():
 	algo = backtester(RNN())
 	algo.datetime = datetime(2018,3,27)
 	import code; code.interact(local=locals())
-
-if __name__ == '__main__':
-	backtest()
 
 def cat(array,value,dim=0):
 	for i in range(len(array.shape) - len(np.array(value).shape)):
@@ -192,3 +186,6 @@ def cat(array,value,dim=0):
 		array = np.array(value)
 	return array
 		
+
+if __name__ == '__main__':
+	backtest()
