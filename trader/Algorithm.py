@@ -157,19 +157,19 @@ class Algorithm(object):
 		# Buy/Sell all shares of the stock if its price has crossed the threshold
 		price = self.quote(stock)
 		alloc = self.cash / self.value
-		if (stock in self.stocks) and (stock in self.stoplosses) and (price <= self.stoplosses[stock]):
+		if (stock in self.stocks) and (stock in self.stoplosses) and (price <= self.stoplosses[stock][0]):
 			print("Stoploss for " + stock + " kicking in.")
 			del self.stoplosses[stock]
 			self.orderpercent(stock,0,verbose=True)
-		elif (stock in self.stocks) and (stock in self.stopgains) and (price >= self.stopgains[stock]):
+		elif (stock in self.stocks) and (stock in self.stopgains) and (price >= self.stopgains[stock][0]):
 			print("Stopgain for " + stock + " kicking in.")
 			del self.stopgains[stock]
 			self.orderpercent(stock,0,verbose=True)
-		elif (stock in self.limitlow) and (price <= self.limitlow[stock]):
+		elif (stock in self.limitlow) and (price <= self.limitlow[stock][0]):
 			print("Limit order " + stock + " activated.")
 			del self.limitlow[stock]
 			self.orderpercent(stock,alloc,verbose=True)
-		elif (stock in self.limithigh) and (price >= self.limithigh[stock]):
+		elif (stock in self.limithigh) and (price >= self.limithigh[stock][0]):
 			print("Limit order " + stock + " activated.")
 			del self.limithigh[stock]
 			self.orderpercent(stock,alloc,verbose=True)
@@ -224,27 +224,31 @@ class Algorithm(object):
 	# Adds stop loss or stop gain to a particular stock until it is sold (then you need to re-add it)
 	# If change == 0.05, then the stock will be sold if it goes 5% over the current price
 	# If change == -0.05, then the stock will be sold if it goes 5% below the current price
-	def stopsell(self,stock,change):
+	# amount is given as a number between 0 and 1 (uses orderpercent)
+	def stopsell(self, stock, change, amount=0):
 		if change > 0:
-			self.stopgains[stock] = (1+change)*self.quote(stock)
+			self.stopgains[stock] = ( (1+change)*self.quote(stock), amount )
 		if change < 0:
-			self.stoplosses[stock] = (1+change)*self.quote(stock)
+			self.stoplosses[stock] = ( (1+change)*self.quote(stock), amount )
 
 
 	# Adds order for a stock when it crosses above or below a % change from the current price
 	# If change == 0.05, then the stock will be bought if it goes 5% over the current price
 	# If change == -0.05, then the stock will be bought if it goes 5% below the current price
-	def limitbuy(self,stock,change):
+	# amount is given as a number between 0 and 1 (uses orderpercent)
+	def limitbuy(self, stock, change, amount=1):
+		if amount == 1:
+			amount = self.cash / self.value
 		if change > 0:
-			self.limithigh[stock] = (1+change)*self.quote(stock)
+			self.limithigh[stock] = ( (1+change)*self.quote(stock), amount )
 		if change < 0:
-			self.limitlow[stock] = (1+change)*self.quote(stock)
+			self.limitlow[stock] = ( (1+change)*self.quote(stock), amount )
 
 
 	# stock: stock symbol (string)
 	# amount: number of shares of that stock to order (+ for buy, - for sell)
 	# verbose: prints out order
-	def order(self, stock, amount, verbose=False, notify_address=None):
+	def order(self, stock, amount, ordertype="market", stop=None, limit=None, verbose=False, notify_address=None):
 		# Guard condition for sell
 		if amount < 0 and (-amount > self.stocks.get(stock,0)):
 			print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
@@ -266,9 +270,9 @@ class Algorithm(object):
 		if self.running:
 			# Send order  
 			if amount > 0:
-				buy(stock, amount)
+				buy(stock, amount, ordertype=ordertype, stop=stop, limit=limit)
 			elif amount < 0:
-				sell(stock, abs(amount))
+				sell(stock, abs(amount), ordertype=ordertype, stop=stop, limit=limit)
 			# Block for 5 minutes. If order still hasn't filled, continue.
 			for i in range(273):
 				newamount = positions().get(stock,0)
@@ -308,7 +312,7 @@ class Algorithm(object):
 	# verbose = True to print out whenever an order is made
 	# notify = "example@gmail.com" to send notification when an order is made (if True, it sends to yourself)
 	def orderpercent(self, stock, percent, verbose=False, notify_address=None):
-		cost = self.quote(stock)
+		cost = quote(stock)
 		currentpercent = 0.0
 		if stock in self.stocks:
 			currentpercent = self.stocks[stock] * cost / self.value
@@ -690,58 +694,42 @@ class Backtester(Algorithm):
 
 	def checkthresholds(self,stock):
 		# Enforce Thresholds
-		if self.logging == 'minute':
+		if self.logging == 'minute': # Check if the current price activates a threshold
 			price = self.quote(stock)
 			alloc = self.cash / self.value
-			if (stock in self.stocks) and (stock in self.stoplosses) and (price <= self.stoplosses[stock]):
-				print("Stoploss for " + stock + " kicking in at $" + str(round(self.stoplosses[stock],2)))
+			if (stock in self.stocks) and (stock in self.stoplosses) and (price <= self.stoplosses[stock][0]):
+				print("Stoploss for " + stock + " kicking in at $" + str(round(self.stoplosses[stock][0],2)))
 				del self.stoplosses[stock]
-				self.orderpercent(stock,0,verbose=True)
-			elif (stock in self.stocks) and (stock in self.stopgains) and (price >= self.stopgains[stock]):
-				print("Stopgain for " + stock + " kicking in at $" + str(round(self.stopgains[stock],2)))
+				self.orderpercent(stock,self.stoplosses[stock][1],verbose=True)
+			elif (stock in self.stocks) and (stock in self.stopgains) and (price >= self.stopgains[stock][0]):
+				print("Stopgain for " + stock + " kicking in at $" + str(round(self.stopgains[stock][0],2)))
 				del self.stopgains[stock]
-				self.orderpercent(stock,0,verbose=True)
-			elif (stock in self.limitlow) and (price <= self.limitlow[stock]):
-				print("Limit order " + stock + " activated at $" + str(round(self.limitlow[stock],2)))
+				self.orderpercent(stock,self.stopgains[stock][1],verbose=True)
+			elif (stock in self.limitlow) and (price <= self.limitlow[stock][0]):
+				print("Limit order " + stock + " activated at $" + str(round(self.limitlow[stock][0],2)))
 				del self.limitlow[stock]
-				self.orderpercent(stock,alloc,verbose=True)
-			elif (stock in self.limithigh) and (price >= self.limithigh[stock]):
-				print("Limit order " + stock + " activated at $" + str(round(self.limithigh[stock],2)))
+				self.orderpercent(stock,self.limitlow[stock][1],verbose=True)
+			elif (stock in self.limithigh) and (price >= self.limithigh[stock][0]):
+				print("Limit order " + stock + " activated at $" + str(round(self.limithigh[stock][0],2)))
 				del self.limithigh[stock]
-				self.orderpercent(stock,alloc,verbose=True)
-		else:
-			if (stock in self.stocks) and (stock in self.stoplosses) and (self.history(stock,datatype='3. low')[0] <= self.stoplosses[stock]):
-				amount = self.stocks[stock]
-				self.stocks[stock] = 0
-				self.cash += self.stoplosses[stock] * amount
-				print("Stoploss for " + stock + " kicking in at $" + str(round(self.stoplosses[stock],2)))
-				print("Selling " + str(amount) + " shares of " + stock + " at $" + str(round(self.stoplosses[stock],2)))
+				self.orderpercent(stock,self.limithigh[stock][1],verbose=True)
+		else: # Check if the day's low or high activates a threshold
+			if (stock in self.stocks) and (stock in self.stoplosses) and (self.history(stock,datatype='low')[0] <= self.stoplosses[stock][0]):
+				print("Stoploss for " + stock + " kicking in at $" + str(round(self.stoplosses[stock][0],2)))
 				del self.stoplosses[stock]
-			elif (stock in self.stocks) and (stock in self.stopgains) and (self.history(stock,datatype='2. high')[0] >= self.stopgains[stock]):
-				amount = self.stocks[stock]
-				self.stocks[stock] = 0
-				self.cash += self.stopgains[stock] * amount
-				print("Stopgain for " + stock + " kicking in at $" + str(round(self.stopgains[stock],2)))
-				print("Selling " + str(amount) + " shares of " + stock + " at $" + str(round(self.stopgains[stock],2)))
+				self.orderpercent(stock, self.stoplosses[stock][1], cost=self.stoplosses[stock][0], verbose=True)
+			elif (stock in self.stocks) and (stock in self.stopgains) and (self.history(stock,datatype='high')[0] >= self.stopgains[stock][0]):
+				print("Stopgain for " + stock + " kicking in at $" + str(round(self.stopgains[stock][0],2)))
 				del self.stoplosses[stock]
-			elif (stock in self.limitlow) and (self.history(stock,datatype='3. low')[0] <= self.limitlow[stock]):
-				self.stocks[stock] = math.floor(self.cash / self.limitlow[stock])
-				self.cash -= self.stocks[stock] * self.limitlow[stock]
-				print("Limit order " + stock + " activated at $" + str(round(self.limitlow[stock],2)))
-				print("Buying " + str(self.stocks[stock]) + " shares of " + stock + " at $" + str(round(self.limitlow[stock],2)))
+				self.orderpercent(stock, self.stopgains[stock][1], cost=self.stopgains[stock][0], verbose=True)
+			elif (stock in self.limitlow) and (self.history(stock,datatype='low')[0] <= self.limitlow[stock][0]):
+				print("Limit order " + stock + " activated at $" + str(round(self.limitlow[stock][0],2)))
 				del self.limitlow[stock]
-			elif (stock in self.limithigh) and (self.history(stock,datatype='2. high')[0] >= self.limithigh[stock]):
-				self.stocks[stock] = math.floor(self.cash / self.limithigh[stock])
-				self.cash -= self.stocks[stock] * self.limithigh[stock]
-				print("Limit order " + stock + " activated at $" + str(round(self.limithigh[stock],2)))
-				print("Buying " + str(self.stocks[stock]) + " shares of " + stock + " at $" + str(round(self.limithigh[stock],2)))
+				self.orderpercent(stock, self.limitlow[stock][1], cost=self.limitlow[stock][0], verbose=True)
+			elif (stock in self.limithigh) and (self.history(stock,datatype='high')[0] >= self.limithigh[stock][0]):
+				print("Limit order " + stock + " activated at $" + str(round(self.limithigh[stock][0],2)))
 				del self.limithigh[stock]
-			self.cash = round(self.cash,2)
-			# Remove when the stock is sold
-			if (stock in self.stoplosses) and (self.stocks.get(stock,0) == 0):
-				del self.stoplosses[stock]
-			if stock in self.stopgains and (self.stocks.get(stock,0) == 0):
-				del self.stopgains[stock]
+				self.orderpercent(stock, self.limithigh[stock][1], cost=self.limithigh[stock][0], verbose=True)
 
 
 	def quote(self, stock):
@@ -829,13 +817,14 @@ class Backtester(Algorithm):
 		return hist[datatype][idx-length+1 : idx+1]
 		
 
-	def order(self, stock, amount, verbose=False, notify_address=None):
+	def order(self, stock, amount, cost=None, ordertype="market", stop=None, limit=None, verbose=False, notify_address=None):
 		# Guard condition for sell
 		if amount < 0 and (stock in self.stocks) and (-amount > self.stocks[stock]):
 			print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
 				self.stocks[stock] if stock in self.stocks else 0) + ") of " + stock))
 			return None
-		cost = self.quote(stock)
+		if cost is None:
+			cost = self.quote(stock)
 		# Guard condition for buy
 		if cost * amount > self.cash:
 			print(("Warning: not enough cash ($" + str(self.cash) + ") in algorithm to buy " + str(
@@ -843,15 +832,47 @@ class Backtester(Algorithm):
 			return None
 		if amount == 0:
 			return None
-		# Stage the order
-		self.stocks[stock] = self.stocks.get(stock, 0) + amount
-		self.cash -= cost * amount
-		self.cash = round(self.cash,2)
-		if verbose:
-			if amount >= 0:
-				print( "Buying " + str(amount) + " shares of " + stock + " at $" + str(cost))
+		# Immediately execute market order
+		if ordertype == 'market':
+			self.stocks[stock] = self.stocks.get(stock, 0) + amount
+			self.cash -= cost * amount
+			self.cash = round(self.cash,2)
+			if verbose:
+				if amount >= 0:
+					print( "Buying " + str(amount) + " shares of " + stock + " at $" + str(cost))
+				else:
+					print( "Selling " + str(-amount) + " shares of " + stock + " at $" + str(cost))
+		# Simulate stop and limit orders
+		elif ordertype == 'stop' or ordertype == 'limit':
+			if limit is None and stop is None:
+				print("You need to specify a stop or limit price")
+			price = limit if (limit is not None) else stop
+			change = (price - cost) / cost
+			perc = (self.stocks.get(stock,0) + amount) * cost / self.value
+			if amount > 0:
+				self.limitbuy(stock, change, perc)
 			else:
-				print( "Selling " + str(-amount) + " shares of " + stock + " at $" + str(cost))
+				self.stopsell(stock, change, perc)
+		# TODO: Test stop/limit orders in backtest.
+
+
+	def orderpercent(self, stock, percent, cost=None, ordertype="market", stop=None, limit=None, verbose=False, notify_address=None):
+		if cost is None:
+			cost = quote(stock)
+		currentpercent = self.stocks.get(stock,0) * cost / self.value
+		percentdiff = percent - currentpercent
+		if percentdiff < 0:
+			# Min of (# required to reach target percent) and (# of that stock owned)
+			amount = min( round(-percentdiff * self.value / cost), self.stocks.get(stock,0) )
+			return self.order(stock=stock, amount=-amount, cost=cost, \
+							  ordertype=ordertype, stop=stop, limit=limit, \
+							  verbose=verbose, notify_address=notify_address)
+		else:
+			# Min of (# required to reach target percent) and (# that you can buy with your available cash)
+			amount = min( math.floor(percentdiff * self.value / cost), math.floor(self.cash / cost) )
+			return self.order(stock=stock, amount=amount, cost=cost, \
+							  ordertype=ordertype, stop=stop, limit=limit, \
+							  verbose=verbose, notify_address=notify_address)
 
 
 
@@ -1020,8 +1041,10 @@ def backtester(algo, capital=None, benchmark=None):
 		algoback.benchmark = "SPY"
 	return algoback
 
+
 # Input: stock symbol as a string, number of shares as an int
-def buy(stock, amount):
+# ordertype: "market", "limit", "stop", "stop_limit"
+def buy(stock, amount, ordertype='market', stop=None, limit=None):
 	if broker == 'robinhood':
 		stockobj = robinhood.instruments(stock)[0]
 		try:
@@ -1030,10 +1053,12 @@ def buy(stock, amount):
 		except Exception as e:
 			print("Buy Order Failed. Are there other orders? Is there enough cash?", e)
 	elif broker == 'alpaca':
-		print("TODO: Not Implemented")
+		api.submit_order(stock, amount, 'buy', ordertype, 'day', limit_price=limit, stop_price=stop)
+
 
 # Input: stock symbol as a string, number of shares as an int
-def sell(stock, amount):
+# ordertype: "market", "limit", "stop", "stop_limit"
+def sell(stock, amount, ordertype='market', stop=None, limit=None):
 	if broker == 'robinhood':
 		stockobj = robinhood.instruments(stock)[0]
 		try:
@@ -1042,7 +1067,8 @@ def sell(stock, amount):
 		except Exception as e:
 			print("Sell Order Failed.", e)
 	elif broker == 'alpaca':
-		print("TODO: Not Implemented")
+		api.submit_order(stock, amount, 'sell', ordertype, 'day', limit_price=limit, stop_price=stop)
+
 
 # Input: stock symbol as a string
 # Returns: share price as a float
@@ -1056,11 +1082,17 @@ def price(stock):
 					print("Could not fetch Robinhood quote for " + stock + ".", e)
 				time.sleep(0.3*i)
 	elif broker == 'alpaca':
-		print("TODO: Not Implemented")
+		cost = float(api.polygon.last_quote(stock).askprice)
+		if cost == 0:
+			cost = float(api.polygon.last_trade(stock).price)
+		return cost
+
 
 # Returns: list of ("symbol",amount)
 def positions():
+	
 	positions = {}
+	
 	if broker == 'robinhood':
 		for i in range(10):
 			try:
@@ -1075,16 +1107,23 @@ def positions():
 				if i == 0:
 					print("Could not fetch Robinhood positions data.", e)
 				time.sleep(0.3*i)
+	
 	elif broker == 'alpaca':
-		print("TODO: Not Implemented")
+		poslist = api.list_positions()
+		for pos in poslist:
+			positions[pos.symbol] = int(pos.qty)
+	
 	return positions
+
 
 # Returns dictionary of
 	# "value": total portfolio value as a float
 	# "cash": portfolio cash as a float
 	# "daychange": current day's percent portfolio value change as a float
 def portfoliodata():
+	
 	portfolio = {}
+
 	if broker == 'robinhood':
 		for i in range(10):
 			try:
@@ -1101,13 +1140,14 @@ def portfoliodata():
 			portfolio["cash"] = portfolio["value"] - float(robinhoodportfolio['extended_hours_market_value'])
 		else:
 			portfolio["cash"] = portfolio["value"] - float(robinhoodportfolio['market_value'])
-		portfolio["day change"] = (portfolio["value"] - float(robinhoodportfolio['adjusted_equity_previous_close'])) / \
-														float(robinhoodportfolio['adjusted_equity_previous_close'])
+		
 	elif broker == 'alpaca':
-		print("TODO: Not Implemented")
+		account = api.get_account()
+		portfolio["value"] = account.portfolio_value
+		portfolio["cash"] = account.buying_power
+	
 	portfolio["value"] = round(portfolio["value"],2)
 	portfolio["cash"] = round(portfolio["cash"],2)
-	portfolio["day change"] = round(portfolio["day change"],2)
 	return portfolio
 
 
