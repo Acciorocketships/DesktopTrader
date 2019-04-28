@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from datetime import datetime
+from pandas.plotting import register_matplotlib_converters; register_matplotlib_converters()
 import time
 import numpy as np
 import code
@@ -195,7 +196,7 @@ class Graph(FigureCanvasTkAgg):
         FigureCanvasTkAgg.__init__(self, self.fig, master=master)
         self.mpl_connect('key_press_event', self.keypress)
         self.draw()
-        self.show()
+        #self.show()
 
     def keypress(self, event):
         pass
@@ -210,10 +211,13 @@ class Graph(FigureCanvasTkAgg):
             if type(algo.benchmark) == str:
                 benchmarks = [benchmarks]
             for stock in benchmarks[::-1]:
-                benchmark = algo.history(stock, interval=resolution, length=len(algo.chartdaytimes if resolution == 'day' else algo.chartminutetimes))
-                benchmark = [value * algo.startingcapital / benchmark[0] for value in benchmark]
-                color = 'r-' if stock==benchmarks[0] else None
-                self.plot(algo.chartdaytimes, benchmark, color=color)
+                try:
+                    benchmark = algo.history(stock, interval=resolution, length=len(algo.chartdaytimes if resolution == 'day' else algo.chartminutetimes))
+                    benchmark = [value * algo.startingcapital / benchmark[0] for value in benchmark]
+                    color = 'r-' if stock==benchmarks[0] else None
+                    self.plot(algo.chartdaytimes, benchmark, color=color)
+                except Exception as err:
+                    print(err, "AlgoGUI plotbenchmark")
 
     def plot(self, x, y, color='b-', fill=True):
         try:

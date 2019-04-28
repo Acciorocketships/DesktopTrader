@@ -15,6 +15,7 @@ import smtplib # Emailing
 from pytrends.request import TrendReq # Google Searches
 
 broker = 'alpaca'
+papertrade = True
 
 if broker == 'robinhood':
 	from Robinhood import Robinhood
@@ -25,50 +26,41 @@ elif broker == 'alpaca':
 	from ta import * # Technical Indicators
 else:
 	print("Choose a broker ('robinhood' or 'alpaca')")
+	exit(-1)
 
-# Creds Format:
-# Robinhood Username
-# Robinhood Password
-# Alpha Vantage Key
-# Email Address
-# Email Password
-# Alpaca ID
-# Alpaca Secret Key
 
-# TODO: Refactor into a class, make creds into a dict
-creds = []
+creds = {}
 credential_file = pkg_resources.resource_filename(__name__, "creds.txt")
 try:
 	with open(credential_file, "r") as f:
-		creds = f.readlines()
+		creds = json.load(f)
 except IOError:
-	creds.append(input('Robinhood Username: '))
-	creds.append(input('Robinhood Password: '))
-	creds.append(input('Alpha Vantage API Key: '))
-	email_address = input('Email Address: ')
-	if '@' in email_address:
-		creds.append(email_address)
-		creds.append(input('Email Password: '))
-	else:
-		creds.append("None")
-		creds.append("None")
-	creds.append(input('Alpaca ID: '))
-	creds.append(input('Alpaca Secret Key: '))
+	creds['Email Address'] = input('Email Address: ')
+	creds['Email Password'] = input('Email Password: ')
+	if broker == 'alpaca':
+		creds['Alpaca ID'] = input('Alpaca ID: ')
+		creds['Alpaca Secret Key'] = input('Alpaca Secret Key: ')
+		creds['Alpaca Paper ID'] = input('Alpaca ID: ')
+		creds['Alpaca Paper Secret Key'] = input('Alpaca Secret Key: ')
+	if True: #broker == 'robinhood':
+		creds['Robinhood Username'] = input('Robinhood Username: ')
+		creds['Robinhood Password'] = input('Robinhood Password: ')
+		creds['Alpha Vantage API Key'] = input('Alpha Vantage API Key: ')
 	with open(credential_file, "w") as f:
-		for l in creds:
-			f.write(l + "\n")
+		json.dump(creds,f)
 except PermissionError:
 	print("Inadequate permissions to read credentials file.")
 	exit(-1)
-creds = [x.strip() for x in creds]
 
 if broker == 'robinhood':
 	robinhood = Robinhood()
-	robinhood.login(username=creds[0], password=creds[1])
-	data = TimeSeries(key=creds[2], output_format='pandas')
-	tech = TechIndicators(key=creds[2], output_format='pandas')
+	robinhood.login(username=creds['Robinhood Username'], password=creds['Robinhood Password'])
+	data = TimeSeries(key=creds['Alpha Vantage API Key'], output_format='pandas')
+	tech = TechIndicators(key=creds['Alpha Vantage API Key'], output_format='pandas')
 elif broker == 'alpaca':
-	api = tradeapi.REST(creds[5],creds[6])
+	api = tradeapi.REST(creds['Alpaca ID'] if not papertrade else creds['Alpaca Paper ID'], 
+						creds['Alpaca Secret Key'] if not papertrade else creds['Alpaca Paper Secret Key'],
+						base_url='https://api.alpaca.markets' if not papertrade else 'https://paper-api.alpaca.markets')
 	account = api.get_account()
 
 pytrends = TrendReq(hl='en-US', tz=360)
@@ -98,11 +90,11 @@ class Algorithm(object):
 		self.limitlow = {}
 		self.limithigh = {}
 		self.datetime = self.getdatetime()
-		self.alpha = None
-		self.beta = None
-		self.volatility = None
-		self.sharpe = None
-		self.maxdrawdown = None
+		self.alpha = 0
+		self.beta = 0
+		self.volatility = 0
+		self.sharpe = 0
+		self.maxdrawdown = 0
 		# User initialization
 		self.initialize()
 
@@ -557,15 +549,15 @@ class Algorithm(object):
 			return
 		# Send email to yourself by default
 		if len(recipient) == 0:
-			recipient = creds[3]
+			recipient = creds['Email Address']
 		# Send current state of algorithm by default
 		if len(message) == 0:
 			exclude = {"times","chartminute","chartminutetimes","chartday","chartdaytimes","cache","stoplosses","stopgains","limitlow","limithigh"}
 			message = {key: value for (key,value) in self.__dict__.items() if key not in exclude}
 		if type(message) == dict:
 			message = dict2string(message)
-		gmail_user = creds[3]
-		gmail_password = creds[4]
+		gmail_user = creds['Email Address']
+		gmail_password = creds['Email Password']
 		# If recipient is an email address
 		if "@" in recipient:
 			try:

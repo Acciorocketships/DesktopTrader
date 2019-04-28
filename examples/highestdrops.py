@@ -13,7 +13,7 @@ class Drops(Algorithm):
         self.watchlist = {0: [], 1: [], 2: []}
         self.percdiff = {}
         # Variables that the user can tune
-        self.stocksymbols = ["FB","SPY","AAPL"] # The stocks that this algorithm will trade
+        self.stocksymbols = ["FB","SPY","AAPL","MSFT","WMT","AMZN"] # The stocks that this algorithm will trade
         self.benchmark = self.stocksymbols
         self.swaps = {} # If you want to monitor a stock but buy the leveraged version, add swaps["normal"] = "leveraged"
         self.stockstohold = 1 # Number of stocks to hold at a time
@@ -37,7 +37,7 @@ class Drops(Algorithm):
             lowest,sym = self.queue.get()
         counter = 0
         for stock in self.watchlist[0]+self.watchlist[1]+self.watchlist[2]:
-            if self.macd(stock=stock, interval='day')[0] > 0:
+            if self.macd(stock=stock, interval='day')[0] > 0.3:
                 if self.sellifbetterdeal:
                     for heldstock in self.stocks:
                         if self.percentchange(stock=stock, interval='day')[0] < self.percdiff[heldstock]:
@@ -56,5 +56,5 @@ class Drops(Algorithm):
 if __name__ == '__main__':
     algo = Drops(times=['every day'])
     algoback = backtester(algo)
-    algoback.start(startdate=(2017,1,1),enddate=(2018,1,1))
+    algoback.start(startdate=(2017,1,1),enddate=(2019,1,1))
     Manager.algogui(algoback,thread=False)
