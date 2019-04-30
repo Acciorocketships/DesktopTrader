@@ -366,18 +366,18 @@ class Algorithm(object):
 				# Data from Alpaca
 				elif broker == 'alpaca':
 					nextra = 0
-					end = self.getdatetime() + datetime.timedelta(days=1)
+					end = self.getdatetime() + datetime.timedelta(days=2)
 					if not isdate(length):
 						if interval=='minute':
-							start = datetime.datetime.strptime( api.get_calendar(end=(self.datetime+datetime.timedelta(days=2)).strftime("%Y-%m-%d"))[-(length//710)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+							start = datetime.datetime.strptime( api.get_calendar(end=self.datetime.strftime("%Y-%m-%d"))[-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
 						else:	
-							start = datetime.datetime.strptime( api.get_calendar(end=(self.datetime+datetime.timedelta(days=2)).strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+							start = datetime.datetime.strptime( api.get_calendar(end=self.datetime.strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
 					limit = 2500 if interval=='day' else 10
 					frames = []
 					totaltime = (end-start).days
 					lastsegstart = start
-					for k in range((totaltime-1) // limit):
-						tempstart = start + datetime.timedelta(days=limit*k)
+					for k in range(totaltime // limit):
+						tempstart = start + datetime.timedelta(days=limit*k+1)
 						tempend = start + datetime.timedelta(days=limit*(k+1))
 						lastsegstart = tempend + datetime.timedelta(days=1)
 						frames.append(api.polygon.historic_agg(interval, stock, _from=tempstart.strftime("%Y-%m-%d"), to=tempend.strftime("%Y-%m-%d")).df)
@@ -794,24 +794,23 @@ class Backtester(Algorithm):
 					elif broker == 'alpaca': # Data from Alpaca
 
 						nextra = 100 if interval=='day' else 0 # Number of extra samples before the desired range
-						end = self.getdatetime() + datetime.timedelta(days=1)
+						end = self.getdatetime() + datetime.timedelta(days=2)
 						if not isdate(length):
 							if interval=='minute':
-								start = datetime.datetime.strptime( api.get_calendar(end=(self.datetime+datetime.timedelta(days=2)).strftime("%Y-%m-%d"))[-(length//710)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+								start = datetime.datetime.strptime( api.get_calendar(end=self.datetime.strftime("%Y-%m-%d"))[-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
 							else:	
-								start = datetime.datetime.strptime( api.get_calendar(end=(self.datetime+datetime.timedelta(days=2)).strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+								start = datetime.datetime.strptime( api.get_calendar(end=self.datetime.strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
 						limit = 2500 if interval=='day' else 10
 						frames = []
 						totaltime = (end-start).days
 						lastsegstart = start
-						for k in range((totaltime-1) // limit):
-							tempstart = start + datetime.timedelta(days=limit*k)
+						for k in range(totaltime // limit):
+							tempstart = start + datetime.timedelta(days=limit*k+1)
 							tempend = start + datetime.timedelta(days=limit*(k+1))
 							lastsegstart = tempend + datetime.timedelta(days=1)
 							frames.append(api.polygon.historic_agg(interval, stock, _from=tempstart.strftime("%Y-%m-%d"), to=tempend.strftime("%Y-%m-%d")).df)
 						frames.append(api.polygon.historic_agg(interval, stock, _from=lastsegstart.strftime("%Y-%m-%d"), to=end.strftime("%Y-%m-%d")).df)
 						hist = pd.concat(frames)
-
 
 				# Pause and try again if there is an error
 				except ValueError as err:
