@@ -206,16 +206,19 @@ class Graph(FigureCanvasTkAgg):
 
     # TODO: Check that benchmark datetime lines up with chardaytimes
     def plotbenchmark(self, algo, resolution):
+        benchmarkcolors = ['r','g','m','y']
         if algo.benchmark is not None:
             benchmarks = algo.benchmark[:]
             if type(algo.benchmark) == str:
                 benchmarks = [benchmarks]
-            for stock in benchmarks[::-1]:
+            for i, stock in enumerate(benchmarks[::-1]):
                 try:
-                    benchmark = algo.history(stock, interval=resolution, length=len(algo.chartdaytimes if resolution == 'day' else algo.chartminutetimes))
+                    times = algo.chartdaytimes if resolution == 'day' else algo.chartminutetimes
+                    import pdb; pdb.set_trace()
+                    benchmark = algo.history(stock, interval=resolution, length=times[0])
                     benchmark = [value * algo.startingcapital / benchmark[0] for value in benchmark]
-                    color = 'r-' if stock==benchmarks[0] else None
-                    self.plot(algo.chartdaytimes, benchmark, color=color)
+                    color = (benchmarkcolors[i] + '--') if i < len(benchmarkcolors) else None
+                    self.plot(times, benchmark, color=color, fill=False)
                 except Exception as err:
                     print(err, "AlgoGUI plotbenchmark")
 
@@ -224,7 +227,7 @@ class Graph(FigureCanvasTkAgg):
             if len(y) != 0:
                 self.mainplot.plot_date(x, y, color)
                 if fill:
-                    self.mainplot.fill_between(x, y, y2=y[0], color="b", alpha=0.2)
+                    self.mainplot.fill_between(x, y, y2=y[0], color=color[0], alpha=0.2)
                 maxy = max(y)
                 self.fig.autofmt_xdate()
                 self.draw()

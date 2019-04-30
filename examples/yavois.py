@@ -76,10 +76,21 @@ class Yavois(Algorithm):
 
         
 
-
-if __name__ == '__main__':
-    algo = Yavois(times=[(9,30),(15,59)])
+def backtest():
+    algo = Yavois()
     algoback = backtester(algo,benchmark="SPY",capital=1000)
     algoback.start()
-    Manager.algogui(algoback)
+    #Manager.algogui(algoback)
+
+
+def run():
+    manager = Manager()
+    algo = Yavois(times=[(9,30),(15,59)])
+    manager.add(algo,allocation=1)
+    manager.start()
+    manager.interactive(vars=locals())
+
+
+if __name__ == '__main__':
+    backtest()
 

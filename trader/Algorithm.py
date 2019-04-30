@@ -365,14 +365,31 @@ class Algorithm(object):
 						hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
 				# Data from Alpaca
 				elif broker == 'alpaca':
-					hist = api.polygon.historic_agg(interval, stock, limit=length).df
+					nextra = 0
+					end = self.getdatetime() + datetime.timedelta(days=1)
+					if not isdate(length):
+						if interval=='minute':
+							start = datetime.datetime.strptime( api.get_calendar(end=(self.datetime+datetime.timedelta(days=2)).strftime("%Y-%m-%d"))[-(length//710)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+						else:	
+							start = datetime.datetime.strptime( api.get_calendar(end=(self.datetime+datetime.timedelta(days=2)).strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+					limit = 2500 if interval=='day' else 10
+					frames = []
+					totaltime = (end-start).days
+					lastsegstart = start
+					for k in range((totaltime-1) // limit):
+						tempstart = start + datetime.timedelta(days=limit*k)
+						tempend = start + datetime.timedelta(days=limit*(k+1))
+						lastsegstart = tempend + datetime.timedelta(days=1)
+						frames.append(api.polygon.historic_agg(interval, stock, _from=tempstart.strftime("%Y-%m-%d"), to=tempend.strftime("%Y-%m-%d")).df)
+					frames.append(api.polygon.historic_agg(interval, stock, _from=lastsegstart.strftime("%Y-%m-%d"), to=end.strftime("%Y-%m-%d")).df)
+					hist = pd.concat(frames)
 			# Keep trying if there is a network error
 			except ValueError as err:
 				print(err)
 				time.sleep(5)
 		# Convert length to int
 		if isdate(length):
-			length = datetolength(length,hist)
+			length = datetolength(length,hist[datatype])
 		if length is None:
 			length = len(hist)
 		# Return desired length
@@ -610,14 +627,14 @@ class Backtester(Algorithm):
 
 	# Starts the backtest (calls startbacktest in a new thread)
 	# Times can be in the form of datetime objects or tuples (day,month,year)
-	def start(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=12),
+	def start(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=6),
 					enddate=datetime.datetime.today().date()):
 		backtestthread = threading.Thread(target=self.startbacktest, args=(startdate, enddate))
 		backtestthread.start()
 
 
 	# Starts the backtest
-	def startbacktest(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=12),
+	def startbacktest(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=6),
 							enddate=datetime.datetime.today().date()):
 		if isinstance(startdate,str):
 			startdate = tuple(startdate.split("-"))
@@ -627,7 +644,7 @@ class Backtester(Algorithm):
 			startdate = datetime.date(startdate[0], startdate[1], startdate[2])
 		if type(enddate) == tuple:
 			enddate = datetime.date(enddate[0], enddate[1], enddate[2])
-		if (datetime.datetime.today().date() - startdate) <= datetime.timedelta(days=12):
+		if (datetime.datetime.today().date() - startdate) <= datetime.timedelta(days=6):
 			self.logging = 'minute'
 		days = tradingdays(start=startdate, end=enddate)
 		self.daysago = len(days) + len(tradingdays(start=enddate, end=datetime.datetime.today().date()))
@@ -725,18 +742,21 @@ class Backtester(Algorithm):
 
 
 	def quote(self, stock):
-		return self.history(stock, interval=self.logging, datatype='open')[0].item()
+		return self.history(stock, interval=self.logging, datatype='close')[0].item()
 
 
 	def history(self, stock, length=1, datatype='close', interval='day'):
 		
 		# Handle Cache
-		key = ('history', stock, datatype, interval)
+		key = (stock, datatype, interval)
 		cache = self.cache.get(key)
-		exp = None
-		if cache is not None: 
-			hist, exp, dateidx, lastidx = cache 
-		if (cache is None) or (self.getdatetime() > exp):
+
+		if cache is not None:
+
+			hist, dateidx, lastidx = cache 
+
+		else:
+
 			hist = None
 			
 			while hist is None:
@@ -773,14 +793,25 @@ class Backtester(Algorithm):
 
 					elif broker == 'alpaca': # Data from Alpaca
 
-						nextra = 50 # number of extra datapoints to cache
-						today = (self.getdatetime() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-						if isdate(length):
-							start = (length + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-						else:
-							currday = self.datetime.strftime("%Y-%m-%d")
-							start = api.get_calendar(end = currday)[-length-nextra].date.strftime("%Y-%m-%d")
-						hist = api.polygon.historic_agg(interval, stock, _from=start, to=today).df
+						nextra = 100 if interval=='day' else 0 # Number of extra samples before the desired range
+						end = self.getdatetime() + datetime.timedelta(days=1)
+						if not isdate(length):
+							if interval=='minute':
+								start = datetime.datetime.strptime( api.get_calendar(end=(self.datetime+datetime.timedelta(days=2)).strftime("%Y-%m-%d"))[-(length//710)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+							else:	
+								start = datetime.datetime.strptime( api.get_calendar(end=(self.datetime+datetime.timedelta(days=2)).strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+						limit = 2500 if interval=='day' else 10
+						frames = []
+						totaltime = (end-start).days
+						lastsegstart = start
+						for k in range((totaltime-1) // limit):
+							tempstart = start + datetime.timedelta(days=limit*k)
+							tempend = start + datetime.timedelta(days=limit*(k+1))
+							lastsegstart = tempend + datetime.timedelta(days=1)
+							frames.append(api.polygon.historic_agg(interval, stock, _from=tempstart.strftime("%Y-%m-%d"), to=tempend.strftime("%Y-%m-%d")).df)
+						frames.append(api.polygon.historic_agg(interval, stock, _from=lastsegstart.strftime("%Y-%m-%d"), to=end.strftime("%Y-%m-%d")).df)
+						hist = pd.concat(frames)
+
 
 				# Pause and try again if there is an error
 				except ValueError as err:
@@ -790,21 +821,23 @@ class Backtester(Algorithm):
 			# Save To Cache
 			dateidx = dateidxs(hist)
 			lastidx = nearestidx(self.datetime, dateidx)
-			self.cache[key] = [hist, self.getdatetime() + datetime.timedelta(minutes = self.exptime), dateidx, lastidx]
+			self.cache[key] = [hist, dateidx, lastidx]
 		
 		# Look for current datetime in cached data
 		try:
 			idx = nearestidx(self.datetime, dateidx, lastchecked=lastidx)
-		except Exception: # Happens if we request data farther back than before
+			if isdate(length):
+				length = datetolength(length,dateidx,idx)
+			# Convert length to int
+			if length is None:
+				length = len(hist)
+			if idx-length+1 < 0:
+				raise Exception('Cached data too short')
+		except: # Happens if we request data farther back than before
 			del self.cache[key]
 			return self.history(stock, interval=interval, length=length, datatype=datatype)
-		self.cache[key][3] = idx
+		self.cache[key][2] = idx
 		
-		# Convert length to int
-		if isdate(length):
-			length = datetolength(length,dateidx,idx) # TODO: make sure dates work
-		if length is None:
-			length = idx
 		
 		return hist[datatype][idx-length+1 : idx+1]
 		
@@ -942,22 +975,22 @@ def dateidxs(arr):
 # If lastchecked==None: Searches backward from the most recent entries
 # If lastchecked>=0: Searches forward starting at lastchecked
 # If lastchecked<0: Searches backward starting at -lastchecked
-def nearestidx(time, dateidxs, lastchecked=None):
+def nearestidx(time, dateidx, lastchecked=None):
 	if lastchecked is None:
-		for i in range(len(dateidxs)):
-			index = len(dateidxs) - i - 1
-			if dateidxs[index] <= time:
+		for i in range(len(dateidx)):
+			index = len(dateidx) - i - 1
+			if dateidx[index] <= time:
 				return index
 	elif lastchecked >= 0:
-		for i in range(len(dateidxs)):
-			index = (lastchecked + i - 5) % len(dateidxs)
-			if dateidxs[index] > time:
+		for i in range(len(dateidx)):
+			index = (lastchecked + i - 5) % len(dateidx)
+			if dateidx[index] > time:
 				return index-1
-		return len(dateidxs)-1
+		return len(dateidx)-1
 	else:
-		for i in range(len(dateidxs)):
-			index = (len(dateidxs) - lastchecked - i) % len(dateidxs)
-			if dateidxs[index] <= time:
+		for i in range(len(dateidx)):
+			index = (len(dateidx) - lastchecked - i) % len(dateidx)
+			if dateidx[index] <= time:
 				return index
 	raise Exception("Datetime " + str(time) + " not found in historical data.")
 
@@ -965,15 +998,15 @@ def nearestidx(time, dateidxs, lastchecked=None):
 # Returns the difference of the indexes of startdate and currentdateidx in dateidxs
 # startdate: datetime in the past
 # currentdateidx: idx of current date in dateidxs (datetime also accepted) (If None given, it will default to the last value)
-# dateidxs: list of datetimes (original pandas dataframe also accepted)
-def datetolength(startdate, dateidxs, currentdateidx=None):
-	if isinstance(dateidxs,pd.DataFrame):
-		dateidxs = dateidxs(dateidxs)
+# dateidx: list of datetimes (original pandas dataframe also accepted)
+def datetolength(startdate, dateidx, currentdateidx=None):
+	if isinstance(dateidx,pd.DataFrame) or isinstance(dateidx,pd.Series):
+		dateidx = dateidxs(dateidx)
 	if isdate(currentdateidx):
-		currentdateidx = nearestidx(currentdateidx, dateidxs)
+		currentdateidx = nearestidx(currentdateidx, dateidx)
 	if currentdateidx is None:
-		currentdateidx = len(dateidxs)-1
-	return currentdateidx - nearestidx(startdate, dateidxs, lastchecked=-currentdateidx)
+		currentdateidx = len(dateidx)-1
+	return currentdateidx - nearestidx(startdate, dateidx, lastchecked=-currentdateidx) + 1
 
 
 # Converts a dictionary to a string
