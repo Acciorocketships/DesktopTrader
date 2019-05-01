@@ -172,10 +172,14 @@ class Algorithm(object):
 			del self.stopgains[stock]
 
 	def riskmetrics(self):
-		benchmark = self.benchmark if type(self.benchmark)==str else self.benchmark[0]
+		benchmark = self.benchmark if type(self.benchmark)==str else 'SPY'
 		changes = self.percentchange(self.chartday)
+		idx = [pd.Timestamp(date.date()) for date in self.chartdaytimes[1:]]
+		changes.index = idx
 		if len(changes) > 0:
 			benchmarkchanges = self.percentchange(benchmark, length=len(changes))
+			idx = [date.tz_convert(None).date() for date in benchmarkchanges.index]
+			benchmarkchanges.index = idx
 			self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
 			self.alpha = round(self.alpha,3)
 			self.beta = round(self.beta,3)
@@ -651,20 +655,43 @@ class Backtester(Algorithm):
 		for day in days:
 			if self.logging == 'minute':
 				for minute in range(391):
+					# Set datetime of algorithm
 					self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)
+					# Exit if that datetime is in the future
 					if self.datetime >= self.getdatetime():
 						break
 					if minute in self.timestorun:
+						# Update algorithm cash and value
 						self.update()
+						# Run algorithm
 						self.run()
+					# Log algorithm cash and value
 					self.updatemin()
+					# Check limit order thresholds
+					for stock in self.stocks:
+						self.checkthresholds(stock)
 			elif self.logging == 'day':
-				for minute in self.timestorun:
+				checkedthresholds = False
+				for minute in sorted(self.timestorun):
+					# Set datetime of algorithm
 					self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)
+					# Exit if that datetime is in the future
 					if self.datetime >= self.getdatetime():
 						break
+					# If algorithm is running at the end of the day, check thresholds before running it
+					if self.datetime.time() == datetime.time(15,59):
+						for stock in self.stocks:
+							self.checkthresholds(stock)
+						checkedthresholds = True
+					# Update algorithm cash and value
 					self.update()
+					# Run algorithm
 					self.run()
+				# Check limit order thresholds if it hasn't already been done
+				if not checkedthresholds:
+					for stock in self.stocks:
+						self.checkthresholds(stock)
+				# Log algorithm cash and value
 				self.datetime = datetime.datetime.combine(day, datetime.time(15, 59))
 				self.updateday()
 		self.riskmetrics()
@@ -672,16 +699,12 @@ class Backtester(Algorithm):
 
 	def updatemin(self):
 		self.update()
-		for stock in self.stocks:
-			self.checkthresholds(stock)
 		self.chartminute.append(self.value)
 		self.chartminutetimes.append(self.datetime)
 
 
 	def updateday(self):
 		self.update()
-		for stock in self.stocks:
-			self.checkthresholds(stock)
 		self.chartday.append(self.value)
 		self.chartdaytimes.append(self.datetime)
 
@@ -905,7 +928,7 @@ class Backtester(Algorithm):
 ### Helper Functions ###
 
 
-# If start and end are both dates, it returns a list of trading days from the start date to the end date
+# If start and end are both dates, it returns a list of trading days from the start date to the end date (not including end date)
 # If start is a date and end is an int, it returns the date that is end days after start
 # If start is an int and end is a date, it returns the date that is start days before end
 def tradingdays(start=datetime.datetime.today().date(), end=1):
