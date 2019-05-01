@@ -39,7 +39,7 @@ class Gui(Frame):
         self.stocks = None
         self.stats = None
         self.plotres = StringVar();
-        if isinstance(self.algo, Backtester) and self.algo.logging == 'day':
+        if isinstance(self.algo, Backtester) or self.algo.logging == 'day':
             self.plotres.set('day')
         else:
             self.plotres.set('minute')
@@ -80,17 +80,16 @@ class Gui(Frame):
         add(graphframe, root, 0, 0, colspan=2)
         graphborder = Frame(master=graphframe, padx=4, pady=4, bg='black')
         graphborder.pack(fill=BOTH, expand=True)
-        if len(self.algo.chartminutetimes)>0 and len(self.algo.chartdaytimes)>0:
-            # Toolbar
-            toolbar = Frame(master=graphborder)
-            toolbar.pack(side=BOTTOM, fill=X)
-            # Resolution buttons
-            resolution = Frame(master=toolbar)
-            resolution.pack(expand=True, fill=None)
-            minutebutton = Radiobutton(master=resolution, text='Minute', variable=self.plotres, value='minute')
-            daybutton = Radiobutton(master=resolution, text='Day', variable=self.plotres, value='day')
-            minutebutton.pack(side=LEFT)
-            daybutton.pack(side=LEFT)
+        # Toolbar
+        toolbar = Frame(master=graphborder)
+        toolbar.pack(side=BOTTOM, fill=X)
+        # Resolution buttons
+        resolution = Frame(master=toolbar)
+        resolution.pack(expand=True, fill=None)
+        minutebutton = Radiobutton(master=resolution, text='Minute', variable=self.plotres, value='minute')
+        daybutton = Radiobutton(master=resolution, text='Day', variable=self.plotres, value='day')
+        minutebutton.pack(side=LEFT)
+        daybutton.pack(side=LEFT)
         self.graph = Graph(graphborder)
         self.graph.widget().pack(side=TOP, fill=X, expand=True)
         # Class Attributes
@@ -167,7 +166,7 @@ class Stocks(Text):
 
 class Attributes(Text):
     dontshow = set(
-        ['minutesago', 'daysago', 'logging', 'chartday', 'chartdaytimes', 'chartminute', 'running', 'benchmark', \
+        ['logging', 'chartday', 'chartdaytimes', 'chartminute', 'running', 'benchmark', \
          'chartminutetimes', 'cache', 'startingcapital', 'cash', 'value', 'stocks', 'times', 'datetime', 'openorders', \
          'stoplosses', 'stopgains', 'limithigh', 'limitlow', 'alpha', 'beta', 'maxdrawdown', 'volatility', 'sharpe','exptime'])
 
@@ -214,11 +213,11 @@ class Graph(FigureCanvasTkAgg):
             for i, stock in enumerate(benchmarks[::-1]):
                 try:
                     times = algo.chartdaytimes if resolution == 'day' else algo.chartminutetimes
-                    import pdb; pdb.set_trace()
-                    benchmark = algo.history(stock, interval=resolution, length=times[0])
-                    benchmark = [value * algo.startingcapital / benchmark[0] for value in benchmark]
-                    color = (benchmarkcolors[i] + '--') if i < len(benchmarkcolors) else None
-                    self.plot(times, benchmark, color=color, fill=False)
+                    if len(times) > 0:
+                        benchmark = algo.history(stock, interval=resolution, length=times[0])
+                        benchmark = [value * algo.startingcapital / benchmark[0] for value in benchmark]
+                        color = (benchmarkcolors[i] + '--') if i < len(benchmarkcolors) else None
+                        self.plot(times, benchmark, color=color, fill=False)
                 except Exception as err:
                     print(err, "AlgoGUI plotbenchmark")
 

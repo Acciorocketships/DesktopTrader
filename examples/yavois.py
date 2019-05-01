@@ -11,7 +11,8 @@ class Yavois(Algorithm):
         self.nextdaysell = False
         self.rsi2thres = 0.5
         self.rsi7thres = -0.5
-        self.long = "SPY"
+        self.long = "SVXY"
+        self.benchmark = self.long
         self.hideout = None
         self.takegain = 0.05
         self.takeloss = -0.02
@@ -79,8 +80,8 @@ class Yavois(Algorithm):
 def backtest():
     algo = Yavois()
     algoback = backtester(algo,benchmark="SPY",capital=1000)
-    algoback.start()
-    #Manager.algogui(algoback)
+    algoback.start(start=(2018,1,1))
+    Manager.algogui(algoback)
 
 
 def run():

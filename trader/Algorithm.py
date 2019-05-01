@@ -369,9 +369,11 @@ class Algorithm(object):
 					end = self.getdatetime() + datetime.timedelta(days=2)
 					if not isdate(length):
 						if interval=='minute':
-							start = datetime.datetime.strptime( api.get_calendar(end=self.datetime.strftime("%Y-%m-%d"))[-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+							start = datetime.datetime.strptime( api.get_calendar(end=(self.datetime+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
 						else:	
 							start = datetime.datetime.strptime( api.get_calendar(end=self.datetime.strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+					else:
+						start = length
 					limit = 2500 if interval=='day' else 10
 					frames = []
 					totaltime = (end-start).days
@@ -602,20 +604,18 @@ class Algorithm(object):
 
 # Use self.datetime to get current time (as a datetime object)
 class Backtester(Algorithm):
-	def __init__(self, capital=10000.0, times=['every day'], benchmark='SPY'):
-		super(Backtester, self).__init__(times)
+	def __init__(self, capital=10000.0, benchmark='SPY'):
+		super(Backtester, self).__init__()
 		# Constants
-		if times == ['every day']:
+		if self.times == ['every day']:
 			self.logging = 'day'
 		else:
 			self.logging = 'minute'
 		self.startingcapital = capital
 		self.cash = capital
-		self.times = timestorun(times)
+		self.timestorun = timestorun(self.times)
 		self.exptime = 450
 		# Variables that change automatically
-		self.daysago = None
-		self.minutesago = None
 		self.alpha = None
 		self.beta = None
 		self.volatility = None
@@ -627,15 +627,15 @@ class Backtester(Algorithm):
 
 	# Starts the backtest (calls startbacktest in a new thread)
 	# Times can be in the form of datetime objects or tuples (day,month,year)
-	def start(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=6),
-					enddate=datetime.datetime.today().date()):
-		backtestthread = threading.Thread(target=self.startbacktest, args=(startdate, enddate))
+	def start(self, start=datetime.datetime.today().date()-datetime.timedelta(days=90),
+					end=datetime.datetime.today().date(), logging='day'):
+		backtestthread = threading.Thread(target=self.startbacktest, args=(start, end, logging))
 		backtestthread.start()
 
 
 	# Starts the backtest
-	def startbacktest(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=6),
-							enddate=datetime.datetime.today().date()):
+	def startbacktest(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=90),
+							enddate=datetime.datetime.today().date(), logging='day'):
 		if isinstance(startdate,str):
 			startdate = tuple(startdate.split("-"))
 		if isinstance(enddate,str):
@@ -644,48 +644,46 @@ class Backtester(Algorithm):
 			startdate = datetime.date(startdate[0], startdate[1], startdate[2])
 		if type(enddate) == tuple:
 			enddate = datetime.date(enddate[0], enddate[1], enddate[2])
-		if (datetime.datetime.today().date() - startdate) <= datetime.timedelta(days=6):
-			self.logging = 'minute'
 		days = tradingdays(start=startdate, end=enddate)
-		self.daysago = len(days) + len(tradingdays(start=enddate, end=datetime.datetime.today().date()))
+		self.logging = logging
 		self.datetime = startdate
 		self.update()
 		for day in days:
-			self.daysago -= 1
 			if self.logging == 'minute':
 				for minute in range(391):
-					self.minutesago = 391 * self.daysago - minute
 					self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)
 					if self.datetime >= self.getdatetime():
 						break
-					self.updatemin()
-					if minute in self.times:
+					if minute in self.timestorun:
 						self.update()
 						self.run()
+					self.updatemin()
 			elif self.logging == 'day':
-				self.datetime = datetime.datetime.combine(day, datetime.time(9, 30))
-				self.minutesago = 391 * self.daysago
-				if self.datetime >= self.getdatetime():
-					break
-				self.updatemin()
-				self.update()
-				self.run()
+				for minute in self.timestorun:
+					self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)
+					if self.datetime >= self.getdatetime():
+						break
+					self.update()
+					self.run()
+				self.datetime = datetime.datetime.combine(day, datetime.time(15, 59))
+				self.updateday()
 		self.riskmetrics()
 
 
 	def updatemin(self):
-		for stock in (self.stopgains.keys() | self.stoplosses.keys()):
+		self.update()
+		for stock in self.stocks:
 			self.checkthresholds(stock)
-		stockvalue = 0
-		for stock, amount in list(self.stocks.items()):
-			if amount == 0:
-				del self.stocks[stock]
-				continue
-			stockvalue += self.quote(stock) * amount
-		self.value = self.cash + stockvalue
-		self.value = round(self.value, 2)
 		self.chartminute.append(self.value)
 		self.chartminutetimes.append(self.datetime)
+
+
+	def updateday(self):
+		self.update()
+		for stock in self.stocks:
+			self.checkthresholds(stock)
+		self.chartday.append(self.value)
+		self.chartdaytimes.append(self.datetime)
 
 
 	def update(self):
@@ -697,8 +695,6 @@ class Backtester(Algorithm):
 				stockvalue += self.quote(stock) * amount
 		self.value = self.cash + stockvalue
 		self.value = round(self.value, 2)
-		self.chartday.append(self.value)
-		self.chartdaytimes.append(self.datetime)
 
 
 	def checkthresholds(self,stock):
@@ -742,20 +738,24 @@ class Backtester(Algorithm):
 
 
 	def quote(self, stock):
+		if self.datetime.time() <= datetime.time(9,30,0,0):
+			return self.history(stock, interval='day', datatype='open')[0].item()
+		elif self.datetime.time() >= datetime.time(15,59,0,0):
+			return self.history(stock, interval='day', datatype='close')[0].item()
 		return self.history(stock, interval=self.logging, datatype='close')[0].item()
 
 
 	def history(self, stock, length=1, datatype='close', interval='day'):
 		
 		# Handle Cache
-		key = (stock, datatype, interval)
+		key = (stock, interval)
 		cache = self.cache.get(key)
 
 		if cache is not None:
 
-			hist, dateidx, lastidx = cache 
+			hist, dateidx, lastidx, time = cache 
 
-		else:
+		if cache is None or (interval=='day' and (self.getdatetime()-time).days > 0) or (interval=='minute' and (self.getdatetime()-time).seconds > 120):
 
 			hist = None
 			
@@ -793,13 +793,15 @@ class Backtester(Algorithm):
 
 					elif broker == 'alpaca': # Data from Alpaca
 
-						nextra = 100 if interval=='day' else 0 # Number of extra samples before the desired range
+						nextra = 100 if interval=='day' else 1 # Number of extra samples before the desired range
 						end = self.getdatetime() + datetime.timedelta(days=2)
 						if not isdate(length):
 							if interval=='minute':
-								start = datetime.datetime.strptime( api.get_calendar(end=self.datetime.strftime("%Y-%m-%d"))[-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+								start = datetime.datetime.strptime( api.get_calendar(end=(self.datetime+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
 							else:	
 								start = datetime.datetime.strptime( api.get_calendar(end=self.datetime.strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+						else:
+							start = length
 						limit = 2500 if interval=='day' else 10
 						frames = []
 						totaltime = (end-start).days
@@ -820,7 +822,7 @@ class Backtester(Algorithm):
 			# Save To Cache
 			dateidx = dateidxs(hist)
 			lastidx = nearestidx(self.datetime, dateidx)
-			self.cache[key] = [hist, dateidx, lastidx]
+			self.cache[key] = [hist, dateidx, lastidx, self.getdatetime()]
 		
 		# Look for current datetime in cached data
 		try:
@@ -1047,9 +1049,8 @@ def load_algo(path):
 
 def backtester(algo, capital=None, benchmark=None):
 	# Convert
-	times = algo.times
 	BacktestAlgorithm = type('BacktestAlgorithm', (Backtester,), dict((algo.__class__).__dict__))
-	algoback = BacktestAlgorithm(times=times)
+	algoback = BacktestAlgorithm()
 	# Set Capital
 	if capital is None:
 		if algoback.value == 0:
