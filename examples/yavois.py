@@ -27,17 +27,17 @@ class Yavois(Algorithm):
             if self.nextdaybuy:
                 self.nextdaybuy = False
                 if self.hideout is not None:
-                    self.orderpercent(self.hideout,0)
-                self.orderpercent(self.long,1,verbose=True)
+                    self.orderpercent(self.hideout,0,notify_address='acciorocketships@gmail.com')
+                self.orderpercent(self.long,1,verbose=True,notify_address='acciorocketships@gmail.com')
                 self.stopsell(self.long,self.takegain)
                 self.stopsell(self.long,self.takeloss)
                 return
 
             if self.nextdaysell:
                 self.nextdaysell = False
-                self.orderpercent(self.long,0,verbose=True)
+                self.orderpercent(self.long,0,verbose=True,notify_address='acciorocketships@gmail.com')
                 if self.hideout is not None:
-                    self.orderpercent(self.hideout,1,verbose=True)
+                    self.orderpercent(self.hideout,1,verbose=True,notify_address='acciorocketships@gmail.com')
                 return
 
         else:
@@ -55,8 +55,8 @@ class Yavois(Algorithm):
                (self.long not in self.stocks or self.stocks[self.long]==0):
                 print("RSI7 Threshold, Buy Now")
                 if self.hideout is not None:
-                    self.orderpercent(self.hideout,0)
-                self.orderpercent(self.long,1,verbose=True)
+                    self.orderpercent(self.hideout,0,notify_address='acciorocketships@gmail.com')
+                self.orderpercent(self.long,1,verbose=True,notify_address='acciorocketships@gmail.com')
                 self.stopsell(self.long,self.takegain)
                 self.stopsell(self.long,self.takeloss)
                 return

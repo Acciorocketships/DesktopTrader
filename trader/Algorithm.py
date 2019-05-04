@@ -308,7 +308,7 @@ class Algorithm(object):
 	# verbose = True to print out whenever an order is made
 	# notify = "example@gmail.com" to send notification when an order is made (if True, it sends to yourself)
 	def orderpercent(self, stock, percent, verbose=False, notify_address=None):
-		cost = quote(stock)
+		cost = self.quote(stock)
 		currentpercent = 0.0
 		if stock in self.stocks:
 			currentpercent = self.stocks[stock] * cost / self.value
