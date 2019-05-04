@@ -184,9 +184,9 @@ class Manager:
                    currenttime >= datetime.time(9,30) and \
                    currenttime <= datetime.time(16,0):
                    # Update tick
-                    for algo in list(self.algo_alloc.keys()):
-                        algo.updatetick()
-                    self.updatetick()
+                    # for algo in list(self.algo_alloc.keys()):
+                    #     algo.updatetick()
+                    # self.updatetick()
                     if currenttime != lasttime:
                         # Update minute
                         for algo in list(self.algo_alloc.keys()):
@@ -225,6 +225,9 @@ class Manager:
     # Called every minute
     # Updates the data in the Manager
     def updatemin(self):
+        portfolio = portfoliodata()
+        self.value = portfolio["value"]
+        self.cash = portfolio["cash"]
         self.chartminute.append(self.value)
         self.chartminutetimes.append(datetime.datetime.now(timezone('US/Eastern')))
         for name, amount in positions().items():
@@ -232,6 +235,14 @@ class Manager:
                 self.stocks.pop(name, None)
             else:
                 self.stocks[name] = amount
+
+    # Private Method
+    # Called at the start of every day
+    def updateday(self):
+        self.chartminute = []
+        self.chartminutetimes = []
+        self.chartday.append(self.value)
+        self.chartdaytimes.append(datetime.datetime.now(timezone('US/Eastern')))
 
     # Moves stocks that you already hold into an algorithm
     # It will prevent you from trying to assign more of a stock than you actually own
@@ -269,14 +280,6 @@ class Manager:
         if algo != None:
             numstock -= (algo.stocks[stock] if (stock in algo.stocks) else 0)
         return numstock
-
-    # Private Method
-    # Called at the start of every day
-    def updateday(self):
-        self.chartminute = []
-        self.chartminutetimes = []
-        self.chartday.append(self.value)
-        self.chartdaytimes.append(datetime.datetime.now(timezone('US/Eastern')))
 
 
 
