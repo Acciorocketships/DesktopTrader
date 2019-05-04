@@ -95,6 +95,7 @@ class Algorithm(object):
 		self.volatility = 0
 		self.sharpe = 0
 		self.maxdrawdown = 0
+		self.benchmark = 'SPY'
 		# User initialization
 		self.initialize()
 
