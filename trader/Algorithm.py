@@ -1093,7 +1093,7 @@ def backtester(algo, capital=None, benchmark=None):
 
 # Input: stock symbol as a string, number of shares as an int
 # ordertype: "market", "limit", "stop", "stop_limit"
-def buy(stock, amount, ordertype='market', stop=None, limit=None):
+def buy(stock, amount, ordertype='market', stop=None, limit=None, block=True):
 	if broker == 'robinhood':
 		stockobj = robinhood.instruments(stock)[0]
 		try:
@@ -1102,12 +1102,16 @@ def buy(stock, amount, ordertype='market', stop=None, limit=None):
 		except Exception as e:
 			print("Buy Order Failed. Are there other orders? Is there enough cash?", e)
 	elif broker == 'alpaca':
-		api.submit_order(stock, amount, 'buy', ordertype, 'day', limit_price=limit, stop_price=stop)
-
+		order = api.submit_order(stock, amount, side='buy', type=ordertype, time_in_force='day', limit_price=limit, stop_price=stop)
+		if block:
+			starttime = datetime.datetime.now()
+			while (order.filled_at is None) and ((datetime.datetime.now()-starttime).seconds < 60):
+				order = api.get_order(order.id)
+				time.sleep(0.1)
 
 # Input: stock symbol as a string, number of shares as an int
 # ordertype: "market", "limit", "stop", "stop_limit"
-def sell(stock, amount, ordertype='market', stop=None, limit=None):
+def sell(stock, amount, ordertype='market', stop=None, limit=None, block=True):
 	if broker == 'robinhood':
 		stockobj = robinhood.instruments(stock)[0]
 		try:
@@ -1116,8 +1120,12 @@ def sell(stock, amount, ordertype='market', stop=None, limit=None):
 		except Exception as e:
 			print("Sell Order Failed.", e)
 	elif broker == 'alpaca':
-		api.submit_order(stock, amount, 'sell', ordertype, 'day', limit_price=limit, stop_price=stop)
-
+		order = api.submit_order(stock, amount, side='sell', type=ordertype, time_in_force='day', limit_price=limit, stop_price=stop)
+		if block:
+			starttime = datetime.datetime.now()
+			while (order.filled_at is None) and ((datetime.datetime.now()-starttime).seconds < 60):
+				order = api.get_order(order.id)
+				time.sleep(0.1)
 
 # Input: stock symbol as a string
 # Returns: share price as a float
