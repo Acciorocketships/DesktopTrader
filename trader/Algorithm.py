@@ -173,6 +173,8 @@ class Algorithm(object):
 			del self.stopgains[stock]
 
 	def riskmetrics(self):
+		if len(self.chartday) < 2:
+			return
 		benchmark = self.benchmark if type(self.benchmark)==str else 'SPY'
 		changes = self.percentchange(self.chartday)
 		idx = [pd.Timestamp(date.date()) for date in self.chartdaytimes[1:]]
