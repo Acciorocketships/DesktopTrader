@@ -1110,6 +1110,7 @@ def buy(stock, amount, ordertype='market', stop=None, limit=None, block=True):
 			while (order.filled_at is None) and ((datetime.datetime.now()-starttime).seconds < 60):
 				order = api.get_order(order.id)
 				time.sleep(0.1)
+		return order
 
 # Input: stock symbol as a string, number of shares as an int
 # ordertype: "market", "limit", "stop", "stop_limit"
@@ -1128,6 +1129,7 @@ def sell(stock, amount, ordertype='market', stop=None, limit=None, block=True):
 			while (order.filled_at is None) and ((datetime.datetime.now()-starttime).seconds < 60):
 				order = api.get_order(order.id)
 				time.sleep(0.1)
+		return order
 
 # Input: stock symbol as a string
 # Returns: share price as a float

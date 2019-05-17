@@ -173,6 +173,11 @@ class Manager:
     def run(self):
         lasttime = None
         lastday = None
+        # function that returns a boolean for if the given day is a trading day
+        tradingday = lambda currentday: tradingdays(start=currentday,end=currentday+datetime.timedelta(days=1))[0].date() == currentday
+        # boolean trading day flag
+        istradingday = tradingday(datetime.datetime.now(timezone('US/Eastern')).date())
+        # Main Loop
         while self.running:
             time.sleep(1)
             try:
@@ -180,13 +185,7 @@ class Manager:
                 currenttime = datetime.time(datetime.datetime.now(timezone('US/Eastern')).hour, datetime.datetime.now(timezone('US/Eastern')).minute)
                 currentday = datetime.datetime.now(timezone('US/Eastern')).date()
                 # If trading is open
-                if len(tradingdays(start=currentday,end=currentday+datetime.timedelta(days=1))) > 0 and \
-                   currenttime >= datetime.time(9,30) and \
-                   currenttime <= datetime.time(16,0):
-                   # Update tick
-                    # for algo in list(self.algo_alloc.keys()):
-                    #     algo.updatetick()
-                    # self.updatetick()
+                if istradingday and currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
                     if currenttime != lasttime:
                         # Update minute
                         for algo in list(self.algo_alloc.keys()):
@@ -194,6 +193,7 @@ class Manager:
                         self.updatemin()
                         # Update day
                         if currentday != lastday:
+                            istradingday = tradingday(currentday)
                             lastday = currentday
                             self.updateday()
                             for algo in list(self.algo_alloc.keys()):
