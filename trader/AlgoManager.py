@@ -189,6 +189,7 @@ class Manager:
                     if currenttime != lasttime:
                         # Update minute
                         for algo in list(self.algo_alloc.keys()):
+                        	algo.datetime = datetime.datetime.combine(currentday, currenttime)
                             algo.updatemin()
                         self.updatemin()
                         # Update day
