@@ -173,22 +173,25 @@ class Algorithm(object):
 			del self.stopgains[stock]
 
 	def riskmetrics(self):
-		if len(self.chartday) < 2:
-			return
-		benchmark = self.benchmark if type(self.benchmark)==str else 'SPY'
-		changes = self.percentchange(self.chartday)
-		idx = [pd.Timestamp(date.date()) for date in self.chartdaytimes[1:]]
-		changes.index = idx
-		if len(changes) > 0:
-			benchmarkchanges = self.percentchange(benchmark, length=len(changes))
-			idx = [date.tz_convert(None).date() for date in benchmarkchanges.index]
-			benchmarkchanges.index = idx
-			self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
-			self.alpha = round(self.alpha,3)
-			self.beta = round(self.beta,3)
-			self.sharpe = round(sharpe_ratio(changes),3)
-			self.volatility = round(annual_volatility(changes),3)
-			self.maxdrawdown = round(max_drawdown(changes),3)
+		try:
+			if len(self.chartday) < 2:
+				return
+			benchmark = self.benchmark if type(self.benchmark)==str else 'SPY'
+			changes = self.percentchange(self.chartday)
+			idx = [pd.Timestamp(date.date()) for date in self.chartdaytimes[1:]]
+			changes.index = idx
+			if len(changes) > 0:
+				benchmarkchanges = self.percentchange(benchmark, length=len(changes))
+				idx = [date.tz_convert(None).date() for date in benchmarkchanges.index]
+				benchmarkchanges.index = idx
+				self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
+				self.alpha = round(self.alpha,3)
+				self.beta = round(self.beta,3)
+				self.sharpe = round(sharpe_ratio(changes),3)
+				self.volatility = round(annual_volatility(changes),3)
+				self.maxdrawdown = round(max_drawdown(changes),3)
+		except Exception as err:
+			print("In Algorithm riskmetrics", err)
 
 
 	### PUBLIC METHODS ###
