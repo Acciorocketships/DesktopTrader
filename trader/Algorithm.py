@@ -128,6 +128,7 @@ class Algorithm(object):
 
 	# Update function called every minute
 	def updatemin(self):
+		self.updatetick()
 		self.chartminute.append(self.value)
 		self.chartminutetimes.append(self.getdatetime())
 		for stock in (self.stopgains.keys() | self.stoplosses.keys()):
