@@ -116,14 +116,18 @@ class Algorithm(object):
 
 	### PRIVATE METHODS ###
 
-	# Update function called every minute
-	def updatemin(self):
+	# Update function called every second
+	def updatetick(self):
 		stockvalue = 0
 		for stock, amount in list(self.stocks.items()):
 			stockvalue += self.quote(stock) * amount
 		self.value = self.cash + stockvalue
 		self.value = round(self.value,2)
 		self.cash = round(self.cash,2)
+
+	# Update function called every minute
+	def updatemin(self):
+		self.updatetick() 
 		self.chartminute.append(self.value)
 		self.chartminutetimes.append(self.getdatetime())
 		for stock in (self.stopgains.keys() | self.stoplosses.keys()):
