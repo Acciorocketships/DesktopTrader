@@ -179,34 +179,35 @@ class Manager:
         istradingday = tradingday(datetime.datetime.now(timezone('US/Eastern')).date())
         # Main Loop
         while self.running:
-            time.sleep(1)
+            time.sleep(5)
             try:
                 # Get time and day
                 currenttime = datetime.time(datetime.datetime.now(timezone('US/Eastern')).hour, datetime.datetime.now(timezone('US/Eastern')).minute)
                 currentday = datetime.datetime.now(timezone('US/Eastern')).date()
                 # If trading is open
-                if istradingday and currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
-                    if currenttime != lasttime:
-                        # Update minute
+                if istradingday and currenttime != lasttime and currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
+                    lasttime = currenttime
+                    # Update minute
+                    for algo in list(self.algo_alloc.keys()):
+                        algo.datetime = datetime.datetime.combine(currentday, currenttime)
+                        algo.updatemin()
+                    self.updatemin()
+                    # Update day
+                    if currentday != lastday:
+                        istradingday = tradingday(currentday)
+                        lastday = currentday
+                        self.updateday()
                         for algo in list(self.algo_alloc.keys()):
-                            algo.datetime = datetime.datetime.combine(currentday, currenttime)
-                            algo.updatemin()
-                        self.updatemin()
-                        # Update day
-                        if currentday != lastday:
-                            istradingday = tradingday(currentday)
-                            lastday = currentday
-                            self.updateday()
-                            for algo in list(self.algo_alloc.keys()):
-                                algo.updateday()
-                        # Run algorithms
-                        if lasttime != currenttime:
-                            lasttime = currenttime
-                            if lasttime in self.algo_times:
-                                # Run all algorithms associated with that time
-                                for algo in self.algo_times[currenttime]:
-                                    algothread = threading.Thread(target=algo.runalgo)
-                                    algothread.start()
+                            algo.updateday()
+                    # Run algorithms
+                    print("1")
+                    if currenttime in self.algo_times:
+                    	print("2", currenttime)
+                        # Run all algorithms associated with that time
+                        for algo in self.algo_times[currenttime]:
+                        	print("3", algo.datetime)
+                            algothread = threading.Thread(target=algo.runalgo)
+                            algothread.start()
             except Exception as err:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
