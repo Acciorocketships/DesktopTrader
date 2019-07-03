@@ -200,12 +200,9 @@ class Manager:
 						for algo in list(self.algo_alloc.keys()):
 							algo.updateday()
 					# Run algorithms
-					print("1")
 					if currenttime in self.algo_times:
-						print("2", currenttime)
 						# Run all algorithms associated with that time
 						for algo in self.algo_times[currenttime]:
-							print("3", algo.datetime)
 							algothread = threading.Thread(target=algo.runalgo)
 							algothread.start()
 			except Exception as err:
