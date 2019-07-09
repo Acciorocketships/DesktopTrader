@@ -113,7 +113,7 @@ class Algorithm(object):
 			exc_type, exc_obj, exc_tb = sys.exc_info()
 			fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
 			logging.error('Error %s in file %s', err, fname)
-			logging.error( logging.format_exception( (exc_type, exc_obj, exc_tb) ) )
+			logging.error( logging.formatException( (exc_type, exc_obj, exc_tb) ) )
 
 	### PRIVATE METHODS ###
 
