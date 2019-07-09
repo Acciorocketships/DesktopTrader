@@ -2,6 +2,7 @@ from trader.AlgoManager import *
 from trader.Algorithm import *
 import code
 import datetime
+import logging
 
 class Yavois(Algorithm):
 
@@ -22,7 +23,8 @@ class Yavois(Algorithm):
 
         if self.datetime.time() < datetime.time(12,0,0,0):
 
-            print("\nRunning " + str(self.datetime))
+            logging.info("Running Morning. nextdaybuy: %s, nextdaysell: %s, rsi2: %s, rsi7: %s",
+                         self.nextdaybuy, self.nextdaysell, self.rsi2, self.rsi7)
 
             if self.nextdaybuy:
                 self.nextdaybuy = False
@@ -42,13 +44,11 @@ class Yavois(Algorithm):
 
         else:
 
-            print("\nRunning " + str(self.datetime))
-
             self.rsi2 = self.rsi(self.long,window=2,length=2)
             self.rsi7 = self.rsi(self.long,window=7,length=2)
 
-            print("RSI2: " + str(self.rsi2))
-            print("RSI7: " + str(self.rsi7))
+            logging.info("Running Afternoon. nextdaybuy: %s, nextdaysell: %s, rsi2: %s, rsi7: %s",
+                         self.nextdaybuy, self.nextdaysell, self.rsi2, self.rsi7)
 
             # If RSI7 crosses its threshold and no current position/order, buy now
             if self.rsi7[-1] > self.rsi7thres and self.rsi7[-2] < self.rsi7thres and \
@@ -78,8 +78,9 @@ class Yavois(Algorithm):
 
 def backtest():
     algo = Yavois()
-    algoback = backtester(algo,benchmark="SVXY",capital=1000)
-    algoback.start(start=(2016,1,1))
+    algoback = backtester(algo,capital=1000)
+    algoback.benchmark = ["SPY", "SVXY"]
+    algoback.start(start=(2019,1,1))
     Manager.algogui(algoback)
 
 

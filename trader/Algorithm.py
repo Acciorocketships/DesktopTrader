@@ -13,6 +13,7 @@ import math
 import requests # Used in Positions() for Robinhood
 import smtplib # Emailing
 from pytrends.request import TrendReq # Google Searches
+import logging
 
 broker = 'alpaca'
 papertrade = True
@@ -25,7 +26,7 @@ elif broker == 'alpaca':
 	import alpaca_trade_api as tradeapi
 	from ta import * # Technical Indicators
 else:
-	print("Choose a broker ('robinhood' or 'alpaca')")
+	logging.error("Choose a broker ('robinhood' or 'alpaca')")
 	exit(-1)
 
 
@@ -49,7 +50,7 @@ except IOError:
 	with open(credential_file, "w") as f:
 		json.dump(creds,f)
 except PermissionError:
-	print("Inadequate permissions to read credentials file.")
+	logging.error("Inadequate permissions to read credentials file.")
 	exit(-1)
 
 if broker == 'robinhood':
@@ -111,8 +112,8 @@ class Algorithm(object):
 		except Exception as err:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
 			fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-			print(err)
-			print(exc_type, fname, exc_tb.tb_lineno)
+			logging.error('Error %s in file %s', err, fname)
+			logging.error( logging.format_exception( (exc_type, exc_obj, exc_tb) ) )
 
 	### PRIVATE METHODS ###
 
@@ -191,7 +192,7 @@ class Algorithm(object):
 				self.volatility = round(annual_volatility(changes),3)
 				self.maxdrawdown = round(max_drawdown(changes),3)
 		except Exception as err:
-			print("In Algorithm riskmetrics", err)
+			logging.error("Error in Algorithm riskmetrics: %s", err)
 
 
 	### PUBLIC METHODS ###
@@ -397,7 +398,7 @@ class Algorithm(object):
 					hist = pd.concat(frames)
 			# Keep trying if there is a network error
 			except ValueError as err:
-				print(err)
+				logging.warning("Trying to fetch historical data: %s", err)
 				time.sleep(5)
 		# Convert length to int
 		if isdate(length):
@@ -412,14 +413,8 @@ class Algorithm(object):
 	# signal line: 9 period MA of the macd line
 	# Returns MACD Indicator: (Signal - (FastMA - SlowMA))
 	def macd(self, stock, length=1, fastmawindow=12, slowmawindow=26, signalmawindow=9, matype=1, datatype='close', interval='day'):
-		hist = None
-		while hist is None:
-			try:
-				hist = self.history(stock,interval=interval,length=length+slowmawindow+signalmawindow,datatype=datatype)
-				md = trend.macd_diff(hist, n_fast=fastmawindow, n_slow=slowmawindow, n_sign=signalmawindow, fillna=False)
-			except ValueError as err:
-				print(err)
-				time.sleep(5)
+		hist = self.history(stock,interval=interval,length=length+slowmawindow+signalmawindow,datatype=datatype)
+		md = trend.macd_diff(hist, n_fast=fastmawindow, n_slow=slowmawindow, n_sign=signalmawindow, fillna=False)
 		if isdate(length):
 			length = datetolength(length,md)
 		if length is None:
@@ -432,18 +427,12 @@ class Algorithm(object):
 	# 1 means the price is at the upper band
 	# -1 means the price is at the lower band
 	def bollinger(self, stock, length=1, mawindow=20, ndev=2, matype=1, datatype='close', interval='day'):
-		hist = None
-		while hist is None:
-			try:
-				hist = self.history(stock,interval=interval,length=length+mawindow,datatype=datatype)
-				upper = volatility.bollinger_hband(hist,mawindow,ndev,fillna=False)
-				lower = volatility.bollinger_lband(hist,mawindow,ndev,fillna=False)
-				middle = (upper + lower) / 2
-				dev = (upper - lower) / 2
-				bb = (hist - middle) / dev
-			except ValueError as err:
-				print(err)
-				time.sleep(5)
+		hist = self.history(stock,interval=interval,length=length+mawindow,datatype=datatype)
+		upper = volatility.bollinger_hband(hist,mawindow,ndev,fillna=False)
+		lower = volatility.bollinger_lband(hist,mawindow,ndev,fillna=False)
+		middle = (upper + lower) / 2
+		dev = (upper - lower) / 2
+		bb = (hist - middle) / dev
 		if isdate(length):
 			length = datetolength(length,bb)
 		if length is None:
@@ -455,17 +444,10 @@ class Algorithm(object):
 	# Transformed from a scale of [0,100] to [-1,1]
 	# RSI > 0.2 means overbought (sell indicator), RSI < -0.2 means oversold (buy indicator)
 	def rsi(self, stock, length=1, window=20, datatype='close', interval='day'):
-		hist = None
-		while hist is None:
-			try:
-				hist = self.history(stock,interval=interval,length=length+window,datatype=datatype)
-			except ValueError as err:
-				print(err)			
-				time.sleep(5)
-		idx = hist.index
+		hist = self.history(stock,interval=interval,length=length+window+1,datatype=datatype)
 		r = momentum.rsi(pd.Series(np.array(hist)),n=window,fillna=False)
 		r = (r - 50) / 50
-		r.index = idx
+		r.index = hist.index
 		if isdate(length):
 			length = datetolength(length,r)
 		if length is None:
@@ -476,16 +458,10 @@ class Algorithm(object):
 	# Moving Average. matype = 0 means simple, matype = 1 means exponential
 	# If data is given instead of a stock, then it will take the moving average of that
 	def ma(self, stock, length=1, mawindow=12, matype=0, datatype='close', interval='day'):
-		hist = None
-		while hist is None:
-			if isinstance(stock,str):
-				try:
-					hist = self.history(stock,interval=interval,length=length+mawindow,datatype=datatype)
-				except ValueError as err:
-					print(err)
-					time.sleep(5)
-			else:
-				hist = stock
+		if isinstance(stock,str):
+			hist = self.history(stock,interval=interval,length=length+mawindow,datatype=datatype)
+		else:
+			hist = stock
 		if matype == 0:
 			ma = volatility.bollinger_mavg(hist,n=mawindow,fillna=False)
 		elif matype == 1:
@@ -501,17 +477,11 @@ class Algorithm(object):
 	# Transformed from a scale of [0,100] to [-1,1]
 	# STOCH > 0.3 means overbought (sell indicator), STOCH < -0.3 means oversold (buy indicator)
 	def stoch(self, stock, length=1, window=14, interval='day'):
-		s = None
-		while s is None:
-			try:
-				high = self.history(stock,interval=interval,length=length+window,datatype="high")
-				low = self.history(stock,interval=interval,length=length+window,datatype="low")
-				close = self.history(stock,interval=interval,length=length+window,datatype="close")
-				s = momentum.stoch(high=high,low=low,close=close,n=window,fillna=False)
-				s = (s - 50) / 50
-			except ValueError as err:
-				print(err)
-				time.sleep(5)
+		high = self.history(stock,interval=interval,length=length+window,datatype="high")
+		low = self.history(stock,interval=interval,length=length+window,datatype="low")
+		close = self.history(stock,interval=interval,length=length+window,datatype="close")
+		s = momentum.stoch(high=high,low=low,close=close,n=window,fillna=False)
+		s = (s - 50) / 50
 		if isdate(length):
 			length = datetolength(length,s)
 		if length is None:
@@ -523,17 +493,11 @@ class Algorithm(object):
 	# If data is given instead of a stock, it returns the percent change of that
 	def percentchange(self, stock, length=1, datatype='close', interval='day'):
 		# Get Data
-		hist = None
-		while hist is None:
-			if isinstance(stock,str):
-				try:
-					hist = self.history(stock,interval=interval,length=length+1,datatype=datatype)
-				except ValueError as err:
-					print(err)
-					time.sleep(5)
-			else:
-				hist = pd.Series(stock)
-				length = len(hist)-1
+		if isinstance(stock,str):
+			hist = self.history(stock,interval=interval,length=length+1,datatype=datatype)
+		else:
+			hist = pd.Series(stock)
+			length = len(hist)-1
 		changes = 100 * hist.pct_change()
 		changes = changes.rename("Percent Change")
 		# Handle Length
@@ -595,8 +559,8 @@ class Algorithm(object):
 				server.login(gmail_user, gmail_password)
 				server.sendmail(gmail_user, recipient, message)
 				server.close()
-			except Exception as e:
-				print(e, "Failed to send email notification")
+			except Exception as err:
+				logging.error("Failed to send email notification: %s", err)
 		# If recipient is an phone number
 		else:
 			textdomains = ["@tmomail.net","@vtext.com","@mms.att.net","@pm.sprint.com"]
@@ -607,8 +571,8 @@ class Algorithm(object):
 				for domain in textdomains:
 					server.sendmail(gmail_user, recipient+domain, message)
 				server.close()
-			except Exception as e:
-				print(e, "Failed to send sms notification")
+			except Exception as err:
+				logging.error("Failed to send sms notification: %s", err)
 
 
 
@@ -845,7 +809,7 @@ class Backtester(Algorithm):
 
 				# Pause and try again if there is an error
 				except ValueError as err:
-					print(err)
+					logging.warning('Trying to fetch historical backtest data: %s', err)
 					time.sleep(5)
 
 			# Save To Cache
@@ -862,12 +826,11 @@ class Backtester(Algorithm):
 			if length is None:
 				length = len(hist)
 			if idx-length+1 < 0:
-				raise Exception('Cached data too short')
+				logging.error('Not enough historical data')
 		except: # Happens if we request data farther back than before
 			del self.cache[key]
 			return self.history(stock, interval=interval, length=length, datatype=datatype)
 		self.cache[key][2] = idx
-		
 		
 		return hist[datatype][idx-length+1 : idx+1]
 		
@@ -1022,7 +985,8 @@ def nearestidx(time, dateidx, lastchecked=None):
 			index = (len(dateidx) - lastchecked - i) % len(dateidx)
 			if dateidx[index] <= time:
 				return index
-	raise Exception("Datetime " + str(time) + " not found in historical data.")
+	logging.error("Datetime %s not found in historical data.", time)
+
 
 
 # Returns the difference of the indexes of startdate and currentdateidx in dateidxs
@@ -1104,8 +1068,8 @@ def buy(stock, amount, ordertype='market', stop=None, limit=None, block=True):
 		try:
 			response = robinhood.place_buy_order(stockobj, amount)
 			return response
-		except Exception as e:
-			print("Buy Order Failed. Are there other orders? Is there enough cash?", e)
+		except Exception as err:
+			logging.error("Buy Order Failed: %s", err)
 	elif broker == 'alpaca':
 		order = api.submit_order(stock, amount, side='buy', type=ordertype, time_in_force='day', limit_price=limit, stop_price=stop)
 		if block:
@@ -1123,8 +1087,8 @@ def sell(stock, amount, ordertype='market', stop=None, limit=None, block=True):
 		try:
 			response = robinhood.place_sell_order(stockobj, abs(amount))
 			return response
-		except Exception as e:
-			print("Sell Order Failed.", e)
+		except Exception as err:
+			logging.error("Sell Order Failed: %s", err)
 	elif broker == 'alpaca':
 		order = api.submit_order(stock, amount, side='sell', type=ordertype, time_in_force='day', limit_price=limit, stop_price=stop)
 		if block:
@@ -1141,9 +1105,9 @@ def price(stock):
 		for i in range(10):
 			try:
 				return float(robinhood.quote_data(stock)['last_trade_price'])
-			except Exception as e:
+			except Exception as err:
 				if i == 0:
-					print("Could not fetch Robinhood quote for " + stock + ".", e)
+					logging.error("Could not fetch Robinhood quote for %s: %s", stock, err)
 				time.sleep(0.3*i)
 	elif broker == 'alpaca':
 		cost = float(api.polygon.last_quote(stock).askprice)
@@ -1167,9 +1131,9 @@ def positions():
 					if amount != 0:
 						positions[name] = amount
 				break
-			except Exception as e:
+			except Exception as err:
 				if i == 0:
-					print("Could not fetch Robinhood positions data.", e)
+					logging.error("Could not fetch Robinhood positions data.", err)
 				time.sleep(0.3*i)
 	
 	elif broker == 'alpaca':
@@ -1193,8 +1157,8 @@ def portfoliodata():
 			try:
 				robinhoodportfolio = robinhood.portfolios()
 				break
-			except Exception as e:
-				print("Could not fetch Robinhood portfolio data.", e)
+			except Exception as err:
+				logging.error("Could not fetch Robinhood portfolio data: %s", err)
 				time.sleep(0.3*i)
 		if robinhoodportfolio['extended_hours_equity'] is not None:
 			portfolio["value"] = float(robinhoodportfolio['extended_hours_equity'])

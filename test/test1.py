@@ -23,4 +23,4 @@ def runlive():
 	algo.run()
 
 if __name__ == '__main__':
-	runback()
+	runlive()

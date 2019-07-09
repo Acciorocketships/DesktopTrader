@@ -5,6 +5,12 @@
 *.swo
 *.swp
 
+#Logs
+*.log
+
+#Save States
+manager_save
+
 #Python
 *.pyc
 
@@ -19,4 +25,5 @@ creds.txt
 
 #Eddie is developing custom algos
 #in the same directory, ignore for now
+# Please share! -Ryan
 *eddie*

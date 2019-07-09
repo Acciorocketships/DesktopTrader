@@ -218,6 +218,7 @@ class Graph(FigureCanvasTkAgg):
                         benchmark = [value * algo.startingcapital / benchmark[0] for value in benchmark]
                         color = (benchmarkcolors[i] + '--') if i < len(benchmarkcolors) else None
                         self.plot(times, benchmark, color=color, fill=False)
+                        self.draw()
                 except Exception as err:
                     print(err, "AlgoGUI plotbenchmark")
 

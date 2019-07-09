@@ -4,10 +4,19 @@ import datetime
 import pytz
 import code
 import pickle
+import logging
 from functools import reduce
 import trader.AlgoGUI as Alg
 import trader.ManagerGUI as Man
 from trader.Algorithm import *
+
+logging.basicConfig(format='%(levelname)-7s: %(asctime)-s | %(message)s', 
+					filename='logs.log', 
+					datefmt='%d-%m-%Y %I:%M:%S %p',
+					level=logging.DEBUG)
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+logging.getLogger('').addHandler(console)
 
 
 class Manager:
@@ -29,6 +38,7 @@ class Manager:
 		self.chartdaytimes = []
 		self.stocks = {}
 		self.updatemin()
+		logging.debug('Starting')
 
 	# Adds an algorithm to the manager.
 	# Allocation is the decimal proportion of the total portfolio to use for the algorithm.
@@ -88,6 +98,9 @@ class Manager:
 		tradingthread = threading.Thread(target=self.run)
 		tradingthread.start()
 
+	def stop(self):
+		self.running = False
+
 	# Redistributes the capital among the algorithms according to the
 	# specified allocations in self.algo_alloc.
 	# Funds become unbalanced when some algorithms outperform others
@@ -98,150 +111,28 @@ class Manager:
 			if not algo.running:
 				total_allocation += alloc
 		if total_allocation > 1:
-			raise Exception("You have allocated more than 100%% of your portfolio")
+			logging.warning("You are attempting to allocate more than 100%% of your portfolio")
 			return
 		newcash = {}
 		for algo in self.algo_alloc:
 			startingcapital = math.floor(self.value * self.algo_alloc[algo])
 			cash = startingcapital - (algo.value - algo.cash)
 			if cash < 0:
-				raise Exception("You are trying to allocate less than Algorithm " + 
-								algo.__class__.__name__ + " already has in stocks.")
-				continue
+				logging.warning("You are trying to allocate less than %s already has in stocks. \
+								 Either remove those stocks from the algo with assignstocks({\"SPY\":0},algo) \
+								 or increase your allocation", algo.__class__.__name__)
+				return
 			if cash > self.cash and not algo.running:
-				raise Exception("You are trying to allocate more cash than you have to an Algorithm. " + 
-								"Either sell those other stocks, transfer them into the algorithm "
-								"with assignstocks(stocks,algo), or lower your allocation.")
+				logging.warning("You are trying to allocate more cash than you have to %s. \
+								Either sell those other stocks, transfer them into the algorithm with \
+								assignstocks(stocks,algo), or lower your allocation.", algo.__class__.__name__)
+				return
 			newcash[algo] = (startingcapital, cash)
 		for algo, (startingcapital, cash) in newcash.items():
 			algo.startingcapital = startingcapital
 			algo.cash = cash
 			algo.updatetick()
 
-	# Keep algorithm manager running and enter interactive mode
-	# Allows you to view and change class attributes from the command line
-	def interactive(self,vars={}):
-		code.interact(local={**locals(),**vars})
-
-	# Opens GUI of all algorithms in the manager
-	def gui(self,thread=True):
-		desktoptrader = Man.Gui(self)
-		if thread:
-			guithread = threading.Thread(target=desktoptrader.mainloop)
-			guithread.start()
-		else:
-			desktoptrader.mainloop()
-
-	# Opens the GUI to visualize the Algorithm's performance (also works with Backtests)
-	@staticmethod
-	def algogui(algo,thread=False):
-		desktoptrader = Alg.Gui(algo)
-		if thread:
-			guithread = threading.Thread(target=desktoptrader.mainloop)
-			guithread.start()
-		else:
-			desktoptrader.mainloop()
-
-	# Graphs portfolio performance
-	# Press 'q' to exit
-	# timeframe = 'daily', '1min' (plotting resolution)
-	def graph(self, timeframe='day'):
-		import matplotlib.pyplot as plt
-		plt.ion()
-		plt.xkcd()
-		cid = plt.gcf().canvas.mpl_connect('key_press_event', self.quit_figure)
-		self.graphing = True
-		while self.graphing:
-			if timeframe == '1min':
-				plt.plot(self.chartminute, 'b')
-			else:
-				plt.plot(self.chartday, 'b')
-			plt.title(('Portfolio: $%0.2f    Day Change: %0.2f%%' % (self.value, self.portfolio["day change"])))
-			plt.pause(0.05)
-
-	# Private Method
-	# Graph callback helper
-	def quit_figure(self, event):
-		import matplotlib.pyplot as plt
-		if event.key == 'q':
-			plt.close(event.canvas.figure)
-			self.graphing = False
-
-	# Private Method
-	# Updates the data in each algorithm continuously
-	# Runs each algorithm at the right time of day
-	def run(self):
-		lasttime = None
-		lastday = None
-		# function that returns a boolean for if the given day is a trading day
-		tradingday = lambda currentday: tradingdays(start=currentday,end=currentday+datetime.timedelta(days=1))[0].date() == currentday
-		# boolean trading day flag
-		istradingday = tradingday(datetime.datetime.now(timezone('US/Eastern')).date())
-		# Main Loop
-		while self.running:
-			time.sleep(5)
-			try:
-				# Get time and day
-				currenttime = datetime.time(datetime.datetime.now(timezone('US/Eastern')).hour, datetime.datetime.now(timezone('US/Eastern')).minute)
-				currentday = datetime.datetime.now(timezone('US/Eastern')).date()
-				# If trading is open
-				if istradingday and currenttime != lasttime and currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
-					lasttime = currenttime
-					# Update minute
-					for algo in list(self.algo_alloc.keys()):
-						algo.datetime = datetime.datetime.combine(currentday, currenttime)
-						algo.updatemin()
-					self.updatemin()
-					# Update day
-					if currentday != lastday:
-						istradingday = tradingday(currentday)
-						lastday = currentday
-						self.updateday()
-						for algo in list(self.algo_alloc.keys()):
-							algo.updateday()
-					# Run algorithms
-					if currenttime in self.algo_times:
-						# Run all algorithms associated with that time
-						for algo in self.algo_times[currenttime]:
-							algothread = threading.Thread(target=algo.runalgo)
-							algothread.start()
-			except Exception as err:
-				exc_type, exc_obj, exc_tb = sys.exc_info()
-				fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-				print(err)
-				print(exc_type, fname, exc_tb.tb_lineno)
-
-	# Private Method
-	# Called every tick
-	# Updates the data in the Manager
-	# Allows you to track how the portfolio is doing in real time
-	def updatetick(self):
-		portfolio = portfoliodata()
-		self.value = portfolio["value"]
-		self.cash = portfolio["cash"]
-
-	# Private Method
-	# Called every minute
-	# Updates the data in the Manager
-	def updatemin(self):
-		portfolio = portfoliodata()
-		self.value = portfolio["value"]
-		self.cash = portfolio["cash"]
-		self.chartminute.append(self.value)
-		self.chartminutetimes.append(datetime.datetime.now(timezone('US/Eastern')))
-		for name, amount in positions().items():
-			if amount == 0:
-				self.stocks.pop(name, None)
-			else:
-				self.stocks[name] = amount
-
-	# Private Method
-	# Called at the start of every day
-	def updateday(self):
-		self.chartminute = []
-		self.chartminutetimes = []
-		self.chartday.append(self.value)
-		self.chartdaytimes.append(datetime.datetime.now(timezone('US/Eastern')))
 
 	# Moves stocks that you already hold into an algorithm
 	# It will prevent you from trying to assign more of a stock than you actually own
@@ -270,6 +161,7 @@ class Manager:
 			value += price(stock) * amount
 		algo.value = value + algo.cash
 
+
 	# Helper function for assignstocks.
 	# Gets the total number of a given stock in all algos (except given algo, if given)
 	def numstockinalgos(self, stock, algo=None):
@@ -281,17 +173,159 @@ class Manager:
 		return numstock
 
 
+	# Keep algorithm manager running and enter interactive mode
+	# Allows you to view and change class attributes from the command line
+	def interactive(self,vars={}):
+		code.interact(local={**locals(),**vars})
+
+
+	# Opens GUI of all algorithms in the manager
+	def gui(self,thread=True):
+		desktoptrader = Man.Gui(self)
+		if thread:
+			guithread = threading.Thread(target=desktoptrader.mainloop)
+			guithread.start()
+		else:
+			desktoptrader.mainloop()
+
+
+	# Opens the GUI to visualize the Algorithm's performance (also works with Backtests)
+	@staticmethod
+	def algogui(algo,thread=False):
+		desktoptrader = Alg.Gui(algo)
+		if thread:
+			guithread = threading.Thread(target=desktoptrader.mainloop)
+			guithread.start()
+		else:
+			desktoptrader.mainloop()
+
+
+	# Graphs portfolio performance
+	# Press 'q' to exit
+	# timeframe = 'daily', '1min' (plotting resolution)
+	def graph(self, timeframe='day'):
+		import matplotlib.pyplot as plt
+		plt.ion()
+		plt.xkcd()
+		cid = plt.gcf().canvas.mpl_connect('key_press_event', self.quit_figure)
+		self.graphing = True
+		while self.graphing:
+			if timeframe == '1min':
+				plt.plot(self.chartminute, 'b')
+			else:
+				plt.plot(self.chartday, 'b')
+			plt.title(('Portfolio: $%0.2f    Day Change: %0.2f%%' % (self.value, self.portfolio["day change"])))
+			plt.pause(0.05)
+
+
+	# Private Method
+	# Graph callback helper
+	def quit_figure(self, event):
+		import matplotlib.pyplot as plt
+		if event.key == 'q':
+			plt.close(event.canvas.figure)
+			self.graphing = False
+
+
+	# Private Method
+	# Updates the data in each algorithm continuously
+	# Runs each algorithm at the right time of day
+	def run(self):
+		lasttime = None
+		lastday = None
+		# function that returns a boolean for if the given day is a trading day
+		tradingday = lambda currentday: tradingdays(start=currentday,end=currentday+datetime.timedelta(days=1))[0].date() == currentday
+		# boolean trading day flag
+		istradingday = tradingday(datetime.datetime.now(timezone('US/Eastern')).date())
+		# Main Loop
+		while self.running:
+			time.sleep(5)
+			try:
+				# Get time and day
+				currenttime = datetime.time(datetime.datetime.now(timezone('US/Eastern')).hour, datetime.datetime.now(timezone('US/Eastern')).minute)
+				currentday = datetime.datetime.now(timezone('US/Eastern')).date()
+				logging.debug('currenttime: %s, lasttime: %s, istradingday: %s', currenttime, lasttime, istradingday)
+				# If trading is open
+				if istradingday and currenttime != lasttime and currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
+					lasttime = currenttime
+					# Update minute
+					for algo in list(self.algo_alloc.keys()):
+						algo.datetime = datetime.datetime.combine(currentday, currenttime)
+						algo.updatemin()
+						logging.debug('New minute for algo %s. Time: %s', algo, algo.datetime)
+					self.updatemin()
+					# Update day
+					if currentday != lastday:
+						istradingday = tradingday(currentday)
+						lastday = currentday
+						self.updateday()
+						for algo in list(self.algo_alloc.keys()):
+							algo.updateday()
+						logging.debug('New day. Variables: %s', self.__dict__)
+					# Run algorithms
+					if currenttime in self.algo_times:
+						logging.debug('An algo runs at this time')
+						# Run all algorithms associated with that time
+						for algo in self.algo_times[currenttime]:
+							algothread = threading.Thread(target=algo.runalgo)
+							algothread.start()
+							logging.debug('Running algo %s. Variables: %s', algo, algo.__dict__)
+			except Exception as err:
+				exc_type, exc_obj, exc_tb = sys.exc_info()
+				fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+				logging.error('Error %s in file %s', err, fname)
+				logging.error( logging.format_exception( (exc_type, exc_obj, exc_tb) ) )
+
+
+	# Private Method
+	# Called every tick
+	# Updates the data in the Manager
+	# Allows you to track how the portfolio is doing in real time
+	def updatetick(self):
+		portfolio = portfoliodata()
+		self.value = portfolio["value"]
+		self.cash = portfolio["cash"]
+
+
+	# Private Method
+	# Called every minute
+	# Updates the data in the Manager
+	def updatemin(self):
+		portfolio = portfoliodata()
+		self.value = portfolio["value"]
+		self.cash = portfolio["cash"]
+		self.chartminute.append(self.value)
+		self.chartminutetimes.append(datetime.datetime.now(timezone('US/Eastern')))
+		for name, amount in positions().items():
+			if amount == 0:
+				self.stocks.pop(name, None)
+			else:
+				self.stocks[name] = amount
+
+
+	# Private Method
+	# Called at the start of every day
+	def updateday(self):
+		self.chartminute = []
+		self.chartminutetimes = []
+		self.chartday.append(self.value)
+		self.chartdaytimes.append(datetime.datetime.now(timezone('US/Eastern')))
+
 
 def save_manager(manager_obj,path='manager_save'):
 	fh = open(path,'wb')
-	pickle.dump(manager_obj,path)
+	pickle.dump(manager_obj,fh)
 	return path
 
 
 def load_manager(path='manager_save'):
-	fh = open(path,'rb')
-	manager = pickle.load(fh)
-	return manager
+	try:
+		fh = open(path,'rb')
+		manager = pickle.load(fh)
+		return manager
+	except Exception as err:
+		logging.error('Error loading manager: %s', err)
+		logging.error(logging.format_exception(sys.exec_info()))
 
 
 if __name__ == '__main__':
