@@ -5,6 +5,7 @@ import pytz
 import code
 import pickle
 import logging
+import atexit
 from functools import reduce
 import trader.AlgoGUI as Alg
 import trader.ManagerGUI as Man
@@ -38,7 +39,10 @@ class Manager:
 		self.chartdaytimes = []
 		self.stocks = {}
 		self.updatemin()
-		logging.debug('Starting')
+		logging.debug('Starting AlgoManager')
+		atexit.register(logging.debug, 'Stopping AlgoManager')
+		atexit.register(self.stop)
+
 
 	# Adds an algorithm to the manager.
 	# Allocation is the decimal proportion of the total portfolio to use for the algorithm.
@@ -46,37 +50,31 @@ class Manager:
 	# Use a list of: tuples (hour,minute), datetime.time(hour,minute), "every minute", "every hour", "every day"
 	def add(self, algorithm, allocation=1):
 		self.algo_alloc[algorithm] = allocation
+		if type(algorithm.times) is not list:
+			algorithm.times = [algorithm.times]
 		for time in algorithm.times:
 			if time == 'every minute':
 				for hour in range(9, 16):
 					for minute in (list(range(30, 60)) if hour == 9 else list(range(0, 60))):
-						if datetime.time(hour, minute) in self.algo_times:
-							self.algo_times[datetime.time(hour, minute)] += [algorithm]
-						else:
-							self.algo_times[datetime.time(hour, minute)] = [algorithm]
+						self.addAlgoTime(algorithm, datetime.time(hour, minute))
 			elif time == 'every hour':
 				for hour in range(10, 17):
-					if datetime.time(hour, 0) in self.algo_times:
-						self.algo_times[datetime.time(hour, 0)] += [algorithm]
-					else:
-						self.algo_times[datetime.time(hour, 0)] = [algorithm]
+					self.addAlgoTime(algorithm, datetime.time(hour, 0))
 			elif time == 'every day':
-				if datetime.time(9, 31) in self.algo_times:
-					self.algo_times[datetime.time(9, 31)] += [algorithm]
-				else:
-					self.algo_times[datetime.time(9, 31)] = [algorithm]
+				self.addAlgoTime(algorithm, datetime.time(9, 30))
 			elif type(time) is tuple:
 				if time[0] < 7:
 					time = (time[0]+12,time[1])
-				if datetime.time(time[0], time[1]) in self.algo_times:
-					self.algo_times[datetime.time(time[0], time[1])] += [algorithm]
-				else:
-					self.algo_times[datetime.time(time[0], time[1])] = [algorithm]
+				self.addAlgoTime(algorithm, datetime.time(time[0], time[1]))
 			elif type(time) is datetime.time:
-				if time in self.algo_times:
-					self.algo_times[time] += [algorithm]
-				else:
-					self.algo_times[time] = [algorithm]
+				self.addAlgoTime(algorithm, time)
+	def addAlgoTime(self, algorithm, time):
+		if time in self.algo_times:
+			if algorithm not in self.algo_times[time]:
+				self.algo_times[time] += [algorithm]
+		else:
+			self.algo_times[time] = [algorithm]
+
 
 	# Removes an algorithm from the manager
 	def remove(self, algorithm):
@@ -90,6 +88,7 @@ class Manager:
 		for time in delete:
 			del self.algo_times[time]
 
+
 	# Starts running the algorithms
 	# To stop, set self.running = False
 	# Always move stocks into algos and call rebalance() before calling start()
@@ -97,6 +96,7 @@ class Manager:
 		self.running = True
 		tradingthread = threading.Thread(target=self.run)
 		tradingthread.start()
+
 
 	def stop(self):
 		self.running = False
@@ -160,8 +160,6 @@ class Manager:
 		for stock, amount in algo.stocks.items():
 			value += price(stock) * amount
 		algo.value = value + algo.cash
-
-
 	# Helper function for assignstocks.
 	# Gets the total number of a given stock in all algos (except given algo, if given)
 	def numstockinalgos(self, stock, algo=None):
@@ -250,9 +248,7 @@ class Manager:
 					lasttime = currenttime
 					# Update minute
 					for algo in list(self.algo_alloc.keys()):
-						algo.datetime = datetime.datetime.combine(currentday, currenttime)
 						algo.updatemin()
-						logging.debug('New minute for algo %s. Time: %s', algo, algo.datetime)
 					self.updatemin()
 					# Update day
 					if currentday != lastday:
@@ -261,7 +257,7 @@ class Manager:
 						self.updateday()
 						for algo in list(self.algo_alloc.keys()):
 							algo.updateday()
-						logging.debug('New day. Variables: %s', self.__dict__)
+						logging.debug('New day. Variables: %s', self)
 					# Run algorithms
 					if currenttime in self.algo_times:
 						logging.debug('An algo runs at this time')
@@ -275,6 +271,15 @@ class Manager:
 				fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
 				logging.error('Error %s in file %s', err, fname)
 				logging.error( (exc_type, exc_obj, exc_tb) )
+
+
+	def __str__(self):
+		varsdict = self.__dict__.copy()
+		del varsdict["chartminutetimes"]
+		del varsdict["chartminute"]
+		del varsdict["graphing"]
+		del varsdict["running"]
+		return dict2string(varsdict)
 
 
 	# Private Method
@@ -324,30 +329,10 @@ def load_manager(path='manager_save'):
 		manager = pickle.load(fh)
 		return manager
 	except Exception as err:
-		logging.error('Error loading manager: %s', err)
+		return None
 
 
 if __name__ == '__main__':
 	import code; code.interact(local=locals())
-
-
-# High Priority
-# TODO: load and save data when closed/opened with pickle https://www.thoughtco.com/using-pickle-to-save-objects-2813661
-
-
-# Medium priority
-# TODO: Avoid running every second and logging when not in market hours
-# TODO: Adaptive allocations
-# TODO: Fix closing gui update issue
-# TODO: Add benchmarks to live
-
-
-# Low Priority
-# TODO: Comment functions that don't have descriptions
-# TODO: Add support for more brokers
-# TODO: Use daily logging close in backtest for algos that run at 3:59
-# TODO: Use yahoo-finance data when alphavantage fails
-# TODO: Add python3 type checking to functions
-# TODO: Prevent day trades, Combine concurrent orders for same stock
 
 

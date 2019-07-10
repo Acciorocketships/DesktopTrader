@@ -90,7 +90,6 @@ class Algorithm(object):
 		self.stopgains = {}
 		self.limitlow = {}
 		self.limithigh = {}
-		self.datetime = self.getdatetime()
 		self.alpha = 0
 		self.beta = 0
 		self.volatility = 0
@@ -142,8 +141,13 @@ class Algorithm(object):
 		self.chartdaytimes.append(self.getdatetime())
 		self.riskmetrics()
 
+	# returns current datetime
 	def getdatetime(self):
 		return datetime.datetime.now(timezone('US/Eastern')).replace(tzinfo=None)
+
+	# returns datetime as seen by algorithm (overridden in backtester)
+	def algodatetime(self):
+		return self.getdatetime()
 
 	# Checks and executes limit/stop orders
 	# TODO: Custom amounts to buy/sell
@@ -297,9 +301,9 @@ class Algorithm(object):
 		# Send Notification
 		if notify_address != None:
 			if amount >= 0:
-				message = self.datetime.strftime("%Y-%m-%d %H|%M|%S") + " - " + self.__class__.__name__ + " Buying " + str(amount) + " shares of " + stock + " at $" + str(cost)
+				message = self.algodatetime().strftime("%Y-%m-%d %H|%M|%S") + " - " + self.__class__.__name__ + " Buying " + str(amount) + " shares of " + stock + " at $" + str(cost)
 			else:
-				message = self.datetime.strftime("%Y-%m-%d %H|%M|%S") + " - " + self.__class__.__name__ + " Selling " + str(abs(amount)) + " shares of " + stock + " at $" + str(cost)
+				message = self.algodatetime().strftime("%Y-%m-%d %H|%M|%S") + " - " + self.__class__.__name__ + " Selling " + str(abs(amount)) + " shares of " + stock + " at $" + str(cost)
 			if type(notify_address)==str:
 				self.notify(message,notify_address)
 			elif notify_address:
@@ -380,9 +384,9 @@ class Algorithm(object):
 					end = self.getdatetime() + datetime.timedelta(days=2)
 					if not isdate(length):
 						if interval=='minute':
-							start = datetime.datetime.strptime( api.get_calendar(end=(self.datetime+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+							start = datetime.datetime.strptime( api.get_calendar(end=(self.getdatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
 						else:	
-							start = datetime.datetime.strptime( api.get_calendar(end=self.datetime.strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+							start = datetime.datetime.strptime( api.get_calendar(end=self.getdatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
 					else:
 						start = length
 					limit = 2500 if interval=='day' else 10
@@ -513,7 +517,7 @@ class Algorithm(object):
 	# Returns Series of numbers from 0 to 100 for relative interest over time
 	# WARNING: Data is for all days (other data is just trading days)
 	def google(self, query, length=100, financial=True, interval='day'):
-		enddate = self.datetime
+		enddate = self.algodatetime()
 		if isdate(length):
 			startdate = length
 		else:
@@ -575,6 +579,14 @@ class Algorithm(object):
 				logging.error("Failed to send sms notification: %s", err)
 
 
+	def __str__(self):
+		varsdict = self.__dict__.copy()
+		del varsdict["chartminutetimes"]
+		del varsdict["chartminute"]
+		del varsdict["cache"]
+		return dict2string(varsdict)
+
+
 
 # Use self.datetime to get current time (as a datetime object)
 class Backtester(Algorithm):
@@ -590,6 +602,7 @@ class Backtester(Algorithm):
 		self.timestorun = timestorun(self.times)
 		self.exptime = 450
 		# Variables that change automatically
+		self.datetime = None
 		self.alpha = None
 		self.beta = None
 		self.volatility = None
@@ -628,7 +641,7 @@ class Backtester(Algorithm):
 					# Set datetime of algorithm
 					self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)
 					# Exit if that datetime is in the future
-					if self.datetime >= self.getdatetime():
+					if self.algodatetime() >= self.getdatetime():
 						break
 					if minute in self.timestorun:
 						# Update algorithm cash and value
@@ -646,10 +659,10 @@ class Backtester(Algorithm):
 					# Set datetime of algorithm
 					self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)
 					# Exit if that datetime is in the future
-					if self.datetime >= self.getdatetime():
+					if self.algodatetime() >= self.getdatetime():
 						break
 					# If algorithm is running at the end of the day, check thresholds before running it
-					if self.datetime.time() == datetime.time(15,59):
+					if self.algodatetime().time() == datetime.time(15,59):
 						for stock in self.stocks:
 							self.checkthresholds(stock)
 						checkedthresholds = True
@@ -670,13 +683,13 @@ class Backtester(Algorithm):
 	def updatemin(self):
 		self.update()
 		self.chartminute.append(self.value)
-		self.chartminutetimes.append(self.datetime)
+		self.chartminutetimes.append(self.algodatetime())
 
 
 	def updateday(self):
 		self.update()
 		self.chartday.append(self.value)
-		self.chartdaytimes.append(self.datetime)
+		self.chartdaytimes.append(self.algodatetime())
 
 
 	def update(self):
@@ -688,6 +701,12 @@ class Backtester(Algorithm):
 				stockvalue += self.quote(stock) * amount
 		self.value = self.cash + stockvalue
 		self.value = round(self.value, 2)
+
+
+	def algodatetime(self):
+		if self.datetime is None:
+			return self.getdatetime()
+		return self.datetime
 
 
 	def checkthresholds(self,stock):
@@ -731,9 +750,9 @@ class Backtester(Algorithm):
 
 
 	def quote(self, stock):
-		if self.datetime.time() <= datetime.time(9,30,0,0):
+		if self.algodatetime().time() <= datetime.time(9,30,0,0):
 			return self.history(stock, interval='day', datatype='open')[0].item()
-		elif self.datetime.time() >= datetime.time(15,59,0,0):
+		elif self.algodatetime().time() >= datetime.time(15,59,0,0):
 			return self.history(stock, interval='day', datatype='close')[0].item()
 		return self.history(stock, interval=self.logging, datatype='close')[0].item()
 
@@ -790,9 +809,9 @@ class Backtester(Algorithm):
 						end = self.getdatetime() + datetime.timedelta(days=2)
 						if not isdate(length):
 							if interval=='minute':
-								start = datetime.datetime.strptime( api.get_calendar(end=(self.datetime+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+								start = datetime.datetime.strptime( api.get_calendar(end=(self.algodatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
 							else:	
-								start = datetime.datetime.strptime( api.get_calendar(end=self.datetime.strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+								start = datetime.datetime.strptime( api.get_calendar(end=self.algodatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
 						else:
 							start = length
 						limit = 2500 if interval=='day' else 10
@@ -814,12 +833,12 @@ class Backtester(Algorithm):
 
 			# Save To Cache
 			dateidx = dateidxs(hist)
-			lastidx = nearestidx(self.datetime, dateidx)
+			lastidx = nearestidx(self.algodatetime(), dateidx)
 			self.cache[key] = [hist, dateidx, lastidx, self.getdatetime()]
 		
 		# Look for current datetime in cached data
 		try:
-			idx = nearestidx(self.datetime, dateidx, lastchecked=lastidx)
+			idx = nearestidx(self.algodatetime(), dateidx, lastchecked=lastidx)
 			if isdate(length):
 				length = datetolength(length,dateidx,idx)
 			# Convert length to int
