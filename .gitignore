@@ -9,7 +9,7 @@
 *.log
 
 #Save States
-manager_save
+*.db
 
 #Python
 *.pyc

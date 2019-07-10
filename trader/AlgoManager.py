@@ -4,6 +4,7 @@ import datetime
 import pytz
 import code
 import pickle
+import shelve
 import logging
 import atexit
 from functools import reduce
@@ -174,7 +175,10 @@ class Manager:
 	# Keep algorithm manager running and enter interactive mode
 	# Allows you to view and change class attributes from the command line
 	def interactive(self,vars={}):
-		code.interact(local={**locals(),**vars})
+		try:
+			code.interact(local={**locals(),**vars})
+		except SystemExit:
+			pass
 
 
 	# Opens GUI of all algorithms in the manager
@@ -317,19 +321,41 @@ class Manager:
 		self.chartdaytimes.append(datetime.datetime.now(timezone('US/Eastern')))
 
 
-def save_manager(manager_obj,path='manager_save'):
-	fh = open(path,'wb')
-	pickle.dump(manager_obj,fh)
-	return path
+def save_state(local={}, path='savestate'):
+	shelf = shelve.open(path, flag='n')
+	for key in globals().keys():
+	    try:
+	        shelf['G'+key] = globals()[key]
+	    except (TypeError, pickle.PicklingError) as err:
+	        pass
+	for key in local.keys():
+	    try:
+	        shelf['L'+key] = local[key]
+	    except (TypeError, pickle.PicklingError) as err:
+	        pass
+	shelf.close()
+	logging.info('Saved State')
 
 
-def load_manager(path='manager_save'):
-	try:
-		fh = open(path,'rb')
-		manager = pickle.load(fh)
-		return manager
-	except Exception as err:
-		return None
+def load_state(path='savestate'):
+	if not os.path.exists(path + ".db"):
+		logging.info('Failed to Load State')
+		return {}
+	shelf = shelve.open(path, flag='c')
+	local = {}
+	for key in shelf:
+		try:
+			isglobal = (key[0] == 'G')
+			varname = key[1:]
+			if isglobal:
+				globals()[varname] = shelf[key]
+			else:
+				local[varname] = shelf[key]
+		except Exception as err:
+			pass
+	shelf.close()
+	logging.info('Successfully Loaded State')
+	return local
 
 
 if __name__ == '__main__':
