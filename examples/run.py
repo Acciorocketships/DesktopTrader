@@ -20,4 +20,4 @@ if __name__ == '__main__':
 
 # To exit:
 # • manager.stop()
-# ctrl-d
+# • ctrl-d

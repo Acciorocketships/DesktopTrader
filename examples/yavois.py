@@ -21,7 +21,7 @@ class Yavois(Algorithm):
 
 	def run(self):
 
-		if self.datetime.time() < datetime.time(12,0,0,0):
+		if self.algodatetime().time() < datetime.time(12,0,0,0):
 
 			logging.info("Running Morning. nextdaybuy: %s, nextdaysell: %s, \nrsi2: %s, \nrsi7: %s",
 						 self.nextdaybuy, self.nextdaysell, self.rsi2, self.rsi7)
