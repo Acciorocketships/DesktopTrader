@@ -6,6 +6,7 @@ import code
 import pickle
 import shelve
 import logging
+import traceback
 import atexit
 from functools import reduce
 import trader.AlgoGUI as Alg
@@ -273,8 +274,8 @@ class Manager:
 			except Exception as err:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
 				fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-				logging.error('Error %s in file %s', err, fname)
-				logging.error( (exc_type, exc_obj, exc_tb) )
+				stacktrace = traceback.format_tb(exc_tb)
+				logging.error('%s %s in file %s:\n'.join(stacktrace), exc_type.__name__, err, fname)
 
 
 	def __str__(self):
@@ -361,4 +362,15 @@ def load_state(path='savestate'):
 if __name__ == '__main__':
 	import code; code.interact(local=locals())
 
+# TODO
+# Remove Robinhood
+# Change algotimes to cron syntax (more flexible)
+# change tiemstorun in Algorithm to datetime instead of minute number
+# Add unit tests / integration tests
+# automatically do stoploss for backtest orders if they specify that in ordertype in order
+# get rid of logging='day' or 'minute'
+# change printing to logging
+# rethink init and init input values for Algorithm And BacktestAlgorithm.
+# fix error 429 in google trends function
+# fix backtest running to enddate of current day even if trading hasn't started yet
 

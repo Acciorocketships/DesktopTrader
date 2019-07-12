@@ -201,7 +201,6 @@ class Graph(FigureCanvasTkAgg):
 		FigureCanvasTkAgg.__init__(self, self.fig, master=master)
 		self.mpl_connect('key_press_event', self.keypress)
 		self.draw()
-		#self.show()
 
 	def keypress(self, event):
 		pass
@@ -217,16 +216,17 @@ class Graph(FigureCanvasTkAgg):
 			if type(algo.benchmark) == str:
 				benchmarks = [benchmarks]
 			for i, stock in enumerate(benchmarks[::-1]):
-				try:
-					times = algo.chartdaytimes if resolution == 'day' else algo.chartminutetimes
-					if len(times) > 0:
-						benchmark = algo.history(stock, interval=resolution, length=times[0])
-						benchmark = [value * algo.startingcapital / benchmark[0] for value in benchmark]
-						color = (benchmarkcolors[i] + '--') if i < len(benchmarkcolors) else None
-						self.plot(times, benchmark, color=color, fill=False)
-						self.draw()
-				except Exception as err:
-					print(err, "AlgoGUI plotbenchmark")
+				times = algo.chartdaytimes if resolution == 'day' else algo.chartminutetimes
+				if len(times) > 0:
+					benchmark = algo.history(stock, interval=resolution, length=times[0], datatype='open')
+					if len(times) == len(benchmark) + 1: # correction if backtest goes an extra day
+						times = times[:-1]
+					elif len(times) + 1 == len(benchmark): # TODO: investigate why this happens
+						benchmark = benchmark[:-1]
+					benchmark = [value * algo.startingcapital / benchmark[0] for value in benchmark]
+					color = (benchmarkcolors[i] + '--') if i < len(benchmarkcolors) else None
+					self.plot(times, benchmark, color=color, fill=False)
+					self.draw()
 
 	def plot(self, x, y, color='b-', fill=True):
 		try:

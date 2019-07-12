@@ -14,6 +14,7 @@ import requests # Used in Positions() for Robinhood
 import smtplib # Emailing
 from pytrends.request import TrendReq # Google Searches
 import logging
+import traceback
 
 broker = 'alpaca'
 papertrade = True
@@ -111,8 +112,8 @@ class Algorithm(object):
 		except Exception as err:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
 			fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-			logging.error('Error %s in file %s', err, fname)
-			logging.error( (exc_type, exc_obj, exc_tb) )
+			stacktrace = traceback.format_tb(exc_tb)
+			logging.error('%s %s in file %s:\n'.join(stacktrace), exc_type.__name__, err, fname)
 
 	### PRIVATE METHODS ###
 
@@ -593,10 +594,9 @@ class Backtester(Algorithm):
 	def __init__(self, capital=10000.0, benchmark='SPY'):
 		super(Backtester, self).__init__()
 		# Constants
-		if self.times == ['every day']:
-			self.logging = 'day'
-		else:
-			self.logging = 'minute'
+		if type(self.times) is not list:
+			self.times = [self.times]
+		self.logging = 'day'
 		self.startingcapital = capital
 		self.cash = capital
 		self.timestorun = timestorun(self.times)
@@ -675,7 +675,6 @@ class Backtester(Algorithm):
 					for stock in self.stocks:
 						self.checkthresholds(stock)
 				# Log algorithm cash and value
-				self.datetime = datetime.datetime.combine(day, datetime.time(15, 59))
 				self.updateday()
 		self.riskmetrics()
 
@@ -738,7 +737,7 @@ class Backtester(Algorithm):
 			elif (stock in self.stocks) and (stock in self.stopgains) and (self.history(stock,datatype='high')[0] >= self.stopgains[stock][0]):
 				print("Stopgain for " + stock + " kicking in at $" + str(round(self.stopgains[stock][0],2)))
 				self.orderpercent(stock, self.stopgains[stock][1], cost=self.stopgains[stock][0], verbose=True)
-				del self.stoplosses[stock]
+				del self.stopgains[stock]
 			elif (stock in self.limitlow) and (self.history(stock,datatype='low')[0] <= self.limitlow[stock][0]):
 				print("Limit order " + stock + " activated at $" + str(round(self.limitlow[stock][0],2)))
 				self.orderpercent(stock, self.limitlow[stock][1], cost=self.limitlow[stock][0], verbose=True)
