@@ -11,7 +11,7 @@ h5py
 requests[security]
 alpaca-trade-api
 ta
+apscheduler
 
 # pip3 install -r requirements.txt
-
 # tkinter (apt-get install python3-tk)

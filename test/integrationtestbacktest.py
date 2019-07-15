@@ -1,6 +1,5 @@
 from AlgoManager import *
 import code
-import datetime
 
 
 class Test(Algorithm):
@@ -14,5 +13,5 @@ class Test(Algorithm):
 
 if __name__ == '__main__':
     algo = backtester(Test(times=['every day']))
-    algo.startbacktest((1,1,2018),(1,2,2018))
+    algo.backtest((1,1,2018),(1,2,2018))
     code.interact(local=locals())

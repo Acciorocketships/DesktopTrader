@@ -7,7 +7,7 @@ if __name__ == '__main__':
 	loaded = load_state()
 	locals().update(loaded)
 	if len(loaded)==0:
-		algo = Yavois()
+		algo = Yavois(schedule = ["0 9 * * MON-FRI", "15 59 * * MON-FRI"])
 		manager = Manager()
 		manager.assignstocks('all',algo)
 		manager.add(algo,allocation=1)

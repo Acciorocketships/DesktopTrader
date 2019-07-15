@@ -10,28 +10,31 @@ import pandas as pd
 import numpy as np
 from empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio # Risk Metrics
 import math
-import requests # Used in Positions() for Robinhood
 import smtplib # Emailing
 from pytrends.request import TrendReq # Google Searches
 import logging
-import traceback
+from apscheduler.schedulers.blocking import BaseScheduler
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.combining import OrTrigger
+from apscheduler.triggers.base import BaseTrigger
+from typing import *
+
+Date = Union[datetime.datetime, datetime.date]
 
 broker = 'alpaca'
 papertrade = True
 
-if broker == 'robinhood':
-	from Robinhood import Robinhood
-	from alpha_vantage.timeseries import TimeSeries
-	from alpha_vantage.techindicators import TechIndicators
-elif broker == 'alpaca':
+if broker == 'alpaca':
 	import alpaca_trade_api as tradeapi
-	from ta import * # Technical Indicators
+	from ta import trend, volatility, momentum # Technical Indicators
 else:
-	logging.error("Choose a broker ('robinhood' or 'alpaca')")
+	logging.error("Choose a broker ('alpaca')")
 	exit(-1)
 
 
-creds = {}
+creds:Dict[str,str] = {}
 credential_file = pkg_resources.resource_filename(__name__, "creds.txt")
 try:
 	with open(credential_file, "r") as f:
@@ -44,22 +47,13 @@ except IOError:
 		creds['Alpaca Secret Key'] = input('Alpaca Secret Key: ')
 		creds['Alpaca Paper ID'] = input('Alpaca ID: ')
 		creds['Alpaca Paper Secret Key'] = input('Alpaca Secret Key: ')
-	if True: #broker == 'robinhood':
-		creds['Robinhood Username'] = input('Robinhood Username: ')
-		creds['Robinhood Password'] = input('Robinhood Password: ')
-		creds['Alpha Vantage API Key'] = input('Alpha Vantage API Key: ')
 	with open(credential_file, "w") as f:
 		json.dump(creds,f)
 except PermissionError:
 	logging.error("Inadequate permissions to read credentials file.")
 	exit(-1)
 
-if broker == 'robinhood':
-	robinhood = Robinhood()
-	robinhood.login(username=creds['Robinhood Username'], password=creds['Robinhood Password'])
-	data = TimeSeries(key=creds['Alpha Vantage API Key'], output_format='pandas')
-	tech = TechIndicators(key=creds['Alpha Vantage API Key'], output_format='pandas')
-elif broker == 'alpaca':
+if broker == 'alpaca':
 	api = tradeapi.REST(creds['Alpaca ID'] if not papertrade else creds['Alpaca Paper ID'], 
 						creds['Alpaca Secret Key'] if not papertrade else creds['Alpaca Paper Secret Key'],
 						base_url='https://api.alpaca.markets' if not papertrade else 'https://paper-api.alpaca.markets')
@@ -71,32 +65,29 @@ pytrends = TrendReq(hl='en-US', tz=360)
 
 class Algorithm(object):
 
-	def __init__(self, times=['every day']):
-		# Constants
-		self.times = times
-		if type(self.times) is not list:
-			self.times = [self.times]
+	def __init__(self, schedule:Union[str,List[str]]="30 9 * * *"):
+		self.setschedule(schedule)
 		# Variables that change automatically
-		self.startingcapital = 0
-		self.value = 0
-		self.cash = 0
-		self.stocks = {}
-		self.chartminute = []
-		self.chartminutetimes = []
-		self.chartday = []
-		self.chartdaytimes = []
-		self.running = True
-		self.cache = {}
-		self.stoplosses = {}
-		self.stopgains = {}
-		self.limitlow = {}
-		self.limithigh = {}
-		self.alpha = 0
-		self.beta = 0
-		self.volatility = 0
-		self.sharpe = 0
-		self.maxdrawdown = 0
-		self.benchmark = 'SPY'
+		self.startingcapital:float = 0.0
+		self.value:float = 0.0
+		self.cash:float = 0.0
+		self.stocks:Dict[str,int] = {}
+		self.chartminute:List[float] = []
+		self.chartminutetimes:List[datetime.datetime] = []
+		self.chartday:List[float] = []
+		self.chartdaytimes:List[datetime.datetime] = []
+		self.running:bool = True
+		self.cache:Dict[Tuple,Any] = {}
+		self.stoplosses:Dict[str,Tuple[float,float]] = {}
+		self.stopgains:Dict[str,Tuple[float,float]] = {}
+		self.limitlow:Dict[str,Tuple[float,float]] = {}
+		self.limithigh:Dict[str,Tuple[float,float]] = {}
+		self.alpha:Optional[float] = None
+		self.beta:Optional[float] = None
+		self.volatility:Optional[float] = None
+		self.sharpe:Optional[float] = None
+		self.maxdrawdown:Optional[float] = None
+		self.benchmark:Union[str,List[str]] = 'SPY'
 		# User initialization
 		self.initialize()
 
@@ -115,6 +106,21 @@ class Algorithm(object):
 			stacktrace = traceback.format_tb(exc_tb)
 			logging.error('%s %s in file %s:\n'.join(stacktrace), exc_type.__name__, err, fname)
 
+	def runner(self, block:bool=False):
+		if block:
+			self.scheduler = BlockingScheduler(timezone=timezone("US/Eastern"))
+		else:
+			self.scheduler = BackgroundScheduler(timezone=timezone("US/Eastern"))
+		self.scheduler.add_job(self.runalgo, self.scheduleTrigger)
+		self.scheduler.start()
+
+
+	def setschedule(self,schedule):
+		self.scheduleCrons:List[str]= schedule if isinstance(schedule,list) else [schedule]
+		self.scheduleTrigger:BaseTrigger = OrTrigger([CronTrigger.from_crontab(cron) for cron in self.scheduleCrons])
+		self.scheduler:BaseScheduler = None
+
+
 	### PRIVATE METHODS ###
 
 	# Update function called every second
@@ -130,64 +136,65 @@ class Algorithm(object):
 	def updatemin(self):
 		self.updatetick() 
 		self.chartminute.append(self.value)
-		self.chartminutetimes.append(self.getdatetime())
-		for stock in (self.stopgains.keys() | self.stoplosses.keys()):
-			self.checkthresholds(stock)
+		self.chartminutetimes.append(getdatetime())
+		self.checkthresholds(stock)
 
 	# Update function called every day
 	def updateday(self):
 		self.chartminute = []
 		self.chartminutetimes = []
 		self.chartday.append(self.value)
-		self.chartdaytimes.append(self.getdatetime())
+		self.chartdaytimes.append(getdatetime())
 		self.riskmetrics()
-
-	# returns current datetime
-	def getdatetime(self):
-		return datetime.datetime.now(timezone('US/Eastern')).replace(tzinfo=None)
 
 	# returns datetime as seen by algorithm (overridden in backtester)
 	def algodatetime(self):
-		return self.getdatetime()
+		return getdatetime()
+
+	# returns the next expected execution time of algorithm, as defined by the given schedule
+	def nextruntime(self):
+		return self.scheduleTrigger.get_next_fire_time(None, self.algodatetime()).replace(tzinfo=None)
 
 	# Checks and executes limit/stop orders
-	# TODO: Custom amounts to buy/sell
-	def checkthresholds(self,stock):
+	def checkthreshold(self, stock:str):
 		# Buy/Sell all shares of the stock if its price has crossed the threshold
 		price = self.quote(stock)
-		alloc = self.cash / self.value
 		if (stock in self.stocks) and (stock in self.stoplosses) and (price <= self.stoplosses[stock][0]):
 			print("Stoploss for " + stock + " kicking in.")
 			del self.stoplosses[stock]
-			self.orderpercent(stock,0,verbose=True)
+			self.orderfraction(stock,self.stoplosses[stock][1],verbose=True)
 		elif (stock in self.stocks) and (stock in self.stopgains) and (price >= self.stopgains[stock][0]):
 			print("Stopgain for " + stock + " kicking in.")
 			del self.stopgains[stock]
-			self.orderpercent(stock,0,verbose=True)
+			self.orderfraction(stock,self.stopgains[stock][1],verbose=True)
 		elif (stock in self.limitlow) and (price <= self.limitlow[stock][0]):
 			print("Limit order " + stock + " activated.")
 			del self.limitlow[stock]
-			self.orderpercent(stock,alloc,verbose=True)
+			self.orderfraction(stock,self.limitlow[stock][1],verbose=True)
 		elif (stock in self.limithigh) and (price >= self.limithigh[stock][0]):
 			print("Limit order " + stock + " activated.")
 			del self.limithigh[stock]
-			self.orderpercent(stock,alloc,verbose=True)
+			self.orderfraction(stock,self.limithigh[stock][1],verbose=True)
 		# Remove a stock once it is sold
 		if (stock in self.stoplosses) and (self.stocks.get(stock,0) == 0):
 			del self.stoplosses[stock]
 		if stock in self.stopgains and (self.stocks.get(stock,0) == 0):
 			del self.stopgains[stock]
 
+	def checkthresholds(self):
+		for stock in self.stocks:
+			self.checkthreshold(stock)
+
 	def riskmetrics(self):
 		try:
 			if len(self.chartday) < 2:
 				return
 			benchmark = self.benchmark if type(self.benchmark)==str else 'SPY'
-			changes = self.percentchange(self.chartday)
+			changes = self.fractionchange(self.chartday)
 			idx = [pd.Timestamp(date.date()) for date in self.chartdaytimes[1:]]
 			changes.index = idx
 			if len(changes) > 0:
-				benchmarkchanges = self.percentchange(benchmark, length=len(changes))
+				benchmarkchanges = self.fractionchange(benchmark, length=len(changes))
 				idx = [date.tz_convert(None).date() for date in benchmarkchanges.index]
 				benchmarkchanges.index = idx
 				self.alpha, self.beta = alpha_beta(changes, benchmarkchanges)
@@ -205,12 +212,9 @@ class Algorithm(object):
 
 	# Switches from live trading to paper trading
 	# If self.running is False, the algorithm will automatically paper trade
-	def papertrade(self,cash=None):
+	def papertrade(self,cash:Optional[float]=None):
 		if self.running:
-			if cash != None:
-				self.cash = cash
-			else:
-				self.cash = self.value
+			self.cash = cash if (cash is not None) else self.value
 			self.value = self.cash
 			self.stocks = {}
 			self.chartminute = []
@@ -232,8 +236,8 @@ class Algorithm(object):
 	# Adds stop loss or stop gain to a particular stock until it is sold (then you need to re-add it)
 	# If change == 0.05, then the stock will be sold if it goes 5% over the current price
 	# If change == -0.05, then the stock will be sold if it goes 5% below the current price
-	# amount is given as a number between 0 and 1 (uses orderpercent)
-	def stopsell(self, stock, change, amount=0):
+	# amount is given as a number between 0 and 1 (uses orderfraction)
+	def stopsell(self, stock:str, change:float, amount:float=0):
 		if change > 0:
 			self.stopgains[stock] = ( (1+change)*self.quote(stock), amount )
 		if change < 0:
@@ -243,8 +247,8 @@ class Algorithm(object):
 	# Adds order for a stock when it crosses above or below a % change from the current price
 	# If change == 0.05, then the stock will be bought if it goes 5% over the current price
 	# If change == -0.05, then the stock will be bought if it goes 5% below the current price
-	# amount is given as a number between 0 and 1 (uses orderpercent)
-	def limitbuy(self, stock, change, amount=1):
+	# amount is given as a number between 0 and 1 (uses orderfraction)
+	def limitbuy(self, stock:str, change:float, amount:float=1):
 		if amount == 1:
 			amount = self.cash / self.value
 		if change > 0:
@@ -256,7 +260,8 @@ class Algorithm(object):
 	# stock: stock symbol (string)
 	# amount: number of shares of that stock to order (+ for buy, - for sell)
 	# verbose: prints out order
-	def order(self, stock, amount, ordertype="market", stop=None, limit=None, verbose=False, notify_address=None):
+	def order(self, stock:str, amount:int, ordertype:str="market", stop:Optional[float]=None, 
+					limit:Optional[float]=None, verbose:bool=False, notify_address:Optional[str]=None):
 		# Guard condition for sell
 		if amount < 0 and (-amount > self.stocks.get(stock,0)):
 			print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + str(
@@ -302,13 +307,12 @@ class Algorithm(object):
 		# Send Notification
 		if notify_address != None:
 			if amount >= 0:
-				message = self.algodatetime().strftime("%Y-%m-%d %H|%M|%S") + " - " + self.__class__.__name__ + " Buying " + str(amount) + " shares of " + stock + " at $" + str(cost)
+				message = self.algodatetime().strftime("%Y-%m-%d %H|%M|%S") + " - " + \
+						  self.__class__.__name__ + " Buying " + str(amount) + " shares of " + stock + " at $" + str(cost)
 			else:
-				message = self.algodatetime().strftime("%Y-%m-%d %H|%M|%S") + " - " + self.__class__.__name__ + " Selling " + str(abs(amount)) + " shares of " + stock + " at $" + str(cost)
-			if type(notify_address)==str:
-				self.notify(message,notify_address)
-			elif notify_address:
-				self.notify(message)
+				message = self.algodatetime().strftime("%Y-%m-%d %H|%M|%S") + " - " + \
+						  self.__class__.__name__ + " Selling " + str(abs(amount)) + " shares of " + stock + " at $" + str(cost)
+			self.notify(message,notify_address)
 		if verbose:
 			if amount >= 0:
 				print( "Buying " + str(amount) + " shares of " + stock + " at $" + str(round(cost,2)))
@@ -316,29 +320,29 @@ class Algorithm(object):
 				print( "Selling " + str(-amount) + " shares of " + stock + " at $" + str(round(cost,2)))
 
 
-	# Buy or sell to reach a target percent of the algorithm's total allocation
+	# Buy or sell to reach a target fraction of the algorithm's total allocation
 	# verbose = True to print out whenever an order is made
 	# notify = "example@gmail.com" to send notification when an order is made (if True, it sends to yourself)
-	def orderpercent(self, stock, percent, verbose=False, notify_address=None):
+	def orderfraction(self, stock:str, fraction:float, verbose:bool=False, notify_address:Optional[str]=None):
 		cost = self.quote(stock)
-		currentpercent = 0.0
+		currentfraction = 0.0
 		if stock in self.stocks:
-			currentpercent = self.stocks[stock] * cost / self.value
-		percentdiff = percent - currentpercent
-		if percentdiff < 0:
-			# Min of (# required to reach target percent) and (# of that stock owned)
-			amount = min( round(-percentdiff * self.value / cost), self.stocks.get(stock,0) )
-			return self.order(stock, -amount, verbose, notify_address)
+			currentfraction = self.stocks[stock] * cost / self.value
+		fractiondiff = fraction - currentfraction
+		if fractiondiff < 0:
+			# Min of (# required to reach target fraction) and (# of that stock owned)
+			amount = min( round(-fractiondiff * self.value / cost), self.stocks.get(stock,0) )
+			return self.order(stock, -amount, verbose=verbose, notify_address=notify_address)
 		else:
-			# Min of (# required to reach target percent) and (# that you can buy with your available cash)
-			amount = min( math.floor(percentdiff * self.value / cost), math.floor(self.cash / cost) )
-			return self.order(stock, amount, verbose, notify_address)
+			# Min of (# required to reach target fraction) and (# that you can buy with your available cash)
+			amount = min( math.floor(fractiondiff * self.value / cost), math.floor(self.cash / cost) )
+			return self.order(stock, amount, verbose=verbose, notify_address=notify_address)
 
 
 	# Sells all held stocks
-	def sellall(self, verbose=False, notify_address=None):
+	def sellall(self, verbose:bool=False, notify_address:Optional[str]=None):
 		for stock in self.stocks:
-			self.orderpercent(stock, 0, verbose=verbose, notify_address=None)
+			self.orderfraction(stock, 0, verbose=verbose, notify_address=None)
 
 
 	### HISTORY AND INDICATORS ###
@@ -346,7 +350,7 @@ class Algorithm(object):
 
 	# Uses broker to get the current price of a stock
 	# stock: stock symbol (string)
-	def quote(self, stock):
+	def quote(self, stock:str):
 		return price(stock)
 
 
@@ -355,41 +359,24 @@ class Algorithm(object):
 	# interval: time interval between data points 'day','minute'
 	# length: number of data points (default is only the last)
 	# datatype: 'close','open','volume' (default close)
-	def history(self, stock, length=1, datatype='close', interval='day'):
+	def history(self, stock:str, length:Union[int,Date]=1, datatype:str='close', interval:str='day'):
 		hist = None
 		while hist is None:
 			try:	
-				# Data from AlphaVantage
-				if broker == 'robinhood':
-					# Convert Datatype String
-					if 'open' in datatype:
-						datatype = '1. open'
-					elif 'close' in datatype:
-						datatype = '4. close'
-					elif 'volume' in datatype:
-						datatype = '6. volume'
-					elif 'high' in datatype:
-						datatype = '2. high'
-					elif 'low' in datatype:
-						datatype = '3. low'
-					# Get Daily or Intraday Data
-					if interval == 'day':
-						interval = 'daily'
-						hist, _ = data.get_daily_adjusted(symbol=stock, outputsize='full')
-					elif interval == 'minute':
-						interval = '1min'
-						hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
 				# Data from Alpaca
-				elif broker == 'alpaca':
+				if broker == 'alpaca':
 					nextra = 0
-					end = self.getdatetime() + datetime.timedelta(days=2)
+					end = getdatetime() + datetime.timedelta(days=2)
+					# Find start date
 					if not isdate(length):
+						length = cast(int, length)
 						if interval=='minute':
-							start = datetime.datetime.strptime( api.get_calendar(end=(self.getdatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+							start = datetime.datetime.strptime( api.get_calendar(end=(getdatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
 						else:	
-							start = datetime.datetime.strptime( api.get_calendar(end=self.getdatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+							start = datetime.datetime.strptime( api.get_calendar(end=getdatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
 					else:
-						start = length
+						length = cast(Date, length)
+						start = length.date() if isinstance(length, datetime.datetime) else length
 					limit = 2500 if interval=='day' else 10
 					frames = []
 					totaltime = (end-start).days
@@ -417,13 +404,14 @@ class Algorithm(object):
 	# macd line: 12 day MA - 26 day MA
 	# signal line: 9 period MA of the macd line
 	# Returns MACD Indicator: (Signal - (FastMA - SlowMA))
-	def macd(self, stock, length=1, fastmawindow=12, slowmawindow=26, signalmawindow=9, matype=1, datatype='close', interval='day'):
+	def macd(self, stock:str, length:Union[int,Date]=1, 
+				   fastmawindow:int=12, slowmawindow:int=26, signalmawindow:int=9, 
+				   matype:int=1, datatype:str='close', interval:str='day'):
+		if isdate(length):
+			length = len(tradingdays(length, self.algodatetime()))
+		assert isinstance(length, int)
 		hist = self.history(stock,interval=interval,length=length+slowmawindow+signalmawindow,datatype=datatype)
 		md = trend.macd_diff(hist, n_fast=fastmawindow, n_slow=slowmawindow, n_sign=signalmawindow, fillna=False)
-		if isdate(length):
-			length = datetolength(length,md)
-		if length is None:
-			length = len(md)
 		return md[-length:]
 
 
@@ -431,38 +419,40 @@ class Algorithm(object):
 	# 0 means the price is at the middle band
 	# 1 means the price is at the upper band
 	# -1 means the price is at the lower band
-	def bollinger(self, stock, length=1, mawindow=20, ndev=2, matype=1, datatype='close', interval='day'):
+	def bollinger(self, stock, length:Union[int,Date]=1, mawindow:int=20, ndev:int=2, 
+						matype:int=1, datatype:str='close', interval:str='day'):
+		if isdate(length):
+			length = len(tradingdays(length, self.algodatetime()))
+		assert isinstance(length, int)
 		hist = self.history(stock,interval=interval,length=length+mawindow,datatype=datatype)
 		upper = volatility.bollinger_hband(hist,mawindow,ndev,fillna=False)
 		lower = volatility.bollinger_lband(hist,mawindow,ndev,fillna=False)
 		middle = (upper + lower) / 2
 		dev = (upper - lower) / 2
 		bb = (hist - middle) / dev
-		if isdate(length):
-			length = datetolength(length,bb)
-		if length is None:
-			length = len(bb)
 		return bb[-length:]
 
 
 	# Shows market trends by looking at the average gain and loss in the window.
 	# Transformed from a scale of [0,100] to [-1,1]
 	# RSI > 0.2 means overbought (sell indicator), RSI < -0.2 means oversold (buy indicator)
-	def rsi(self, stock, length=1, window=20, datatype='close', interval='day'):
+	def rsi(self, stock:str, length:Union[int,Date]=1, window:int=20, datatype:str='close', interval:str='day'):
+		if isdate(length):
+			length = len(tradingdays(length, self.algodatetime()))
+		assert isinstance(length, int)
 		hist = self.history(stock,interval=interval,length=length+window+1,datatype=datatype)
 		r = momentum.rsi(pd.Series(np.array(hist)),n=window,fillna=False)
 		r = (r - 50) / 50
 		r.index = hist.index
-		if isdate(length):
-			length = datetolength(length,r)
-		if length is None:
-			length = len(r)
 		return r[-length:]
 
 
 	# Moving Average. matype = 0 means simple, matype = 1 means exponential
 	# If data is given instead of a stock, then it will take the moving average of that
-	def ma(self, stock, length=1, mawindow=12, matype=0, datatype='close', interval='day'):
+	def ma(self, stock:Union[str,pd.Series], length:Union[int,Date]=1, mawindow:int=12, matype:int=0, datatype:str='close', interval:str='day'):
+		if isdate(length):
+			length = len(tradingdays(length, self.algodatetime()))
+		assert isinstance(length, int)
 		if isinstance(stock,str):
 			hist = self.history(stock,interval=interval,length=length+mawindow,datatype=datatype)
 		else:
@@ -471,45 +461,38 @@ class Algorithm(object):
 			ma = volatility.bollinger_mavg(hist,n=mawindow,fillna=False)
 		elif matype == 1:
 			ma = trend.ema_indicator(hist,n=mawindow,fillna=False)
-		if isdate(length):
-			length = datetolength(length,ma)
-		if length is None:
-			length = len(ma)
 		return ma[-length:]
 
 
 	# The price compared to the low and the high within a window
 	# Transformed from a scale of [0,100] to [-1,1]
 	# STOCH > 0.3 means overbought (sell indicator), STOCH < -0.3 means oversold (buy indicator)
-	def stoch(self, stock, length=1, window=14, interval='day'):
+	def stoch(self, stock, length:Union[int,Date]=1, window=14, interval='day'):
+		if isdate(length):
+			length = len(tradingdays(length, self.algodatetime()))
+		assert isinstance(length, int)
 		high = self.history(stock,interval=interval,length=length+window,datatype="high")
 		low = self.history(stock,interval=interval,length=length+window,datatype="low")
 		close = self.history(stock,interval=interval,length=length+window,datatype="close")
 		s = momentum.stoch(high=high,low=low,close=close,n=window,fillna=False)
 		s = (s - 50) / 50
-		if isdate(length):
-			length = datetolength(length,s)
-		if length is None:
-			length = len(s)
 		return s[-length:]
 
 
-	# Returns the percent change
-	# If data is given instead of a stock, it returns the percent change of that
-	def percentchange(self, stock, length=1, datatype='close', interval='day'):
-		# Get Data
+	# Returns the fraction change
+	# If data is given instead of a stock, it returns the fraction change of that
+	def fractionchange(self, stock:Union[str,pd.Series], length:Union[int,Date]=1, 
+							 datatype:str='close', interval:str='day'):
+		if isdate(length):
+			length = len(tradingdays(length, self.algodatetime()))
+		assert isinstance(length, int)
 		if isinstance(stock,str):
 			hist = self.history(stock,interval=interval,length=length+1,datatype=datatype)
 		else:
 			hist = pd.Series(stock)
 			length = len(hist)-1
-		changes = 100 * hist.pct_change()
-		changes = changes.rename("Percent Change")
-		# Handle Length
-		if isdate(length):
-			length = datetolength(length,hist)
-		elif length is None:
-			length = len(hist)
+		changes = hist.pct_change()
+		changes = changes.rename("fraction Change")
 		return changes[-length:]
 
 
@@ -517,65 +500,64 @@ class Algorithm(object):
 	# interval: hour, day (changes to weekly if length is too long)
 	# Returns Series of numbers from 0 to 100 for relative interest over time
 	# WARNING: Data is for all days (other data is just trading days)
-	def google(self, query, length=100, financial=True, interval='day'):
+	def google(self, query:str, length:Union[int,Date]=100, financial:bool=True, interval:str='day'):
 		enddate = self.algodatetime()
-		if isdate(length):
+		if not isinstance(length, int):
 			startdate = length
 		else:
 			length += 1
+			if interval == 'day':
+				startdate = enddate - datetime.timedelta(days=length)
+			elif interval == 'hour':
+				startdate = enddate - datetime.timedelta(hours=length)
 		if interval == 'day':
-			startdate = enddate - datetime.timedelta(days=length)
+			startdatestr = startdate.strftime("%Y-%m-%d")
+			enddatestr = enddate.strftime("%Y-%m-%d")
 		elif interval == 'hour':
-			startdate = enddate - datetime.timedelta(hours=length)
-		if interval == 'day':
-			startdate = startdate.strftime("%Y-%m-%d")
-			enddate = enddate.strftime("%Y-%m-%d")
-		elif interval == 'hour':
-			startdate = startdate.strftime("%Y-%m-%dT%H")
-			enddate = enddate.strftime("%Y-%m-%dT%H")
+			startdatestr = startdate.strftime("%Y-%m-%dT%H")
+			enddatestr = enddate.strftime("%Y-%m-%dT%H")
 		category = 0
 		if financial:
 			category=1138
-		pytrends.build_payload([query], cat=category, timeframe=startdate + " " + enddate, geo='US')
+		pytrends.build_payload([query], cat=category, timeframe=startdatestr + " " + enddatestr, geo='US')
 		return pytrends.interest_over_time()[query]
 
 
 	# Send a string or a dictionary to an email or a phone number
-	def notify(self, message="", recipient=""):
+	def notify(self, message:str, recipient:Optional[str]=None):
 		# Dont send messages in backtesting
 		if isinstance(self,Backtester):
 			return
-		# Send email to yourself by default
-		if len(recipient) == 0:
+		if recipient is None:
 			recipient = creds['Email Address']
 		# Send current state of algorithm by default
 		if len(message) == 0:
 			exclude = {"times","chartminute","chartminutetimes","chartday","chartdaytimes","cache","stoplosses","stopgains","limitlow","limithigh"}
-			message = {key: value for (key,value) in self.__dict__.items() if key not in exclude}
+			messagedict = {key: value for (key,value) in self.__dict__.items() if key not in exclude}
 		if type(message) == dict:
-			message = dict2string(message)
+			message = dict2string(messagedict)
 		gmail_user = creds['Email Address']
 		gmail_password = creds['Email Password']
 		# If recipient is an email address
 		if "@" in recipient:
 			try:
-				server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-				server.ehlo()
-				server.login(gmail_user, gmail_password)
-				server.sendmail(gmail_user, recipient, message)
-				server.close()
+				emailserver = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+				emailserver.ehlo()
+				emailserver.login(gmail_user, gmail_password)
+				emailserver.sendmail(gmail_user, recipient, message)
+				emailserver.close()
 			except Exception as err:
 				logging.error("Failed to send email notification: %s", err)
 		# If recipient is an phone number
 		else:
 			textdomains = ["@tmomail.net","@vtext.com","@mms.att.net","@pm.sprint.com"]
 			try:
-				server = smtplib.SMTP('smtp.gmail.com',587)
-				server.starttls()
-				server.login(gmail_user, gmail_password)
+				textserver = smtplib.SMTP('smtp.gmail.com',587)
+				textserver.starttls()
+				textserver.login(gmail_user, gmail_password)
 				for domain in textdomains:
-					server.sendmail(gmail_user, recipient+domain, message)
-				server.close()
+					textserver.sendmail(gmail_user, recipient+domain, message)
+				textserver.close()
 			except Exception as err:
 				logging.error("Failed to send sms notification: %s", err)
 
@@ -589,51 +571,51 @@ class Algorithm(object):
 
 
 
-# Use self.datetime to get current time (as a datetime object)
 class Backtester(Algorithm):
-	def __init__(self, capital=10000.0, benchmark='SPY'):
+	def __init__(self, capital:float=10000.0, benchmark:Union[str,List[str]]='SPY', logging:str='day'):
 		super(Backtester, self).__init__()
 		# Constants
-		if type(self.times) is not list:
-			self.times = [self.times]
-		self.logging = 'day'
-		self.startingcapital = capital
-		self.cash = capital
-		self.timestorun = timestorun(self.times)
-		self.exptime = 450
+		self.logging:str = logging
+		self.startingcapital:float = capital
+		self.cash:float = capital
+		self.exptime:int = 450
 		# Variables that change automatically
-		self.datetime = None
-		self.alpha = None
-		self.beta = None
-		self.volatility = None
-		self.sharpe = None
-		self.maxdrawdown = None
+		self.datetime:Optional[datetime.datetime] = None
+		self.alpha:Optional[float] = None
+		self.beta:Optional[float] = None
+		self.volatility:Optional[float] = None
+		self.sharpe:Optional[float] = None
+		self.maxdrawdown:Optional[float] = None
 		# Variables that the user can change
-		self.benchmark = benchmark
+		self.benchmark:Union[str,List[str]] = benchmark
 
 
 	# Starts the backtest (calls startbacktest in a new thread)
 	# Times can be in the form of datetime objects or tuples (day,month,year)
-	def start(self, start=datetime.datetime.today().date()-datetime.timedelta(days=90),
-					end=datetime.datetime.today().date(), logging='day'):
-		backtestthread = threading.Thread(target=self.startbacktest, args=(start, end, logging))
+	def start(self, start:Union[Date,Tuple[int,int,int],str]=datetime.datetime.today().date()-datetime.timedelta(days=90),
+					end:Union[Date,Tuple[int,int,int],str]=datetime.datetime.today().date(), 
+					logging:str='day'):
+		backtestthread = threading.Thread(target=self.backtest, args=(start, end, logging))
 		backtestthread.start()
 
 
 	# Starts the backtest
-	def startbacktest(self, startdate=datetime.datetime.today().date()-datetime.timedelta(days=90),
-							enddate=datetime.datetime.today().date(), logging='day'):
-		if isinstance(startdate,str):
-			startdate = tuple(startdate.split("-"))
-		if isinstance(enddate,str):
-			enddate = tuple(enddate.split("-"))
-		if type(startdate) == tuple:
-			startdate = datetime.date(startdate[0], startdate[1], startdate[2])
-		if type(enddate) == tuple:
-			enddate = datetime.date(enddate[0], enddate[1], enddate[2])
+	def backtest(self, start:Union[Date,Sequence[int],str]=datetime.datetime.today().date()-datetime.timedelta(days=90),
+					   end:Union[Date,Sequence[int],str]=datetime.datetime.today().date(), 
+					   logging:str='day'):
+		if isinstance(start, str):
+			startdate = tuple([int(x) for x in start.split("-")])
+		if isinstance(end,str):
+			enddate = tuple([int(x) for x in end.split("-")])
+		if isinstance(startdate,list) or isinstance(startdate,tuple):
+			start = datetime.date(startdate[0], startdate[1], startdate[2])
+		if isinstance(enddate,list) or isinstance(enddate,tuple):
+			end = datetime.date(enddate[0], enddate[1], enddate[2])
+		start = cast(Date, startdate)
+		end = cast(Date, enddate)
 		days = tradingdays(start=startdate, end=enddate)
 		self.logging = logging
-		self.datetime = startdate
+		self.datetime = cast(Optional[datetime.datetime],startdate)
 		self.update()
 		for day in days:
 			if self.logging == 'minute':
@@ -641,9 +623,9 @@ class Backtester(Algorithm):
 					# Set datetime of algorithm
 					self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)
 					# Exit if that datetime is in the future
-					if self.algodatetime() >= self.getdatetime():
+					if self.algodatetime() >= getdatetime():
 						break
-					if minute in self.timestorun:
+					if self.algodatetime() == self.nextruntime():
 						# Update algorithm cash and value
 						self.update()
 						# Run algorithm
@@ -651,20 +633,20 @@ class Backtester(Algorithm):
 					# Log algorithm cash and value
 					self.updatemin()
 					# Check limit order thresholds
-					for stock in self.stocks:
-						self.checkthresholds(stock)
+					self.checkthresholds()
+				# Log algorithm cash and value
+				self.updateday()
 			elif self.logging == 'day':
 				checkedthresholds = False
-				for minute in sorted(self.timestorun):
+				while self.nextruntime().date() == day:
 					# Set datetime of algorithm
-					self.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)
+					self.datetime = self.nextruntime()
 					# Exit if that datetime is in the future
-					if self.algodatetime() >= self.getdatetime():
+					if self.algodatetime() >= getdatetime():
 						break
 					# If algorithm is running at the end of the day, check thresholds before running it
 					if self.algodatetime().time() == datetime.time(15,59):
-						for stock in self.stocks:
-							self.checkthresholds(stock)
+						self.checkthresholds()
 						checkedthresholds = True
 					# Update algorithm cash and value
 					self.update()
@@ -672,8 +654,7 @@ class Backtester(Algorithm):
 					self.run()
 				# Check limit order thresholds if it hasn't already been done
 				if not checkedthresholds:
-					for stock in self.stocks:
-						self.checkthresholds(stock)
+					self.checkthresholds()
 				# Log algorithm cash and value
 				self.updateday()
 		self.riskmetrics()
@@ -704,51 +685,55 @@ class Backtester(Algorithm):
 
 	def algodatetime(self):
 		if self.datetime is None:
-			return self.getdatetime()
+			return getdatetime()
 		return self.datetime
 
 
-	def checkthresholds(self,stock):
+	def checkthreshold(self):
 		# Enforce Thresholds
 		if self.logging == 'minute': # Check if the current price activates a threshold
 			price = self.quote(stock)
-			alloc = self.cash / self.value
 			if (stock in self.stocks) and (stock in self.stoplosses) and (price <= self.stoplosses[stock][0]):
 				print("Stoploss for " + stock + " kicking in at $" + str(round(self.stoplosses[stock][0],2)))
-				self.orderpercent(stock,self.stoplosses[stock][1],verbose=True)
+				self.orderfraction(stock,self.stoplosses[stock][1],verbose=True)
 				del self.stoplosses[stock]
 			elif (stock in self.stocks) and (stock in self.stopgains) and (price >= self.stopgains[stock][0]):
 				print("Stopgain for " + stock + " kicking in at $" + str(round(self.stopgains[stock][0],2)))
-				self.orderpercent(stock,self.stopgains[stock][1],verbose=True)
+				self.orderfraction(stock,self.stopgains[stock][1],verbose=True)
 				del self.stopgains[stock]
 			elif (stock in self.limitlow) and (price <= self.limitlow[stock][0]):
 				print("Limit order " + stock + " activated at $" + str(round(self.limitlow[stock][0],2)))
-				self.orderpercent(stock,self.limitlow[stock][1],verbose=True)
+				self.orderfraction(stock,self.limitlow[stock][1],verbose=True)
 				del self.limitlow[stock]
 			elif (stock in self.limithigh) and (price >= self.limithigh[stock][0]):
 				print("Limit order " + stock + " activated at $" + str(round(self.limithigh[stock][0],2)))
-				self.orderpercent(stock,self.limithigh[stock][1],verbose=True)
+				self.orderfraction(stock,self.limithigh[stock][1],verbose=True)
 				del self.limithigh[stock]
 		else: # Check if the day's low or high activates a threshold
 			if (stock in self.stocks) and (stock in self.stoplosses) and (self.history(stock,datatype='low')[0] <= self.stoplosses[stock][0]):
 				print("Stoploss for " + stock + " kicking in at $" + str(round(self.stoplosses[stock][0],2)))
-				self.orderpercent(stock, self.stoplosses[stock][1], cost=self.stoplosses[stock][0], verbose=True)
+				self.orderfraction(stock, self.stoplosses[stock][1], cost=self.stoplosses[stock][0], verbose=True)
 				del self.stoplosses[stock]
 			elif (stock in self.stocks) and (stock in self.stopgains) and (self.history(stock,datatype='high')[0] >= self.stopgains[stock][0]):
 				print("Stopgain for " + stock + " kicking in at $" + str(round(self.stopgains[stock][0],2)))
-				self.orderpercent(stock, self.stopgains[stock][1], cost=self.stopgains[stock][0], verbose=True)
+				self.orderfraction(stock, self.stopgains[stock][1], cost=self.stopgains[stock][0], verbose=True)
 				del self.stopgains[stock]
 			elif (stock in self.limitlow) and (self.history(stock,datatype='low')[0] <= self.limitlow[stock][0]):
 				print("Limit order " + stock + " activated at $" + str(round(self.limitlow[stock][0],2)))
-				self.orderpercent(stock, self.limitlow[stock][1], cost=self.limitlow[stock][0], verbose=True)
+				self.orderfraction(stock, self.limitlow[stock][1], cost=self.limitlow[stock][0], verbose=True)
 				del self.limitlow[stock]
 			elif (stock in self.limithigh) and (self.history(stock,datatype='high')[0] >= self.limithigh[stock][0]):
 				print("Limit order " + stock + " activated at $" + str(round(self.limithigh[stock][0],2)))
-				self.orderpercent(stock, self.limithigh[stock][1], cost=self.limithigh[stock][0], verbose=True)
+				self.orderfraction(stock, self.limithigh[stock][1], cost=self.limithigh[stock][0], verbose=True)
 				del self.limithigh[stock]
 
 
-	def quote(self, stock):
+	def checkthresholds(self):
+		for stock in self.stocks:
+			self.checkthreshold(stock)
+
+
+	def quote(self, stock:str):
 		if self.algodatetime().time() <= datetime.time(9,30,0,0):
 			return self.history(stock, interval='day', datatype='open')[0].item()
 		elif self.algodatetime().time() >= datetime.time(15,59,0,0):
@@ -756,7 +741,7 @@ class Backtester(Algorithm):
 		return self.history(stock, interval=self.logging, datatype='close')[0].item()
 
 
-	def history(self, stock, length=1, datatype='close', interval='day'):
+	def history(self, stock:str, length:Union[int,Date]=1, datatype:str='close', interval:str='day'):
 		
 		# Handle Cache
 		key = (stock, interval)
@@ -766,7 +751,7 @@ class Backtester(Algorithm):
 
 			hist, dateidx, lastidx, time = cache 
 
-		if cache is None or (interval=='day' and (self.getdatetime()-time).days > 0) or (interval=='minute' and (self.getdatetime()-time).seconds > 120):
+		if cache is None or (interval=='day' and (getdatetime()-time).days > 0) or (interval=='minute' and (getdatetime()-time).seconds > 120):
 
 			hist = None
 			
@@ -780,39 +765,19 @@ class Backtester(Algorithm):
 					length = datetime.datetime(date[0],date[1],date[2])
 
 				try:
-					if broker == 'robinhood': # Data from AlphaVantage
-
-						# Convert Datatype String
-						if 'open' in datatype:
-							datatype = '1. open'
-						elif 'close' in datatype:
-							datatype = '4. close'
-						elif 'volume' in datatype:
-							datatype = '6. volume'
-						elif 'high' in datatype:
-							datatype = '2. high'
-						elif 'low' in datatype:
-							datatype = '3. low'
-
-						# Get Daily or Intraday Data
-						if interval == 'day':
-							interval = 'daily'
-							hist, _ = data.get_daily_adjusted(symbol=stock, outputsize='full')
-						elif interval == 'minute':
-							interval = '1min'
-							hist, _ = data.get_intraday(symbol=stock, interval=interval, outputsize='full')
-
-					elif broker == 'alpaca': # Data from Alpaca
-
+					if broker == 'alpaca': # Data from Alpaca
 						nextra = 100 if interval=='day' else 1 # Number of extra samples before the desired range
-						end = self.getdatetime() + datetime.timedelta(days=2)
+						end = getdatetime() + datetime.timedelta(days=2)
+						# Find start date
 						if not isdate(length):
+							length = cast(int, length)
 							if interval=='minute':
-								start = datetime.datetime.strptime( api.get_calendar(end=(self.algodatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+								start = datetime.datetime.strptime( api.get_calendar(end=(getdatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
 							else:	
-								start = datetime.datetime.strptime( api.get_calendar(end=self.algodatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d")
+								start = datetime.datetime.strptime( api.get_calendar(end=getdatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
 						else:
-							start = length
+							length = cast(Date, length)
+							start = length.date() if isinstance(length, datetime.datetime) else length
 						limit = 2500 if interval=='day' else 10
 						frames = []
 						totaltime = (end-start).days
@@ -833,12 +798,13 @@ class Backtester(Algorithm):
 			# Save To Cache
 			dateidx = dateidxs(hist)
 			lastidx = nearestidx(self.algodatetime(), dateidx)
-			self.cache[key] = [hist, dateidx, lastidx, self.getdatetime()]
+			self.cache[key] = [hist, dateidx, lastidx, getdatetime()]
 		
 		# Look for current datetime in cached data
 		try:
 			idx = nearestidx(self.algodatetime(), dateidx, lastchecked=lastidx)
 			if isdate(length):
+				length = cast(Date, length)
 				length = datetolength(length,dateidx,idx)
 			# Convert length to int
 			if length is None:
@@ -853,14 +819,15 @@ class Backtester(Algorithm):
 		return hist[datatype][idx-length+1 : idx+1]
 		
 
-	def order(self, stock, amount, cost=None, ordertype="market", stop=None, limit=None, verbose=False, notify_address=None):
+	def order(self, stock:str, amount:int, ordertype:str="market",
+					stop:Optional[float]=None, limit:Optional[float]=None, verbose:bool=False,
+					notify_address:Optional[str]=None):
 		# Guard condition for sell
 		if amount < 0 and (stock in self.stocks) and (-amount > self.stocks[stock]):
 			print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + 
 				str(self.stocks.get(stock,0)) + ") of " + stock))
 			return None
-		if cost is None:
-			cost = self.quote(stock)
+		cost = self.quote(stock)
 		# Guard condition for buy
 		if cost * amount > self.cash:
 			print(("Warning: not enough cash ($" + str(round(self.cash,2)) + ") in algorithm to buy " + str(
@@ -892,20 +859,20 @@ class Backtester(Algorithm):
 		# TODO: Test stop/limit orders in backtest.
 
 
-	def orderpercent(self, stock, percent, cost=None, ordertype="market", stop=None, limit=None, verbose=False, notify_address=None):
+	def orderfraction(self, stock, fraction, cost=None, ordertype="market", stop=None, limit=None, verbose=False, notify_address=None):
 		if cost is None:
 			cost = self.quote(stock)
-		currentpercent = self.stocks.get(stock,0) * cost / self.value
-		percentdiff = percent - currentpercent
-		if percentdiff < 0:
-			# Min of (# required to reach target percent) and (# of that stock owned)
-			amount = min( round(-percentdiff * self.value / cost), self.stocks.get(stock,0) )
+		currentfraction = self.stocks.get(stock,0) * cost / self.value
+		fractiondiff = fraction - currentfraction
+		if fractiondiff < 0:
+			# Min of (# required to reach target fraction) and (# of that stock owned)
+			amount = min( round(-fractiondiff * self.value / cost), self.stocks.get(stock,0) )
 			return self.order(stock=stock, amount=-amount, cost=cost, \
 							  ordertype=ordertype, stop=stop, limit=limit, \
 							  verbose=verbose, notify_address=notify_address)
 		else:
-			# Min of (# required to reach target percent) and (# that you can buy with your available cash)
-			amount = min( math.floor(percentdiff * self.value / cost), math.floor(self.cash / cost) )
+			# Min of (# required to reach target fraction) and (# that you can buy with your available cash)
+			amount = min( math.floor(fractiondiff * self.value / cost), math.floor(self.cash / cost) )
 			return self.order(stock=stock, amount=amount, cost=cost, \
 							  ordertype=ordertype, stop=stop, limit=limit, \
 							  verbose=verbose, notify_address=notify_address)
@@ -915,20 +882,27 @@ class Backtester(Algorithm):
 ### Helper Functions ###
 
 
+
 # If start and end are both dates, it returns a list of trading days from the start date to the end date (not including end date)
 # If start is a date and end is an int, it returns the date that is end days after start
 # If start is an int and end is a date, it returns the date that is start days before end
-def tradingdays(start=datetime.datetime.today().date(), end=1):
+def tradingdays(start:Union[Date,Sequence[int],str,int]=getdatetime(), 
+				end:Union[Date,Sequence[int],str,int]=1):
 
 	# Convert Date Datatypes
-	if isinstance(start,str):
-		start = tuple(start.split("-"))
+	if isinstance(start, str):
+		start = tuple([int(x) for x in start.split("-")])
 	if isinstance(end,str):
-		end = tuple(end.split("-"))
-	if type(start) == tuple:
+		end = tuple([int(x) for x in end.split("-")])
+	if isinstance(start,list) or isinstance(start,tuple):
 		start = datetime.date(start[0], start[1], start[2])
-	if type(end) == tuple:
+	if isinstance(end,list) or isinstance(end,tuple):
 		end = datetime.date(end[0], end[1], end[2])
+	start = cast(Date, start)
+	end = cast(Date, end)
+
+	if isinstance(start,int) and isinstance(end,int):
+		raise TypeError("Either start or end must be a date")
 
 	# Range of Dates
 	if isdate(start) and isdate(end):
@@ -952,30 +926,58 @@ def tradingdays(start=datetime.datetime.today().date(), end=1):
 		return date
 
 
-def isdate(var):
+# Determines if variable is a datetime.datetime or datetime.date object
+def isdate(var:Any) -> bool:
 	return isinstance(var,datetime.datetime) or isinstance(var,datetime.date)
 
 
-def timestorun(times):
-	runtimes = set()
-	for time in times:
-		if time == 'every minute':
-			for t in range(391):
-				runtimes.add(t)
-		elif time == 'every hour':
-			for t in range(0, 391, 60):
-				runtimes.add(t)
-		elif time == 'every day':
-			runtimes.add(0)
-		elif type(time) is tuple or type(time) is datetime.time:
-			if type(time) is datetime.time:
-				time = (time.hour, time.minute)
-			runtimes.add((time[0] - 9) * 60 + (time[1] - 30))
-	return runtimes
+def getdatetime() -> datetime.datetime:
+	return datetime.datetime.now(timezone('US/Eastern')).replace(tzinfo=None)
+
+
+def datetimeequals(dt1:Union[datetime.datetime,datetime.date,datetime.time], 
+				   dt2:Union[datetime.datetime,datetime.date,datetime.time]) -> bool:
+	# get date and time for each input
+	dt1date = None
+	dt1time = None
+	dt2date = None
+	dt2time = None
+	if isinstance(dt1, datetime.datetime):
+		dt1date = dt1.date()
+		dt1time = dt1.time()
+	elif isinstance(dt1, datetime.date):
+		dt1date = dt1
+	elif isinstance(dt1, datetime.time):
+		dt1time = dt1
+	if isinstance(dt2, datetime.datetime):
+		dt2date = dt2.date()
+		dt2time = dt2.time()
+	elif isinstance(dt2, datetime.date):
+		dt2date = dt2
+	elif isinstance(dt2, datetime.time):
+		dt2time = dt2
+	# if all trailing values of one time are 0, then truncate the other time as well
+	# that way, 4:30 == 4:30:16:725650
+	if dt1time is not None and dt2time is not None:
+		if dt1time.second == 0 and dt1time.microsecond == 0:
+			dt2time = dt2time.replace(second=0, microsecond=0)
+		if dt2time.second == 0 and dt2time.microsecond == 0:
+			dt1time = dt1time.replace(second=0, microsecond=0)
+		if dt1time.microsecond == 0:
+			dt2time = dt2time.replace(microsecond=0)
+		if dt2time.microsecond == 0:
+			dt1time = dt1time.replace(microsecond=0)
+	# if only one date is provided or the dates do not match, they are not equal
+	if dt1date != dt2date:
+		return False
+	# only fail if both times are given and they don't match. 
+	if (dt1time is not None) and (dt2time is not None) and (dt1time != dt2time):
+		return False
+	return True
 
 
 # Returns the list of datetime objects associated with the entries of a pandas dataframe
-def dateidxs(arr):
+def dateidxs(arr:Union[pd.DataFrame,pd.Series]):
 	try:
 		return [pd.to_datetime(item[0]).replace(tzinfo=None).to_pydatetime() for item in arr.iterrows()]
 	except:
@@ -986,43 +988,44 @@ def dateidxs(arr):
 # If lastchecked==None: Searches backward from the most recent entries
 # If lastchecked>=0: Searches forward starting at lastchecked
 # If lastchecked<0: Searches backward starting at -lastchecked
-def nearestidx(time, dateidx, lastchecked=None):
+def nearestidx(startdate:Date, dateidx:List[Date], lastchecked:Optional[int]=None):
 	if lastchecked is None:
 		for i in range(len(dateidx)):
 			index = len(dateidx) - i - 1
-			if dateidx[index] <= time:
+			if dateidx[index] <= startdate:
 				return index
 	elif lastchecked >= 0:
 		for i in range(len(dateidx)):
 			index = (lastchecked + i - 5) % len(dateidx)
-			if dateidx[index] > time:
+			if dateidx[index] > startdate:
 				return index-1
 		return len(dateidx)-1
 	else:
 		for i in range(len(dateidx)):
 			index = (len(dateidx) - lastchecked - i) % len(dateidx)
-			if dateidx[index] <= time:
+			if dateidx[index] <= startdate:
 				return index
-	logging.error("Datetime %s not found in historical data.", time)
-
+	logging.error("Datetime %s not found in historical data.", startdate)
 
 
 # Returns the difference of the indexes of startdate and currentdateidx in dateidxs
 # startdate: datetime in the past
 # currentdateidx: idx of current date in dateidxs (datetime also accepted) (If None given, it will default to the last value)
 # dateidx: list of datetimes (original pandas dataframe also accepted)
-def datetolength(startdate, dateidx, currentdateidx=None):
+def datetolength(startdate:Date, dateidx:Union[List[Date],pd.DataFrame,pd.Series], currentdateidx:Optional[Union[Date,int]]=None):
 	if isinstance(dateidx,pd.DataFrame) or isinstance(dateidx,pd.Series):
 		dateidx = dateidxs(dateidx)
 	if isdate(currentdateidx):
+		currentdateidx = cast(Date, currentdateidx)
 		currentdateidx = nearestidx(currentdateidx, dateidx)
 	if currentdateidx is None:
 		currentdateidx = len(dateidx)-1
+	assert isinstance(currentdateidx, int)
 	return currentdateidx - nearestidx(startdate, dateidx, lastchecked=-currentdateidx) + 1
 
 
 # Converts a dictionary to a string
-def dict2string(dictionary, spaces=0):
+def dict2string(dictionary:Dict[Any,Any], spaces:int=0):
 	string = ""
 	if type(dictionary) == dict:
 		for (key,value) in dictionary.items():
@@ -1039,33 +1042,15 @@ def dict2string(dictionary, spaces=0):
 	return string
 
 
-def save_algo(algo_obj,path=None):
-	if path is None:
-		path = algo_obj.__class__.__name__ + "_save"
-	fh = open(path,'w')
-	json.dump(algo_obj,fh)
-	fh.close()
-	return path
-
-
-def load_algo(path):
-	fh = open(path,'rb')
-	algo = json.load(fh)
-	fh.close()
-	return algo
-
-
-### Wrappers for Broker-Related Functions ###
-
-
-def backtester(algo, capital=None, benchmark=None):
+# Converts an Algorithm to a BacktestAlgorithm, allowing you to backtest it
+def backtester(algo:Algorithm, capital:Optional[float]=None, benchmark:Optional[Union[str,List[str]]]=None):
 	# Convert
 	BacktestAlgorithm = type('BacktestAlgorithm', (Backtester,), dict((algo.__class__).__dict__))
 	algoback = BacktestAlgorithm()
 	# Set Capital
 	if capital is None:
 		if algoback.value == 0:
-			algoback.value = 10000
+			algoback.value = 10000.0
 	else:
 		algoback.value = capital
 	# Set Benchmark
@@ -1080,34 +1065,21 @@ def backtester(algo, capital=None, benchmark=None):
 
 # Input: stock symbol as a string, number of shares as an int
 # ordertype: "market", "limit", "stop", "stop_limit"
-def buy(stock, amount, ordertype='market', stop=None, limit=None, block=True):
-	if broker == 'robinhood':
-		stockobj = robinhood.instruments(stock)[0]
-		try:
-			response = robinhood.place_buy_order(stockobj, amount)
-			return response
-		except Exception as err:
-			logging.error("Buy Order Failed: %s", err)
-	elif broker == 'alpaca':
+def buy(stock:str, amount:int, ordertype:str='market', stop:Optional[float]=None, limit:Optional[float]=None, block:bool=True):
+	if broker == 'alpaca':
 		order = api.submit_order(stock, amount, side='buy', type=ordertype, time_in_force='day', limit_price=limit, stop_price=stop)
 		if block:
-			starttime = datetime.datetime.now()
-			while (order.filled_at is None) and ((datetime.datetime.now()-starttime).seconds < 60):
+			starttime = getdatetime()
+			while (order.filled_at is None) and ((getdatetime()-starttime).seconds < 60):
 				order = api.get_order(order.id)
 				time.sleep(0.1)
 		return order
 
+
 # Input: stock symbol as a string, number of shares as an int
 # ordertype: "market", "limit", "stop", "stop_limit"
-def sell(stock, amount, ordertype='market', stop=None, limit=None, block=True):
-	if broker == 'robinhood':
-		stockobj = robinhood.instruments(stock)[0]
-		try:
-			response = robinhood.place_sell_order(stockobj, abs(amount))
-			return response
-		except Exception as err:
-			logging.error("Sell Order Failed: %s", err)
-	elif broker == 'alpaca':
+def sell(stock:str, amount:int, ordertype:str='market', stop:Optional[float]=None, limit:Optional[float]=None, block:bool=True):
+	if broker == 'alpaca':
 		order = api.submit_order(stock, amount, side='sell', type=ordertype, time_in_force='day', limit_price=limit, stop_price=stop)
 		if block:
 			starttime = datetime.datetime.now()
@@ -1116,18 +1088,11 @@ def sell(stock, amount, ordertype='market', stop=None, limit=None, block=True):
 				time.sleep(0.1)
 		return order
 
+
 # Input: stock symbol as a string
 # Returns: share price as a float
-def price(stock):
-	if broker == 'robinhood':
-		for i in range(10):
-			try:
-				return float(robinhood.quote_data(stock)['last_trade_price'])
-			except Exception as err:
-				if i == 0:
-					logging.error("Could not fetch Robinhood quote for %s: %s", stock, err)
-				time.sleep(0.3*i)
-	elif broker == 'alpaca':
+def price(stock:str):
+	if broker == 'alpaca':
 		cost = float(api.polygon.last_quote(stock).askprice)
 		if cost == 0:
 			cost = float(api.polygon.last_trade(stock).price)
@@ -1139,22 +1104,7 @@ def positions():
 	
 	positions = {}
 	
-	if broker == 'robinhood':
-		for i in range(10):
-			try:
-				robinhoodpositions = robinhood.positions()['results']
-				for position in robinhoodpositions:
-					name = str(requests.get(position['instrument']).json()['symbol'])
-					amount = float(position['quantity'])
-					if amount != 0:
-						positions[name] = amount
-				break
-			except Exception as err:
-				if i == 0:
-					logging.error("Could not fetch Robinhood positions data.", err)
-				time.sleep(0.3*i)
-	
-	elif broker == 'alpaca':
+	if broker == 'alpaca':
 		poslist = api.list_positions()
 		for pos in poslist:
 			positions[pos.symbol] = int(pos.qty)
@@ -1165,29 +1115,12 @@ def positions():
 # Returns dictionary of
 	# "value": total portfolio value as a float
 	# "cash": portfolio cash as a float
-	# "daychange": current day's percent portfolio value change as a float
+	# "daychange": current day's fraction portfolio value change as a float
 def portfoliodata():
 	
 	portfolio = {}
 
-	if broker == 'robinhood':
-		for i in range(10):
-			try:
-				robinhoodportfolio = robinhood.portfolios()
-				break
-			except Exception as err:
-				logging.error("Could not fetch Robinhood portfolio data: %s", err)
-				time.sleep(0.3*i)
-		if robinhoodportfolio['extended_hours_equity'] is not None:
-			portfolio["value"] = float(robinhoodportfolio['extended_hours_equity'])
-		else:
-			portfolio["value"] = float(robinhoodportfolio['equity'])
-		if robinhoodportfolio['extended_hours_market_value'] is not None:
-			portfolio["cash"] = portfolio["value"] - float(robinhoodportfolio['extended_hours_market_value'])
-		else:
-			portfolio["cash"] = portfolio["value"] - float(robinhoodportfolio['market_value'])
-		
-	elif broker == 'alpaca':
+	if broker == 'alpaca':
 		account = api.get_account()
 		portfolio["value"] = float(account.portfolio_value)
 		portfolio["cash"] = float(account.buying_power)

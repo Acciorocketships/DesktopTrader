@@ -1,14 +1,12 @@
 import sys, os
 import math
 import datetime
-import pytz
 import code
 import pickle
 import shelve
 import logging
 import traceback
 import atexit
-from functools import reduce
 import trader.AlgoGUI as Alg
 import trader.ManagerGUI as Man
 from trader.Algorithm import *
@@ -28,7 +26,6 @@ class Manager:
 		# Variables that the user can change
 		self.running = False
 		self.algo_alloc = {}
-		self.algo_times = {}
 		# Private variables
 		self.graphing = False
 		self.portfolio = portfoliodata()
@@ -48,47 +45,11 @@ class Manager:
 
 	# Adds an algorithm to the manager.
 	# Allocation is the decimal proportion of the total portfolio to use for the algorithm.
-	# Times is the times of the day that the algorithm's run() function will be called.
-	# Use a list of: tuples (hour,minute), datetime.time(hour,minute), "every minute", "every hour", "every day"
 	def add(self, algorithm, allocation=1):
 		self.algo_alloc[algorithm] = allocation
-		if type(algorithm.times) is not list:
-			algorithm.times = [algorithm.times]
-		for time in algorithm.times:
-			if time == 'every minute':
-				for hour in range(9, 16):
-					for minute in (list(range(30, 60)) if hour == 9 else list(range(0, 60))):
-						self.addAlgoTime(algorithm, datetime.time(hour, minute))
-			elif time == 'every hour':
-				for hour in range(10, 17):
-					self.addAlgoTime(algorithm, datetime.time(hour, 0))
-			elif time == 'every day':
-				self.addAlgoTime(algorithm, datetime.time(9, 30))
-			elif type(time) is tuple:
-				if time[0] < 7:
-					time = (time[0]+12,time[1])
-				self.addAlgoTime(algorithm, datetime.time(time[0], time[1]))
-			elif type(time) is datetime.time:
-				self.addAlgoTime(algorithm, time)
-	def addAlgoTime(self, algorithm, time):
-		if time in self.algo_times:
-			if algorithm not in self.algo_times[time]:
-				self.algo_times[time] += [algorithm]
-		else:
-			self.algo_times[time] = [algorithm]
-
-
 	# Removes an algorithm from the manager
 	def remove(self, algorithm):
 		del self.algo_alloc[algorithm]
-		delete = []
-		for time, algolist in list(self.algo_times.items()):
-			if algorithm in algolist:
-				algolist.remove(algorithm)
-				if len(self.algo_times[time]) == 0:
-					delete.append(time)
-		for time in delete:
-			del self.algo_times[time]
 
 
 	# Starts running the algorithms
@@ -210,7 +171,7 @@ class Manager:
 		import matplotlib.pyplot as plt
 		plt.ion()
 		plt.xkcd()
-		cid = plt.gcf().canvas.mpl_connect('key_press_event', self.quit_figure)
+		plt.gcf().canvas.mpl_connect('key_press_event', self.quit_figure)
 		self.graphing = True
 		while self.graphing:
 			if timeframe == '1min':
@@ -223,7 +184,7 @@ class Manager:
 
 	# Private Method
 	# Graph callback helper
-	def quit_figure(self, event):
+	def quitfigure(self, event):
 		import matplotlib.pyplot as plt
 		if event.key == 'q':
 			plt.close(event.canvas.figure)
@@ -239,15 +200,14 @@ class Manager:
 		# function that returns a boolean for if the given day is a trading day
 		tradingday = lambda currentday: tradingdays(start=currentday,end=currentday+datetime.timedelta(days=1))[0].date() == currentday
 		# boolean trading day flag
-		istradingday = tradingday(datetime.datetime.now(timezone('US/Eastern')).date())
+		istradingday = tradingday(getdatetime())
 		# Main Loop
 		while self.running:
-			time.sleep(5)
+			time.sleep(15)
 			try:
 				# Get time and day
-				currenttime = datetime.time(datetime.datetime.now(timezone('US/Eastern')).hour, datetime.datetime.now(timezone('US/Eastern')).minute)
-				currentday = datetime.datetime.now(timezone('US/Eastern')).date()
-				logging.debug('currenttime: %s, lasttime: %s, istradingday: %s', currenttime, lasttime, istradingday)
+				currenttime = getdatetime().time()
+				currentday = getdatetime().date()
 				# If trading is open
 				if istradingday and currenttime != lasttime and currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
 					lasttime = currenttime
@@ -264,10 +224,8 @@ class Manager:
 							algo.updateday()
 						logging.debug('New day. Variables: %s', self)
 					# Run algorithms
-					if currenttime in self.algo_times:
-						logging.debug('An algo runs at this time')
-						# Run all algorithms associated with that time
-						for algo in self.algo_times[currenttime]:
+					for algo in self.algo_alloc:
+						if datetimeequals(algo.nextruntime(), getdatetime()):
 							algothread = threading.Thread(target=algo.runalgo)
 							algothread.start()
 							logging.debug('Running algo %s. Variables: %s', algo, algo.__dict__)
@@ -305,7 +263,7 @@ class Manager:
 		self.value = portfolio["value"]
 		self.cash = portfolio["cash"]
 		self.chartminute.append(self.value)
-		self.chartminutetimes.append(datetime.datetime.now(timezone('US/Eastern')))
+		self.chartminutetimes.append(getdatetime())
 		for name, amount in positions().items():
 			if amount == 0:
 				self.stocks.pop(name, None)
@@ -319,7 +277,7 @@ class Manager:
 		self.chartminute = []
 		self.chartminutetimes = []
 		self.chartday.append(self.value)
-		self.chartdaytimes.append(datetime.datetime.now(timezone('US/Eastern')))
+		self.chartdaytimes.append(getdatetime())
 
 
 def save_state(local={}, path='savestate'):
@@ -328,12 +286,12 @@ def save_state(local={}, path='savestate'):
 	    try:
 	        shelf['G'+key] = globals()[key]
 	    except (TypeError, pickle.PicklingError) as err:
-	        pass
+	        logging.error(err)
 	for key in local.keys():
 	    try:
 	        shelf['L'+key] = local[key]
 	    except (TypeError, pickle.PicklingError) as err:
-	        pass
+	        logging.error(err)
 	shelf.close()
 	logging.info('Saved State')
 
@@ -353,19 +311,17 @@ def load_state(path='savestate'):
 			else:
 				local[varname] = shelf[key]
 		except Exception as err:
-			pass
+			logging.error(err)
 	shelf.close()
 	logging.info('Successfully Loaded State')
 	return local
 
 
 if __name__ == '__main__':
-	import code; code.interact(local=locals())
+	code.interact(local=locals())
 
 # TODO
-# Remove Robinhood
-# Change algotimes to cron syntax (more flexible)
-# change tiemstorun in Algorithm to datetime instead of minute number
+# check that passing date as length to technical indicators yields the desired length
 # Add unit tests / integration tests
 # automatically do stoploss for backtest orders if they specify that in ordertype in order
 # get rid of logging='day' or 'minute'
@@ -373,4 +329,6 @@ if __name__ == '__main__':
 # rethink init and init input values for Algorithm And BacktestAlgorithm.
 # fix error 429 in google trends function
 # fix backtest running to enddate of current day even if trading hasn't started yet
+# create setup file with logging and credentials setup
+# group variables in Algorithm into dicts with names that wont be overridden
 

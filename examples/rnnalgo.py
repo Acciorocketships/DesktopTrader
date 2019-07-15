@@ -7,13 +7,14 @@ from keras.regularizers import l1
 import keras.backend as K
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
+
 import numpy as np
 import pandas as pd
 
 class RNN(Algorithm):
 
 	def initialize(self):
+		self.schedule = "0 9 * * *"
 		self.securities = ["FB","SVXY","ARKK","NFLX"]
 		self.sec = 'SPY'
 		self.heldstock = None
@@ -168,7 +169,7 @@ def predict():
 
 def backtest():
 	algo = backtester(RNN(),capital=1000)
-	algo.startbacktest(startdate=(2017,1,1),enddate=(2018,1,1))
+	algo.start(start=(2017,1,1),end=(2018,1,1))
 	Manager.algogui(algo)
 	import code; code.interact(local=locals())
 

@@ -1,13 +1,11 @@
 from trader.AlgoManager import *
 from trader.Algorithm import *
-import code
 import datetime
 import logging
 
 class Yavois(Algorithm):
 
 	def initialize(self):
-		self.times = [(9,30),(15,59)]
 		self.nextdaybuy = False
 		self.nextdaysell = False
 		self.rsi2thres = 0.5
@@ -29,17 +27,17 @@ class Yavois(Algorithm):
 			if self.nextdaybuy:
 				self.nextdaybuy = False
 				if self.hideout is not None:
-					self.orderpercent(self.hideout,0,notify_address='acciorocketships@gmail.com')
-				self.orderpercent(self.long,1,verbose=True,notify_address='acciorocketships@gmail.com')
+					self.orderfraction(self.hideout,0,notify_address='acciorocketships@gmail.com')
+				self.orderfraction(self.long,1,verbose=True,notify_address='acciorocketships@gmail.com')
 				self.stopsell(self.long,self.takegain)
 				self.stopsell(self.long,self.takeloss)
 				return
 
 			if self.nextdaysell:
 				self.nextdaysell = False
-				self.orderpercent(self.long,0,verbose=True,notify_address='acciorocketships@gmail.com')
+				self.orderfraction(self.long,0,verbose=True,notify_address='acciorocketships@gmail.com')
 				if self.hideout is not None:
-					self.orderpercent(self.hideout,1,verbose=True,notify_address='acciorocketships@gmail.com')
+					self.orderfraction(self.hideout,1,verbose=True,notify_address='acciorocketships@gmail.com')
 				return
 
 		else:
@@ -55,8 +53,8 @@ class Yavois(Algorithm):
 			   (self.long not in self.stocks or self.stocks[self.long]==0):
 				print("RSI7 Threshold, Buy Now")
 				if self.hideout is not None:
-					self.orderpercent(self.hideout,0,notify_address='acciorocketships@gmail.com')
-				self.orderpercent(self.long,1,verbose=True,notify_address='acciorocketships@gmail.com')
+					self.orderfraction(self.hideout,0,notify_address='acciorocketships@gmail.com')
+				self.orderfraction(self.long,1,verbose=True,notify_address='acciorocketships@gmail.com')
 				self.stopsell(self.long,self.takegain)
 				self.stopsell(self.long,self.takeloss)
 				return
@@ -77,16 +75,16 @@ class Yavois(Algorithm):
 		
 
 def backtest():
-	algo = Yavois()
+	algo = Yavois(schedule = ["0 9 * * MON-FRI", "15 59 * * MON-FRI"])
 	algoback = backtester(algo,capital=1000)
 	algoback.benchmark = ["SPY", "SVXY"]
-	algoback.start(start=(2019,1,1))
+	algoback.start(startdate=(2019,1,1))
 	Manager.algogui(algoback)
 
 
 def run():
 	manager = Manager()
-	algo = Yavois(times=[(9,30),(15,59)])
+	algo = Yavois(schedule = ["0 9 * * MON-FRI", "15 59 * * MON-FRI"])
 	manager.add(algo,allocation=1)
 	manager.start()
 	manager.interactive(vars=locals())

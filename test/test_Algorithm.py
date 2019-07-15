@@ -65,7 +65,7 @@ class BacktestOrdersTest(unittest.TestCase):
     def testOrder(self):
         a = ExampleOrderAlgo(times=['every day'])
         b = backtester(a)
-        b.startbacktest(startdate=(1, 1, 2016), enddate=(28, 2, 2016))
+        b.backtest(startdate=(1, 1, 2016), enddate=(28, 2, 2016))
         self.assertTrue(b.cash < 1000)
         self.assertTrue(self.stocks["SPY"] > 0)
 

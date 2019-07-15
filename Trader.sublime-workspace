@@ -1,0 +1,1218 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"end",
+				"enddate"
+			],
+			[
+				"ben",
+				"benchmark"
+			],
+			[
+				"fill",
+				"fill_between"
+			],
+			[
+				"back",
+				"backtest"
+			],
+			[
+				"Al",
+				"Algorithm"
+			],
+			[
+				"is",
+				"isglobal"
+			],
+			[
+				"al",
+				"algothread"
+			],
+			[
+				"at",
+				"atexit"
+			],
+			[
+				"gui",
+				"guithread"
+			],
+			[
+				"algo",
+				"algodatetime"
+			],
+			[
+				"get",
+				"getdatetime"
+			],
+			[
+				"vars",
+				"varsdict"
+			],
+			[
+				"Algo",
+				"AlgoManager"
+			],
+			[
+				"char",
+				"chartminute"
+			],
+			[
+				"nex",
+				"nextdaysell"
+			],
+			[
+				"cu",
+				"currenttime"
+			],
+			[
+				"cur",
+				"currentday"
+			],
+			[
+				"ac",
+				"action_space"
+			],
+			[
+				"as",
+				"astype"
+			],
+			[
+				"img",
+				"imgpts"
+			],
+			[
+				"in",
+				"inlier"
+			],
+			[
+				"vis",
+				"vis_model"
+			],
+			[
+				"edge",
+				"edgelets1"
+			],
+			[
+				"pixel",
+				"pixelCoords"
+			],
+			[
+				"len",
+				"lengthThres"
+			],
+			[
+				"curr",
+				"currentday"
+			],
+			[
+				"pW",
+				"pWorld1"
+			],
+			[
+				"pw",
+				"pWorld2"
+			],
+			[
+				"lambda",
+				"lambda1_test"
+			],
+			[
+				"pWor",
+				"pWorld1_test"
+			],
+			[
+				"pBod",
+				"pBodyAligned1"
+			],
+			[
+				"ret",
+				"returnK"
+			],
+			[
+				"benchmar",
+				"benchmarkchanges"
+			],
+			[
+				"chartda",
+				"chartdaytimes"
+			],
+			[
+				"check",
+				"checkedthresholds"
+			],
+			[
+				"date",
+				"datetime"
+			],
+			[
+				"User",
+				"Username"
+			],
+			[
+				"num",
+				"numCount"
+			],
+			[
+				"le",
+				"letterLookup"
+			],
+			[
+				"eq",
+				"eqcons"
+			],
+			[
+				"send",
+				"sendConnections"
+			],
+			[
+				"con",
+				"connections"
+			],
+			[
+				"pr",
+				"prunethread"
+			],
+			[
+				"prun",
+				"pruneConnections"
+			],
+			[
+				"conn",
+				"connectCallback"
+			],
+			[
+				"new",
+				"newclient"
+			],
+			[
+				"add",
+				"address"
+			],
+			[
+				"se",
+				"set_3d_properties"
+			],
+			[
+				"call",
+				"callback"
+			],
+			[
+				"max",
+				"maxspeeddist"
+			],
+			[
+				"up",
+				"updatePath"
+			],
+			[
+				"ir",
+				"ir"
+			],
+			[
+				"path",
+				"pathout"
+			],
+			[
+				"Axes",
+				"Axes3D"
+			],
+			[
+				"test",
+				"test_calcHermite"
+			],
+			[
+				"pos",
+				"position"
+			],
+			[
+				"targ",
+				"targetvel"
+			],
+			[
+				"re",
+				"returnall"
+			],
+			[
+				"prox",
+				"proxCost"
+			],
+			[
+				"step",
+				"stepsize"
+			],
+			[
+				"res",
+				"resstep"
+			],
+			[
+				"vel",
+				"velocity"
+			],
+			[
+				"dis",
+				"discretepos"
+			],
+			[
+				"di",
+				"discretepos"
+			],
+			[
+				"order",
+				"ordertype"
+			],
+			[
+				"ma",
+				"mawindow"
+			],
+			[
+				"nbdev",
+				"nbdevdn"
+			],
+			[
+				"data",
+				"datatype"
+			],
+			[
+				"start",
+				"startdate"
+			],
+			[
+				"togg",
+				"toggleT"
+			],
+			[
+				"plot",
+				"plotObects"
+			],
+			[
+				"map",
+				"mapplanner"
+			],
+			[
+				"last",
+				"lastdestination"
+			],
+			[
+				"angle",
+				"angledactual"
+			],
+			[
+				"angled",
+				"angledesired"
+			],
+			[
+				"inter",
+				"intersectionRadius"
+			],
+			[
+				"road",
+				"roadEnd"
+			],
+			[
+				"p",
+				"p0dot"
+			],
+			[
+				"next",
+				"nextnodes"
+			],
+			[
+				"pri",
+				"PriorityQueue"
+			],
+			[
+				"vision",
+				"visionThread"
+			],
+			[
+				"mul",
+				"multiplyPoly"
+			],
+			[
+				"set",
+				"setCam"
+			],
+			[
+				"world",
+				"worldedge"
+			],
+			[
+				"yaw",
+				"yawoffset"
+			],
+			[
+				"we",
+				"weighting"
+			],
+			[
+				"filter",
+				"filterBottom"
+			],
+			[
+				"mu1",
+				"mu1_val"
+			],
+			[
+				"six",
+				"sigx"
+			],
+			[
+				"roa",
+				"roadstart"
+			],
+			[
+				"if",
+				"ifmain\tif __name__ == '__main__'"
+			],
+			[
+				"node",
+				"nodeFile"
+			],
+			[
+				"dy",
+				"dyBody"
+			],
+			[
+				"iner",
+				"inertiaZ"
+			],
+			[
+				"dr",
+				"drollBody"
+			],
+			[
+				"x",
+				"xBody"
+			],
+			[
+				"z",
+				"zBody"
+			],
+			[
+				"stop",
+				"stoplosses"
+			],
+			[
+				"ser",
+				"securities"
+			],
+			[
+				"constraint",
+				"constraintdegree"
+			],
+			[
+				"cons",
+				"constraintdegree"
+			],
+			[
+				"per",
+				"percentchange"
+			],
+			[
+				"min",
+				"mindepth"
+			],
+			[
+				"Vis",
+				"VisOdom"
+			],
+			[
+				"best",
+				"bestlink"
+			],
+			[
+				"sudoku",
+				"sudokuboard"
+			],
+			[
+				"backgr",
+				"background-color\tproperty"
+			],
+			[
+				"blink",
+				"blinktype"
+			],
+			[
+				"blin",
+				"blinktype"
+			],
+			[
+				"ani",
+				"animation-duration\tproperty"
+			],
+			[
+				"padding",
+				"padding-left\tproperty"
+			],
+			[
+				"Sud",
+				"SudokuForm"
+			],
+			[
+				"clean",
+				"cleaned_data"
+			],
+			[
+				"initi",
+				"initial_data"
+			],
+			[
+				"Sudok",
+				"SudokuBoard"
+			],
+			[
+				"make_",
+				"make_problem"
+			],
+			[
+				"sud",
+				"sudokumaker"
+			],
+			[
+				"list",
+				"listener"
+			],
+			[
+				"client",
+				"clientThread"
+			],
+			[
+				"star",
+				"start_new_thread"
+			],
+			[
+				"rot",
+				"rot2euler"
+			],
+			[
+				"has",
+				"hastarget"
+			],
+			[
+				"fly",
+				"flyingaway"
+			],
+			[
+				"cv",
+				"cv_image"
+			],
+			[
+				"cam",
+				"cameraoffset"
+			],
+			[
+				"q",
+				"queue_size"
+			],
+			[
+				"lo",
+				"LossWeights"
+			],
+			[
+				"FCN",
+				"FCNFUNC"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "trader/AlgoManager.py",
+			"settings":
+			{
+				"buffer_size": 12520,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "trader/Algorithm.py",
+			"settings":
+			{
+				"buffer_size": 44366,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "examples/yavois.py",
+			"settings":
+			{
+				"buffer_size": 3024,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "Trader.sublime-project",
+			"settings":
+			{
+				"buffer_size": 311,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "examples/trendsalgo.py",
+			"settings":
+			{
+				"buffer_size": 631,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"contents": "Globals:\n\n__builtins__ ┃ {'ord': <built-in function ord>, 'TabError': <class 'TabError'>, 'id': <built-in function id>, 'bytes': <class 'bytes'>, 'EnvironmentError': <class 'OSError'>, 'ConnectionResetError': <class 'ConnectionResetError'>, 'StopIteration': <class 'StopIteration'>, 'ConnectionAbortedError': <class 'ConnectionAbortedError'>, 'IOError': <class 'OSError'>, 'min': <built-in function min>, 'NameError': <class 'NameError'>, 'delattr': <built-in function delattr>, 'len': <built-in function len>, 'UnicodeEncodeError': <class 'UnicodeEncodeError'>, 'NotImplemented': NotImplemented, 'bool': <class 'bool'>, 'float': <class 'float'>, 'IndentationError': <class 'IndentationError'>, 'ZeroDivisionError': <class 'ZeroDivisionError'>, 'compile': <built-in function compile>, 'type': <class 'type'>, 'SystemExit': <class 'SystemExit'>, 'FutureWarning': <class 'FutureWarning'>, 'getattr': <built-in function getattr>, 'TypeError': <class 'TypeError'>, 'RuntimeError': <class 'RuntimeError'>, 'issubclass': <built-in function issubclass>, 'abs': <built-in function abs>, 'sum': <built-in function sum>, '__import__': <built-in function __import__>, 'iter': <built-in function iter>, 'object': <class 'object'>, 'ResourceWarning': <class 'ResourceWarning'>, 'filter': <class 'filter'>, 'IsADirectoryError': <class 'IsADirectoryError'>, 'hasattr': <built-in function hasattr>, 'BytesWarning': <class 'BytesWarning'>, 'PermissionError': <class 'PermissionError'>, 'ImportError': <class 'ImportError'>, 'exec': <built-in function exec>, 'Exception': <class 'Exception'>, 'slice': <class 'slice'>, 'classmethod': <class 'classmethod'>, 'PendingDeprecationWarning': <class 'PendingDeprecationWarning'>, 'UnicodeWarning': <class 'UnicodeWarning'>, 'tuple': <class 'tuple'>, 'memoryview': <class 'memoryview'>, 'Ellipsis': Ellipsis, 'SystemError': <class 'SystemError'>, 'super': <class 'super'>, 'zip': <class 'zip'>, 'KeyError': <class 'KeyError'>, 'sorted': <built-in function sorted>, 'LookupError': <class 'LookupError'>, 'locals': <built-in function locals>, 'isinstance': <built-in function isinstance>, 'OSError': <class 'OSError'>, 'ascii': <built-in function ascii>, '__doc__': \"Built-in functions, exceptions, and other objects.\\n\\nNoteworthy: None is the `nil' object; Ellipsis represents `...' in slices.\", 'ReferenceError': <class 'ReferenceError'>, 'complex': <class 'complex'>, 'SyntaxError': <class 'SyntaxError'>, 'DeprecationWarning': <class 'DeprecationWarning'>, 'repr': <built-in function repr>, 'TimeoutError': <class 'TimeoutError'>, 'round': <built-in function round>, 'GeneratorExit': <class 'GeneratorExit'>, 'ChildProcessError': <class 'ChildProcessError'>, 'ConnectionError': <class 'ConnectionError'>, 'map': <class 'map'>, '__build_class__': <built-in function __build_class__>, 'InterruptedError': <class 'InterruptedError'>, 'True': True, 'BaseException': <class 'BaseException'>, 'AssertionError': <class 'AssertionError'>, 'None': None, 'bytearray': <class 'bytearray'>, 'hash': <built-in function hash>, 'AttributeError': <class 'AttributeError'>, 'Warning': <class 'Warning'>, 'NotADirectoryError': <class 'NotADirectoryError'>, 'format': <built-in function format>, 'FloatingPointError': <class 'FloatingPointError'>, 'property': <class 'property'>, 'callable': <built-in function callable>, 'UnicodeError': <class 'UnicodeError'>, 'reversed': <class 'reversed'>, 'BlockingIOError': <class 'BlockingIOError'>, 'chr': <built-in function chr>, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, 'input': <built-in function input>, 'FileExistsError': <class 'FileExistsError'>, 'oct': <built-in function oct>, 'all': <built-in function all>, 'max': <built-in function max>, 'BrokenPipeError': <class 'BrokenPipeError'>, 'ImportWarning': <class 'ImportWarning'>, 'NotImplementedError': <class 'NotImplementedError'>, 'globals': <built-in function globals>, 'EOFError': <class 'EOFError'>, 'frozenset': <class 'frozenset'>, 'hex': <built-in function hex>, 'UnboundLocalError': <class 'UnboundLocalError'>, 'next': <built-in function next>, 'ArithmeticError': <class 'ArithmeticError'>, 'vars': <built-in function vars>, 'setattr': <built-in function setattr>, 'print': <built-in function print>, 'any': <built-in function any>, 'ConnectionRefusedError': <class 'ConnectionRefusedError'>, 'UnicodeDecodeError': <class 'UnicodeDecodeError'>, 'UserWarning': <class 'UserWarning'>, 'MemoryError': <class 'MemoryError'>, 'staticmethod': <class 'staticmethod'>, 'int': <class 'int'>, 'OverflowError': <class 'OverflowError'>, 'IndexError': <class 'IndexError'>, 'enumerate': <class 'enumerate'>, 'set': <class 'set'>, 'list': <class 'list'>, 'dir': <built-in function dir>, 'UnicodeTranslateError': <class 'UnicodeTranslateError'>, 'divmod': <built-in function divmod>, 'eval': <built-in function eval>, 'str': <class 'str'>, 'open': <built-in function open>, 'pow': <built-in function pow>, '__debug__': True, 'KeyboardInterrupt': <class 'KeyboardInterrupt'>, '__package__': None, 'False': False, 'FileNotFoundError': <class 'FileNotFoundError'>, 'ValueError': <class 'ValueError'>, 'dict': <class 'dict'>, 'BufferError': <class 'BufferError'>, 'bin': <built-in function bin>, 'SyntaxWarning': <class 'SyntaxWarning'>, '__name__': 'builtins', 'range': <class 'range'>, 'RuntimeWarning': <class 'RuntimeWarning'>, 'ProcessLookupError': <class 'ProcessLookupError'>}\n__file__     ┃ '/Users/ryko/Desktop/Projects/DesktopTrader/examples/trendsalgo.py'\n__name__     ┃ '__main__'\n\nLocals:\n\n__builtins__ ┃ {'ord': <built-in function ord>, 'TabError': <class 'TabError'>, 'id': <built-in function id>, 'bytes': <class 'bytes'>, 'EnvironmentError': <class 'OSError'>, 'ConnectionResetError': <class 'ConnectionResetError'>, 'StopIteration': <class 'StopIteration'>, 'ConnectionAbortedError': <class 'ConnectionAbortedError'>, 'IOError': <class 'OSError'>, 'min': <built-in function min>, 'NameError': <class 'NameError'>, 'delattr': <built-in function delattr>, 'len': <built-in function len>, 'UnicodeEncodeError': <class 'UnicodeEncodeError'>, 'NotImplemented': NotImplemented, 'bool': <class 'bool'>, 'float': <class 'float'>, 'IndentationError': <class 'IndentationError'>, 'ZeroDivisionError': <class 'ZeroDivisionError'>, 'compile': <built-in function compile>, 'type': <class 'type'>, 'SystemExit': <class 'SystemExit'>, 'FutureWarning': <class 'FutureWarning'>, 'getattr': <built-in function getattr>, 'TypeError': <class 'TypeError'>, 'RuntimeError': <class 'RuntimeError'>, 'issubclass': <built-in function issubclass>, 'abs': <built-in function abs>, 'sum': <built-in function sum>, '__import__': <built-in function __import__>, 'iter': <built-in function iter>, 'object': <class 'object'>, 'ResourceWarning': <class 'ResourceWarning'>, 'filter': <class 'filter'>, 'IsADirectoryError': <class 'IsADirectoryError'>, 'hasattr': <built-in function hasattr>, 'BytesWarning': <class 'BytesWarning'>, 'PermissionError': <class 'PermissionError'>, 'ImportError': <class 'ImportError'>, 'exec': <built-in function exec>, 'Exception': <class 'Exception'>, 'slice': <class 'slice'>, 'classmethod': <class 'classmethod'>, 'PendingDeprecationWarning': <class 'PendingDeprecationWarning'>, 'UnicodeWarning': <class 'UnicodeWarning'>, 'tuple': <class 'tuple'>, 'memoryview': <class 'memoryview'>, 'Ellipsis': Ellipsis, 'SystemError': <class 'SystemError'>, 'super': <class 'super'>, 'zip': <class 'zip'>, 'KeyError': <class 'KeyError'>, 'sorted': <built-in function sorted>, 'LookupError': <class 'LookupError'>, 'locals': <built-in function locals>, 'isinstance': <built-in function isinstance>, 'OSError': <class 'OSError'>, 'ascii': <built-in function ascii>, '__doc__': \"Built-in functions, exceptions, and other objects.\\n\\nNoteworthy: None is the `nil' object; Ellipsis represents `...' in slices.\", 'ReferenceError': <class 'ReferenceError'>, 'complex': <class 'complex'>, 'SyntaxError': <class 'SyntaxError'>, 'DeprecationWarning': <class 'DeprecationWarning'>, 'repr': <built-in function repr>, 'TimeoutError': <class 'TimeoutError'>, 'round': <built-in function round>, 'GeneratorExit': <class 'GeneratorExit'>, 'ChildProcessError': <class 'ChildProcessError'>, 'ConnectionError': <class 'ConnectionError'>, 'map': <class 'map'>, '__build_class__': <built-in function __build_class__>, 'InterruptedError': <class 'InterruptedError'>, 'True': True, 'BaseException': <class 'BaseException'>, 'AssertionError': <class 'AssertionError'>, 'None': None, 'bytearray': <class 'bytearray'>, 'hash': <built-in function hash>, 'AttributeError': <class 'AttributeError'>, 'Warning': <class 'Warning'>, 'NotADirectoryError': <class 'NotADirectoryError'>, 'format': <built-in function format>, 'FloatingPointError': <class 'FloatingPointError'>, 'property': <class 'property'>, 'callable': <built-in function callable>, 'UnicodeError': <class 'UnicodeError'>, 'reversed': <class 'reversed'>, 'BlockingIOError': <class 'BlockingIOError'>, 'chr': <built-in function chr>, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, 'input': <built-in function input>, 'FileExistsError': <class 'FileExistsError'>, 'oct': <built-in function oct>, 'all': <built-in function all>, 'max': <built-in function max>, 'BrokenPipeError': <class 'BrokenPipeError'>, 'ImportWarning': <class 'ImportWarning'>, 'NotImplementedError': <class 'NotImplementedError'>, 'globals': <built-in function globals>, 'EOFError': <class 'EOFError'>, 'frozenset': <class 'frozenset'>, 'hex': <built-in function hex>, 'UnboundLocalError': <class 'UnboundLocalError'>, 'next': <built-in function next>, 'ArithmeticError': <class 'ArithmeticError'>, 'vars': <built-in function vars>, 'setattr': <built-in function setattr>, 'print': <built-in function print>, 'any': <built-in function any>, 'ConnectionRefusedError': <class 'ConnectionRefusedError'>, 'UnicodeDecodeError': <class 'UnicodeDecodeError'>, 'UserWarning': <class 'UserWarning'>, 'MemoryError': <class 'MemoryError'>, 'staticmethod': <class 'staticmethod'>, 'int': <class 'int'>, 'OverflowError': <class 'OverflowError'>, 'IndexError': <class 'IndexError'>, 'enumerate': <class 'enumerate'>, 'set': <class 'set'>, 'list': <class 'list'>, 'dir': <built-in function dir>, 'UnicodeTranslateError': <class 'UnicodeTranslateError'>, 'divmod': <built-in function divmod>, 'eval': <built-in function eval>, 'str': <class 'str'>, 'open': <built-in function open>, 'pow': <built-in function pow>, '__debug__': True, 'KeyboardInterrupt': <class 'KeyboardInterrupt'>, '__package__': None, 'False': False, 'FileNotFoundError': <class 'FileNotFoundError'>, 'ValueError': <class 'ValueError'>, 'dict': <class 'dict'>, 'BufferError': <class 'BufferError'>, 'bin': <built-in function bin>, 'SyntaxWarning': <class 'SyntaxWarning'>, '__name__': 'builtins', 'range': <class 'range'>, 'RuntimeWarning': <class 'RuntimeWarning'>, 'ProcessLookupError': <class 'ProcessLookupError'>}\n__file__     ┃ '/Users/ryko/Desktop/Projects/DesktopTrader/examples/trendsalgo.py'\n__name__     ┃ '__main__'",
+			"settings":
+			{
+				"buffer_size": 11019,
+				"line_ending": "Unix",
+				"name": "Variables"
+			}
+		},
+		{
+			"contents": "",
+			"settings":
+			{
+				"buffer_size": 0,
+				"line_ending": "Unix",
+				"name": "Expression"
+			}
+		},
+		{
+			"contents": "",
+			"settings":
+			{
+				"buffer_size": 0,
+				"line_ending": "Unix",
+				"name": "Breakpoints"
+			}
+		}
+	],
+	"build_system": "Packages/Python/Python.sublime-build",
+	"build_system_choices":
+	[
+		[
+			[
+				[
+					"Packages/Python/Python.sublime-build",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					"Syntax Check"
+				]
+			],
+			[
+				"Packages/Python/Python.sublime-build",
+				""
+			]
+		]
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"Package Control: ",
+				"Package Control: Remove Package"
+			],
+			[
+				"install",
+				"Package Control: Install Package"
+			],
+			[
+				"install pa",
+				"Package Control: Install Package"
+			]
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 0.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+		"/Users/ryko/Desktop/Projects/DesktopTrader/examples",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/trader"
+	],
+	"file_history":
+	[
+		"/Users/ryko/Desktop/Projects/DesktopTrader/Trader.sublime-project",
+		"/Users/ryko/Library/Application Support/Sublime Text 3/Packages/SublimeREPL/SublimeREPL.sublime-settings",
+		"/Users/ryko/Library/Application Support/Sublime Text 3/Packages/Anaconda/Anaconda.sublime-settings",
+		"/Users/ryko/Library/Application Support/Sublime Text 3/Packages/Python Breakpoints/PythonBreakpoints.sublime-settings",
+		"/Users/ryko/.bash_profile",
+		"/Users/ryko/Library/Application Support/Sublime Text 3/Packages/MarkdownEditing/Bold and Italic Markers.tmPreferences",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/trader/AlgoGUI.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/yavois.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/highestdrops.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/trader/AlgoManager.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/trader/Algorithm.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/run.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/.gitignore",
+		"/Users/ryko/Desktop/testlog.py",
+		"/Users/ryko/$inion Paper 2.docx",
+		"/Users/ryko/Desktop/Projects/Gym/SoccerEnv/gym_soccer/envs/soccer_env.py",
+		"/Users/ryko/Desktop/Projects/Gym/SoccerEnv/gym_soccer/__init__.py",
+		"/Users/ryko/Desktop/Projects/Gym/soccer.py",
+		"/Users/ryko/Downloads/gym-soccer-master/gym_soccer/__init__.py",
+		"/Users/ryko/Desktop/Projects/Libraries/Image/imgstream.py",
+		"/Users/ryko/Desktop/Projects/Libraries/Image/examples/test_homography.py",
+		"/Users/ryko/Desktop/Projects/Libraries/Image/image.py",
+		"/Users/ryko/.ssh/config",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/rnnalgo.py",
+		"/Users/ryko/Desktop/Projects/Libraries/Image/examples/pnp_test.py",
+		"/Users/ryko/Desktop/Projects/Libraries/Image/examples/vanishingPoints_test.py",
+		"/Users/ryko/Downloads/Image-Rectification-master/rectification.py",
+		"/Users/ryko/Desktop/Projects/Libraries/Image/vp_detection.py",
+		"/Users/ryko/Downloads/XiaohuLuVPDetection-master/lu_vp_detect/run_vp_detect.py",
+		"/Users/ryko/Desktop/Projects/Libraries/Image/examples/pixToWorldDist_test.py",
+		"/Users/ryko/Desktop/Projects/Libraries/Image/examples/undistorttest.py",
+		"/Users/ryko/Desktop/Projects/Libraries/Image/examples/hsv_detection.py",
+		"/Users/ryko/Desktop/Projects/Libraries/Image/examples/projecttest.py",
+		"/Users/ryko/Desktop/Projects/AerialRobotics/Pennair/dragonfly/src/dragonfly/hsv_detection.py",
+		"/Users/ryko/Desktop/Projects/Libraries/image.py",
+		"/Users/ryko/Desktop/Projects/Libraries/imgstream.py",
+		"/Users/ryko/Desktop/Projects/Libraries/savepics.py",
+		"/Users/ryko/Desktop/Projects/Games/Sudoku/webapp/manage.py",
+		"/Users/ryko/Desktop/Projects/MapApp/map/views.py",
+		"/Users/ryko/Desktop/Projects/MapApp/map/urls.py",
+		"/Users/ryko/Desktop/Projects/MapApp/map/models.py",
+		"/Users/ryko/Desktop/Projects/MapApp/map/templates/room.html",
+		"/Users/ryko/Desktop/q2.py",
+		"/Users/ryko/Desktop/q1.py",
+		"/Users/ryko/Downloads/hw_template.tex",
+		"/Users/ryko/Documents/views.py",
+		"/Users/ryko/Desktop/Projects/Webapp/webapp/settings.py",
+		"/Users/ryko/Desktop/Projects/Webapp/map/templates/room.html",
+		"/Users/ryko/Desktop/Projects/Webapp/map/templates/create.html",
+		"/Users/ryko/Desktop/Projects/Webapp/map/models.py",
+		"/Users/ryko/Desktop/Projects/Webapp/map/urls.py",
+		"/Users/ryko/Desktop/Projects/Webapp/map/templates/index.html",
+		"/Users/ryko/Desktop/Projects/Webapp/map/index.html",
+		"/Users/ryko/Desktop/Projects/Webapp/webapp/urls.py",
+		"/Users/ryko/Desktop/Projects/HackPrinceton2018/maps.html",
+		"/Users/ryko/Desktop/web.py",
+		"/Users/ryko/Desktop/Projects/Reinforcement/reinforcement.py",
+		"/Users/ryko/Desktop/Projects/Libraries/client.py",
+		"/Users/ryko/Desktop/School/Senior Design/Map.py",
+		"/Users/ryko/Desktop/School/Senior Design/Planning.py",
+		"/Users/ryko/Desktop/Projects/Libraries/GaussND.py",
+		"/Users/ryko/Desktop/Projects/Libraries/Regression.py",
+		"/Users/ryko/Desktop/School/Senior Design/Main.py",
+		"/Users/ryko/Desktop/server.py",
+		"/Users/ryko/Desktop/Projects/Libraries/gaussnd.py",
+		"/Users/ryko/Desktop/Projects/Libraries/network.py",
+		"/Users/ryko/Desktop/Projects/Libraries/README.md",
+		"/Users/ryko/Desktop/School/Old Classes/Control for Robotics/PennParkCar/Planning.py",
+		"/Users/ryko/Downloads/hw_template (2).tex",
+		"/Users/ryko/Desktop/School/Senior Design/testing/mpc.py",
+		"/Users/ryko/Desktop/School/Senior Design/testing/eoms.py",
+		"/Users/ryko/Desktop/School/Senior Design/testing/actrltest.py",
+		"/Users/ryko/Desktop/mpc.py",
+		"/Users/ryko/Desktop/School/Old Classes/Control for Robotics/PennParkCar/Mainloop.py",
+		"/Users/ryko/Desktop/School/Senior Design/Interface.py",
+		"/Users/ryko/Desktop/School/Senior Design/GaussND.py",
+		"/Users/ryko/Desktop/School/Senior Design/Regression.py",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/Planning.py",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/Map.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/test/test1.py",
+		"/Users/ryko/Desktop/School/Senior Design/testing/Gauss.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/test/test_Algorithm.py",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/Mainloop.py",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/imgstream.py",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/ComputerVision.py",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/Filter.py",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/ManualControl.py",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/ImgStream.py",
+		"/Users/ryko/Desktop/ESE421 Audit/PiCode/HSV_CV.py",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/Message.py",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/NearestRoad.py",
+		"/Users/ryko/Desktop/Planning.py",
+		"/Users/ryko/Downloads/btt-touchbar-presets-master/ng-vu/btt.json",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/Heading.py",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/FindRoadEdge.py",
+		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/Main.py",
+		"/Users/ryko/Library/Application Support/minecraft/resourcepacks/Default 3D/assets/minecraft/models/block/crafting_table.json",
+		"/Users/ryko/Downloads/c-tetra-1-13-1539714641/assets/minecraft/blockstates/dirt.json",
+		"/Users/ryko/Desktop/School/Senior Design/Gauss.py",
+		"/Users/ryko/Desktop/School/Senior Design/Gauss3D.py",
+		"/Users/ryko/Desktop/School/Senior Design/ratiodist.py",
+		"/Users/ryko/Desktop/School/Senior Design/sumgauss.py",
+		"/Users/ryko/Desktop/ESE421 HW2/hw3pt3.py",
+		"/Users/ryko/Desktop/ratiodist.py",
+		"/Users/ryko/Desktop/School/Senior Design/hw3pt3.py",
+		"/Users/ryko/Desktop/School/Senior Design/eoms.py",
+		"/Users/ryko/Desktop/School/Senior Design/interface.py",
+		"/Users/ryko/Downloads/python-pcl-master/setup.py",
+		"/Users/ryko/Desktop/Projects/Optimization/optimization.py",
+		"/Users/ryko/Desktop/optimization.py",
+		"/Users/ryko/Downloads/6433919-c3aac511739014aa308faa25029952b70d96a0f2/test_variational_calculus.py",
+		"/Users/ryko/Desktop/gekkotest.py",
+		"/Users/ryko/Desktop/GekkoPythonOptimization.py",
+		"/Users/ryko/Desktop/Projects/Libraries/kalman.py",
+		"/Users/ryko/Desktop/Projects/Libraries/examples/kalmantest.py",
+		"/Users/ryko/Desktop/Projects/FCN/depthtrain.py",
+		"/Users/ryko/Desktop/Projects/FCN/fcn.py",
+		"/Users/ryko/Desktop/Projects/Libraries/visodom.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/web/web/settings.py",
+		"/Users/ryko/Desktop/Projects/InternetTV/Webapp/run.py",
+		"/Users/ryko/Desktop/Projects/Sudoku/webapp/app/views.py",
+		"/Users/ryko/Desktop/Projects/Sudoku/webapp/manage.py",
+		"/Users/ryko/Desktop/Projects/Downloaded/ratslam/ratslam/__init__.py",
+		"/Users/ryko/Desktop/Projects/Sudoku/webapp/app/jinja2/home.html",
+		"/Users/ryko/Desktop/Projects/Sudoku/webapp/sudoku/sudokumaker.py",
+		"/Users/ryko/Downloads/python-sudoku-generator-solver-master/sudoku.py",
+		"/Users/ryko/Desktop/Projects/Sudoku/webapp/app/settings.py",
+		"/Users/ryko/Desktop/Projects/Sudoku/webapp/run"
+	],
+	"find":
+	{
+		"height": 23.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"     backtest()",
+			"\t\tif iscrashing:\n\t\t\tself.orderpercent(self.stock, 0, verbose=True)\n\t\telse:\n\t\t\tself.orderpercent(self.stock, 1, verbose=True)\n\ndef backtest():\n\ttrendsalgo = backtester(TrendsAlgo(times='every day'))\n\ttrendsalgo.benchmark = [\"SPY\"]\n\ttrendsalgo.start(start=(2018,9,1), end=(2019,2,1))\n\tManager.algogui(trendsalgo)\n\nif __name__ == '__main__':\n\tbacktest()",
+			"\n\t",
+			"pdb",
+			"self.chartday",
+			"chartday",
+			"self.chartday",
+			"pdb",
+			"riskmet",
+			"orderpercent",
+			"google",
+			"except",
+			"self.datetime",
+			"datetime"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 3,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "trader/AlgoManager.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 12520,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								261,
+								231
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "trader/Algorithm.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 44366,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								35128,
+								35128
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "examples/yavois.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 3024,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								2871,
+								2871
+							]
+						],
+						"settings":
+						{
+							"auto_complete_triggers":
+							[
+								{
+									"characters": "<",
+									"selector": "text.html"
+								},
+								{
+									"characters": ".",
+									"selector": "source.python - string - comment - constant.numeric"
+								}
+							],
+							"syntax": "Packages/Python/Python.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 740.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "Trader.sublime-project",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 311,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								180,
+								180
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JSON.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "examples/trendsalgo.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 631,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								591,
+								591
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 5,
+					"type": "text"
+				}
+			]
+		},
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 5,
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 11019,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								11019,
+								11019
+							]
+						],
+						"settings":
+						{
+							"gutter": false,
+							"syntax": "Packages/Text/Plain text.tmLanguage",
+							"word_wrap": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 7,
+					"type": "text"
+				}
+			]
+		},
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 6,
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 0,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"gutter": false,
+							"syntax": "Packages/Text/Plain text.tmLanguage",
+							"word_wrap": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 6,
+					"type": "text"
+				}
+			]
+		},
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 7,
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 0,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"gutter": false,
+							"syntax": "Packages/Text/Plain text.tmLanguage",
+							"word_wrap": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 23.0
+	},
+	"input":
+	{
+		"height": 35.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			],
+			[
+				1,
+				0,
+				2,
+				2
+			],
+			[
+				1,
+				2,
+				2,
+				3
+			],
+			[
+				1,
+				3,
+				2,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			0.659253472222,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0,
+			0.6,
+			0.8
+		]
+	},
+	"menu_visible": true,
+	"output.exec":
+	{
+		"height": 112.0
+	},
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"output.help":
+	{
+		"height": 146.0
+	},
+	"pinned_build_system": "Anaconda Python Builder",
+	"project": "Trader.sublime-project",
+	"replace":
+	{
+		"height": 42.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"",
+				"~/Desktop/Projects/FCN/utils/downloadWeights.py"
+			]
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 150.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

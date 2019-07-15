@@ -1,7 +1,5 @@
 from trader.AlgoManager import *
 from trader.Algorithm import *
-import code
-import datetime
 from queue import PriorityQueue
 
 
@@ -54,7 +52,7 @@ class Drops(Algorithm):
 
 
 if __name__ == '__main__':
-    algo = Drops(times=['every day'])
+    algo = Drops(schedule='0 9 * * *')
     algoback = backtester(algo)
-    algoback.start(startdate=(2017,1,1),enddate=(2019,1,1))
+    algoback.start(start=(2017,1,1),end=(2019,1,1))
     Manager.algogui(algoback,thread=False)

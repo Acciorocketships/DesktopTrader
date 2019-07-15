@@ -13,9 +13,9 @@ class TrendsAlgo(Algorithm):
 			print(err)
 			return
 		if iscrashing:
-			self.orderpercent(self.stock, 0, verbose=True)
+			self.orderfraction(self.stock, 0, verbose=True)
 		else:
-			self.orderpercent(self.stock, 1, verbose=True)
+			self.orderfraction(self.stock, 1, verbose=True)
 
 def backtest():
 	trendsalgo = backtester(TrendsAlgo(times='every day'))
