@@ -136,7 +136,7 @@ class Algorithm(object):
 	def updatemin(self):
 		self.updatetick() 
 		self.chartminute.append(self.value)
-		self.chartminutetimes.append(getdatetime())
+		self.chartminutetimes.append(self.algodatetime())
 		self.checkthresholds(stock)
 
 	# Update function called every day
@@ -144,15 +144,15 @@ class Algorithm(object):
 		self.chartminute = []
 		self.chartminutetimes = []
 		self.chartday.append(self.value)
-		self.chartdaytimes.append(getdatetime())
+		self.chartdaytimes.append(self.algodatetime())
 		self.riskmetrics()
 
 	# returns datetime as seen by algorithm (overridden in backtester)
-	def algodatetime(self):
+	def algodatetime(self) -> datetime.datetime:
 		return getdatetime()
 
 	# returns the next expected execution time of algorithm, as defined by the given schedule
-	def nextruntime(self):
+	def nextruntime(self) -> datetime.datetime:
 		return self.scheduleTrigger.get_next_fire_time(None, self.algodatetime()).replace(tzinfo=None)
 
 	# Checks and executes limit/stop orders
@@ -366,17 +366,16 @@ class Algorithm(object):
 				# Data from Alpaca
 				if broker == 'alpaca':
 					nextra = 0
-					end = getdatetime() + datetime.timedelta(days=2)
+					end = getdatetime().date() + datetime.timedelta(days=2)
 					# Find start date
 					if not isdate(length):
 						length = cast(int, length)
 						if interval=='minute':
-							start = datetime.datetime.strptime( api.get_calendar(end=(getdatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
+							start = datetime.datetime.strptime( api.get_calendar(end=(self.algodatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
 						else:	
-							start = datetime.datetime.strptime( api.get_calendar(end=getdatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
+							start = datetime.datetime.strptime( api.get_calendar(end=self.algodatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
 					else:
-						length = cast(Date, length)
-						start = length.date() if isinstance(length, datetime.datetime) else length
+						start = cast(datetime.date, length)
 					limit = 2500 if interval=='day' else 10
 					frames = []
 					totaltime = (end-start).days
@@ -604,18 +603,18 @@ class Backtester(Algorithm):
 					   end:Union[Date,Sequence[int],str]=datetime.datetime.today().date(), 
 					   logging:str='day'):
 		if isinstance(start, str):
-			startdate = tuple([int(x) for x in start.split("-")])
+			start = tuple([int(x) for x in start.split("-")])
 		if isinstance(end,str):
-			enddate = tuple([int(x) for x in end.split("-")])
-		if isinstance(startdate,list) or isinstance(startdate,tuple):
-			start = datetime.date(startdate[0], startdate[1], startdate[2])
-		if isinstance(enddate,list) or isinstance(enddate,tuple):
-			end = datetime.date(enddate[0], enddate[1], enddate[2])
-		start = cast(Date, startdate)
-		end = cast(Date, enddate)
-		days = tradingdays(start=startdate, end=enddate)
+			end = tuple([int(x) for x in end.split("-")])
+		if isinstance(start,list) or isinstance(start,tuple):
+			start = datetime.datetime(start[0], start[1], start[2], 0, 0)
+		if isinstance(end,list) or isinstance(end,tuple):
+			end = datetime.datetime(end[0], end[1], end[2], 23, 59)
+		start = cast(Date, start)
+		end = cast(Date, end)
+		days = tradingdays(start=start, end=end)
 		self.logging = logging
-		self.datetime = cast(Optional[datetime.datetime],startdate)
+		self.datetime = cast(Optional[datetime.datetime], start)
 		self.update()
 		for day in days:
 			if self.logging == 'minute':
@@ -638,7 +637,9 @@ class Backtester(Algorithm):
 				self.updateday()
 			elif self.logging == 'day':
 				checkedthresholds = False
-				while self.nextruntime().date() == day:
+				# While it's still the current trading day
+				self.datetime = datetime.datetime.combine(day, datetime.time(0,0))
+				while self.nextruntime().date() == day.date():
 					# Set datetime of algorithm
 					self.datetime = self.nextruntime()
 					# Exit if that datetime is in the future
@@ -652,6 +653,8 @@ class Backtester(Algorithm):
 					self.update()
 					# Run algorithm
 					self.run()
+					# Proceed to next minute
+					self.datetime += datetime.timedelta(minutes=1)
 				# Check limit order thresholds if it hasn't already been done
 				if not checkedthresholds:
 					self.checkthresholds()
@@ -689,7 +692,7 @@ class Backtester(Algorithm):
 		return self.datetime
 
 
-	def checkthreshold(self):
+	def checkthreshold(self, stock:str):
 		# Enforce Thresholds
 		if self.logging == 'minute': # Check if the current price activates a threshold
 			price = self.quote(stock)
@@ -742,42 +745,26 @@ class Backtester(Algorithm):
 
 
 	def history(self, stock:str, length:Union[int,Date]=1, datatype:str='close', interval:str='day'):
-		
-		# Handle Cache
 		key = (stock, interval)
 		cache = self.cache.get(key)
-
 		if cache is not None:
-
 			hist, dateidx, lastidx, time = cache 
-
 		if cache is None or (interval=='day' and (getdatetime()-time).days > 0) or (interval=='minute' and (getdatetime()-time).seconds > 120):
-
 			hist = None
-			
 			while hist is None:
-
-				# Convert to Datetime
-				if isinstance(length,tuple):
-					length = datetime.datetime(date[0],date[1],date[2])
-				if isinstance(length,str):
-					date = length.split("-")
-					length = datetime.datetime(date[0],date[1],date[2])
-
 				try:
 					if broker == 'alpaca': # Data from Alpaca
 						nextra = 100 if interval=='day' else 1 # Number of extra samples before the desired range
-						end = getdatetime() + datetime.timedelta(days=2)
+						end = getdatetime().date() + datetime.timedelta(days=2)
 						# Find start date
 						if not isdate(length):
 							length = cast(int, length)
 							if interval=='minute':
-								start = datetime.datetime.strptime( api.get_calendar(end=(getdatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
+								start = datetime.datetime.strptime( api.get_calendar(end=(self.algodatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
 							else:	
-								start = datetime.datetime.strptime( api.get_calendar(end=getdatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
+								start = datetime.datetime.strptime( api.get_calendar(end=self.algodatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
 						else:
-							length = cast(Date, length)
-							start = length.date() if isinstance(length, datetime.datetime) else length
+							start = cast(datetime.date, length)
 						limit = 2500 if interval=='day' else 10
 						frames = []
 						totaltime = (end-start).days
@@ -789,17 +776,14 @@ class Backtester(Algorithm):
 							frames.append(api.polygon.historic_agg(interval, stock, _from=tempstart.strftime("%Y-%m-%d"), to=tempend.strftime("%Y-%m-%d")).df)
 						frames.append(api.polygon.historic_agg(interval, stock, _from=lastsegstart.strftime("%Y-%m-%d"), to=end.strftime("%Y-%m-%d")).df)
 						hist = pd.concat(frames)
-
 				# Pause and try again if there is an error
 				except ValueError as err:
 					logging.warning('Trying to fetch historical backtest data: %s', err)
 					time.sleep(5)
-
 			# Save To Cache
 			dateidx = dateidxs(hist)
 			lastidx = nearestidx(self.algodatetime(), dateidx)
 			self.cache[key] = [hist, dateidx, lastidx, getdatetime()]
-		
 		# Look for current datetime in cached data
 		try:
 			idx = nearestidx(self.algodatetime(), dateidx, lastchecked=lastidx)
@@ -821,13 +805,15 @@ class Backtester(Algorithm):
 
 	def order(self, stock:str, amount:int, ordertype:str="market",
 					stop:Optional[float]=None, limit:Optional[float]=None, verbose:bool=False,
-					notify_address:Optional[str]=None):
+					notify_address:Optional[str]=None, cost:Optional[float]=None):
 		# Guard condition for sell
 		if amount < 0 and (stock in self.stocks) and (-amount > self.stocks[stock]):
 			print(("Warning: attempting to sell more shares (" + str(amount) + ") than are owned (" + 
 				str(self.stocks.get(stock,0)) + ") of " + stock))
 			return None
-		cost = self.quote(stock)
+		if cost is None:
+			cost = self.quote(stock)
+		assert isinstance(cost, float)
 		# Guard condition for buy
 		if cost * amount > self.cash:
 			print(("Warning: not enough cash ($" + str(round(self.cash,2)) + ") in algorithm to buy " + str(
@@ -848,8 +834,10 @@ class Backtester(Algorithm):
 		# Simulate stop and limit orders
 		elif ordertype == 'stop' or ordertype == 'limit':
 			if limit is None and stop is None:
-				print("You need to specify a stop or limit price")
+				logging.error("You need to specify a stop or limit price for stop/limit orders")
+				return
 			price = limit if (limit is not None) else stop
+			assert isinstance(price, float)
 			change = (price - cost) / cost
 			perc = (self.stocks.get(stock,0) + amount) * cost / self.value
 			if amount > 0:
@@ -859,7 +847,7 @@ class Backtester(Algorithm):
 		# TODO: Test stop/limit orders in backtest.
 
 
-	def orderfraction(self, stock, fraction, cost=None, ordertype="market", stop=None, limit=None, verbose=False, notify_address=None):
+	def orderfraction(self, stock, fraction, ordertype="market", stop=None, limit=None, verbose=False, notify_address=None, cost=None):
 		if cost is None:
 			cost = self.quote(stock)
 		currentfraction = self.stocks.get(stock,0) * cost / self.value
@@ -867,20 +855,23 @@ class Backtester(Algorithm):
 		if fractiondiff < 0:
 			# Min of (# required to reach target fraction) and (# of that stock owned)
 			amount = min( round(-fractiondiff * self.value / cost), self.stocks.get(stock,0) )
-			return self.order(stock=stock, amount=-amount, cost=cost, \
+			return self.order(stock=stock, amount=-amount, \
 							  ordertype=ordertype, stop=stop, limit=limit, \
-							  verbose=verbose, notify_address=notify_address)
+							  verbose=verbose, notify_address=notify_address, cost=cost)
 		else:
 			# Min of (# required to reach target fraction) and (# that you can buy with your available cash)
 			amount = min( math.floor(fractiondiff * self.value / cost), math.floor(self.cash / cost) )
-			return self.order(stock=stock, amount=amount, cost=cost, \
+			return self.order(stock=stock, amount=amount, \
 							  ordertype=ordertype, stop=stop, limit=limit, \
-							  verbose=verbose, notify_address=notify_address)
+							  verbose=verbose, notify_address=notify_address, cost=cost)
 
 
 
 ### Helper Functions ###
 
+
+def getdatetime() -> datetime.datetime:
+	return datetime.datetime.now(timezone('US/Eastern')).replace(tzinfo=None)
 
 
 # If start and end are both dates, it returns a list of trading days from the start date to the end date (not including end date)
@@ -929,10 +920,6 @@ def tradingdays(start:Union[Date,Sequence[int],str,int]=getdatetime(),
 # Determines if variable is a datetime.datetime or datetime.date object
 def isdate(var:Any) -> bool:
 	return isinstance(var,datetime.datetime) or isinstance(var,datetime.date)
-
-
-def getdatetime() -> datetime.datetime:
-	return datetime.datetime.now(timezone('US/Eastern')).replace(tzinfo=None)
 
 
 def datetimeequals(dt1:Union[datetime.datetime,datetime.date,datetime.time], 
@@ -1047,12 +1034,14 @@ def backtester(algo:Algorithm, capital:Optional[float]=None, benchmark:Optional[
 	# Convert
 	BacktestAlgorithm = type('BacktestAlgorithm', (Backtester,), dict((algo.__class__).__dict__))
 	algoback = BacktestAlgorithm()
+	algoback.__dict__ = algo.__dict__
 	# Set Capital
 	if capital is None:
 		if algoback.value == 0:
-			algoback.value = 10000.0
+			algoback.cash = 10000.0
 	else:
-		algoback.value = capital
+		algoback.cash = capital
+	algoback.value = algoback.cash
 	# Set Benchmark
 	if benchmark is not None:
 		algoback.benchmark = benchmark
