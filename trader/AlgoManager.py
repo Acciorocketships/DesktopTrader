@@ -286,12 +286,12 @@ def save_state(local={}, path='savestate'):
 	    try:
 	        shelf['G'+key] = globals()[key]
 	    except (TypeError, pickle.PicklingError) as err:
-	        logging.error(err)
+	        logging.debug(err)
 	for key in local.keys():
 	    try:
 	        shelf['L'+key] = local[key]
 	    except (TypeError, pickle.PicklingError) as err:
-	        logging.error(err)
+	        logging.debug(err)
 	shelf.close()
 	logging.info('Saved State')
 
@@ -311,7 +311,7 @@ def load_state(path='savestate'):
 			else:
 				local[varname] = shelf[key]
 		except Exception as err:
-			logging.error(err)
+			logging.debug(err)
 	shelf.close()
 	logging.info('Successfully Loaded State')
 	return local

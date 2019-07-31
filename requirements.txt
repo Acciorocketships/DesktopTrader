@@ -5,7 +5,7 @@ alpha-vantage
 simplejson
 pandas
 empyrical
-pytrends
+pytrends==4.4.0
 matplotlib
 h5py
 requests[security]
