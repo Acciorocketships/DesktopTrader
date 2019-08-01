@@ -198,7 +198,7 @@ class Manager:
 		lasttime = None
 		lastday = None
 		# function that returns a boolean for if the given day is a trading day
-		tradingday = lambda currentday: tradingdays(start=currentday,end=currentday+datetime.timedelta(days=1))[0].date() == currentday
+		tradingday = lambda currentday: datetimeequals(tradingdays(start=currentday,end=currentday+datetime.timedelta(days=1))[0].date(), currentday)
 		# boolean trading day flag
 		istradingday = tradingday(getdatetime())
 		# Main Loop
