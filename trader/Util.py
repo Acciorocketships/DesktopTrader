@@ -1,30 +1,9 @@
 import pickle
 import shelve
-import pkg_resources
-import json
+import datetime
 from typing import *
+from trader.Setup import *
 from trader.Algorithm import *
-
-def setupcreds() -> Dict[str,str]:
-	creds:Dict[str,str] = {}
-	credential_file = pkg_resources.resource_filename(__name__, "creds.txt")
-	try:
-		with open(credential_file, "r") as f:
-			creds = json.load(f)
-	except IOError:
-		creds['Email Address'] = input('Email Address: ')
-		creds['Email Password'] = input('Email Password: ')
-		if broker == 'alpaca':
-			creds['Alpaca ID'] = input('Alpaca ID: ')
-			creds['Alpaca Secret Key'] = input('Alpaca Secret Key: ')
-			creds['Alpaca Paper ID'] = input('Alpaca ID: ')
-			creds['Alpaca Paper Secret Key'] = input('Alpaca Secret Key: ')
-		with open(credential_file, "w") as f:
-			json.dump(creds,f)
-	except PermissionError:
-		logging.error("Inadequate permissions to read credentials file.")
-		exit(-1)
-	return creds
 
 
 def savestate(local={}, path='savestate'):
@@ -90,14 +69,14 @@ def tradingdays(start:Union[Date,Sequence[int],str,int]=getdatetime(),
 
 	# Range of Dates
 	if isdate(start) and isdate(end):
-		datelist = [day.date.to_pydatetime() for day in api.get_calendar(start = start.strftime("%Y-%m-%d"), end = end.strftime("%Y-%m-%d"))]
+		datelist = [day.date.to_pydatetime() for day in API.get_calendar(start = start.strftime("%Y-%m-%d"), end = end.strftime("%Y-%m-%d"))]
 		return datelist
 
 	# n Days Before End
 	if isinstance(start,int) and isdate(end):
 		n = start
 		start = end - datetime.timedelta(days=2*n)
-		datelist = api.get_calendar(start = start.strftime("%Y-%m-%d"), end = end.strftime("%Y-%m-%d"))
+		datelist = API.get_calendar(start = start.strftime("%Y-%m-%d"), end = end.strftime("%Y-%m-%d"))
 		date = datelist[-n].date.to_pydatetime()
 		return date
 
@@ -105,7 +84,7 @@ def tradingdays(start:Union[Date,Sequence[int],str,int]=getdatetime(),
 	if isdate(start) and isinstance(end,int):
 		n = end
 		end = start + datetime.timedelta(days=2*n+5)
-		datelist = api.get_calendar(start = start.strftime("%Y-%m-%d"), end = end.strftime("%Y-%m-%d"))
+		datelist = API.get_calendar(start = start.strftime("%Y-%m-%d"), end = end.strftime("%Y-%m-%d"))
 		date = datelist[n].date.to_pydatetime()
 		return date
 
@@ -225,12 +204,12 @@ def dict2string(dictionary:Dict[Any,Any], spaces:int=0):
 # Input: stock symbol as a string, number of shares as an int
 # ordertype: "market", "limit", "stop", "stop_limit"
 def buy(stock:str, amount:int, ordertype:str='market', stop:Optional[float]=None, limit:Optional[float]=None, block:bool=True):
-	if broker == 'alpaca':
-		order = api.submit_order(stock, amount, side='buy', type=ordertype, time_in_force='day', limit_price=limit, stop_price=stop)
+	if BROKER == 'alpaca':
+		order = API.submit_order(stock, amount, side='buy', type=ordertype, time_in_force='day', limit_price=limit, stop_price=stop)
 		if block:
 			starttime = getdatetime()
 			while (order.filled_at is None) and ((getdatetime()-starttime).seconds < 60):
-				order = api.get_order(order.id)
+				order = API.get_order(order.id)
 				time.sleep(0.1)
 		return order
 
@@ -238,12 +217,12 @@ def buy(stock:str, amount:int, ordertype:str='market', stop:Optional[float]=None
 # Input: stock symbol as a string, number of shares as an int
 # ordertype: "market", "limit", "stop", "stop_limit"
 def sell(stock:str, amount:int, ordertype:str='market', stop:Optional[float]=None, limit:Optional[float]=None, block:bool=True):
-	if broker == 'alpaca':
-		order = api.submit_order(stock, amount, side='sell', type=ordertype, time_in_force='day', limit_price=limit, stop_price=stop)
+	if BROKER == 'alpaca':
+		order = API.submit_order(stock, amount, side='sell', type=ordertype, time_in_force='day', limit_price=limit, stop_price=stop)
 		if block:
 			starttime = datetime.datetime.now()
 			while (order.filled_at is None) and ((datetime.datetime.now()-starttime).seconds < 60):
-				order = api.get_order(order.id)
+				order = API.get_order(order.id)
 				time.sleep(0.1)
 		return order
 
@@ -251,10 +230,10 @@ def sell(stock:str, amount:int, ordertype:str='market', stop:Optional[float]=Non
 # Input: stock symbol as a string
 # Returns: share price as a float
 def price(stock:str):
-	if broker == 'alpaca':
-		cost = float(api.polygon.last_quote(stock).askprice)
+	if BROKER == 'alpaca':
+		cost = float(API.polygon.last_quote(stock).askprice)
 		if cost == 0:
-			cost = float(api.polygon.last_trade(stock).price)
+			cost = float(API.polygon.last_trade(stock).price)
 		return cost
 
 
@@ -263,8 +242,8 @@ def positions():
 	
 	positions = {}
 	
-	if broker == 'alpaca':
-		poslist = api.list_positions()
+	if BROKER == 'alpaca':
+		poslist = API.list_positions()
 		for pos in poslist:
 			positions[pos.symbol] = int(pos.qty)
 	
@@ -279,10 +258,9 @@ def portfoliodata():
 	
 	portfolio = {}
 
-	if broker == 'alpaca':
-		account = api.get_account()
-		portfolio["value"] = float(account.portfolio_value)
-		portfolio["cash"] = float(account.buying_power)
+	if BROKER == 'alpaca':
+		portfolio["value"] = float(ACCOUNT.portfolio_value)
+		portfolio["cash"] = float(ACCOUNT.buying_power)
 	
 	portfolio["value"] = round(portfolio["value"],2)
 	portfolio["cash"] = round(portfolio["cash"],2)

@@ -7,17 +7,9 @@ import traceback
 import atexit
 import trader.AlgoGUI as Alg
 import trader.ManagerGUI as Man
-from trader.Algorithm import *
+from trader.Setup import *
 from trader.Util import *
-
-logging.basicConfig(format='%(levelname)-7s: %(asctime)-s | %(message)s', 
-					filename='logs.log', 
-					datefmt='%d-%m-%Y %I:%M:%S %p',
-					level=logging.DEBUG)
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-logging.getLogger('').addHandler(console)
-
+from trader.Algorithm import *
 
 class Manager:
 	def __init__(self):
@@ -190,50 +182,6 @@ class Manager:
 			self.graphing = False
 
 
-	# Private Method
-	# Updates the data in each algorithm continuously
-	# Runs each algorithm at the right time of day
-	def run(self):
-		lasttime = None
-		lastday = None
-		# function that returns a boolean for if the given day is a trading day
-		tradingday = lambda currentday: datetimeequals(tradingdays(start=currentday,end=currentday+datetime.timedelta(days=1))[0].date(), currentday)
-		# boolean trading day flag
-		istradingday = tradingday(getdatetime())
-		# Main Loop
-		while self.running:
-			time.sleep(15)
-			try:
-				# Get time and day
-				currenttime = getdatetime().time()
-				currentday = getdatetime().date()
-				# If trading is open
-				if istradingday and currenttime != lasttime and currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
-					lasttime = currenttime
-					# Update minute
-					for algo in list(self.algo_alloc.keys()):
-						algo.updatemin()
-					self.updatemin()
-					# Update day
-					if currentday != lastday:
-						istradingday = tradingday(currentday)
-						lastday = currentday
-						self.updateday()
-						for algo in list(self.algo_alloc.keys()):
-							algo.updateday()
-						logging.debug('New day. Variables: %s', self)
-					# Run algorithms
-					for algo in self.algo_alloc:
-						if datetimeequals(algo.nextruntime(), getdatetime()):
-							algothread = threading.Thread(target=algo.runalgo)
-							algothread.start()
-							logging.debug('Running algo %s. Variables: %s', algo, algo.__dict__)
-			except Exception as err:
-				exc_type, exc_obj, exc_tb = sys.exc_info()
-				fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-				stacktrace = traceback.format_tb(exc_tb)
-				logging.error('%s %s in file %s:\n'.join(stacktrace), exc_type.__name__, err, fname)
-
 
 	def __str__(self):
 		varsdict = self.__dict__.copy()
@@ -279,19 +227,47 @@ class Manager:
 		self.chartdaytimes.append(getdatetime())
 
 
-
-if __name__ == '__main__':
-	code.interact(local=locals())
-
-# TODO
-# check that passing date as length to technical indicators yields the desired length
-# Add unit tests / integration tests
-# automatically do stoploss for backtest orders if they specify that in ordertype in order
-# get rid of logging='day' or 'minute'
-# change printing to logging
-# rethink init and init input values for Algorithm And BacktestAlgorithm.
-# fix error 429 in google trends function
-# fix backtest running to enddate of current day even if trading hasn't started yet
-# create setup file with logging and credentials setup
-# group variables in Algorithm into dicts with names that wont be overridden
+	# Private Method
+	# Updates the data in each algorithm continuously
+	# Runs each algorithm at the right time of day
+	def run(self):
+		lasttime = None
+		lastday = None
+		# function that returns a boolean for if the given day is a trading day
+		tradingday = lambda currentday: datetimeequals(tradingdays(start=currentday,end=currentday+datetime.timedelta(days=1))[0].date(), currentday)
+		# boolean trading day flag
+		istradingday = tradingday(getdatetime())
+		# Main Loop
+		while self.running:
+			time.sleep(15)
+			try:
+				# Get time and day
+				currenttime = getdatetime().time()
+				currentday = getdatetime().date()
+				# If trading is open
+				if istradingday and currenttime != lasttime and currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
+					lasttime = currenttime
+					# Update minute
+					for algo in list(self.algo_alloc.keys()):
+						algo.updatemin()
+					self.updatemin()
+					# Update day
+					if currentday != lastday:
+						istradingday = tradingday(currentday)
+						lastday = currentday
+						self.updateday()
+						for algo in list(self.algo_alloc.keys()):
+							algo.updateday()
+						logging.debug('New day. Variables: %s', self)
+					# Run algorithms
+					for algo in self.algo_alloc:
+						if datetimeequals(algo.nextruntime(), getdatetime()):
+							algothread = threading.Thread(target=algo.runalgo)
+							algothread.start()
+							logging.debug('Running algo %s. Variables: %s', algo, algo.__dict__)
+			except Exception as err:
+				exc_type, exc_obj, exc_tb = sys.exc_info()
+				fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+				stacktrace = traceback.format_tb(exc_tb)
+				logging.error('%s %s in file %s:\n'.join(stacktrace), exc_type.__name__, err, fname)
 

@@ -9,8 +9,6 @@ import numpy as np
 from empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio # Risk Metrics
 import math
 import smtplib # Emailing
-from pytrends.request import TrendReq # Google Searches
-import alpaca_trade_api as tradeapi
 from ta import trend, volatility, momentum # Technical Indicators
 import logging
 from apscheduler.schedulers.blocking import BaseScheduler
@@ -20,24 +18,8 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.combining import OrTrigger
 from apscheduler.triggers.base import BaseTrigger
 from typing import *
-Date = Union[datetime.datetime, datetime.date] # Datetime Type
+from trader.Setup import *
 from trader.Util import *
-
-
-# Get Credentials
-creds = setupcreds()
-
-# Set Up Alpaca API
-broker = 'alpaca'
-papertrade = True
-if broker == 'alpaca':
-	api = tradeapi.REST(creds['Alpaca ID'] if not papertrade else creds['Alpaca Paper ID'], 
-						creds['Alpaca Secret Key'] if not papertrade else creds['Alpaca Paper Secret Key'],
-						base_url='https://api.alpaca.markets' if not papertrade else 'https://paper-api.alpaca.markets')
-	account = api.get_account()
-
-# Google Trends API
-pytrends = TrendReq(hl='en-US', tz=360)
 
 
 class Algorithm(object):
@@ -325,7 +307,7 @@ class Algorithm(object):
 	### HISTORY AND INDICATORS ###
 
 
-	# Uses broker to get the current price of a stock
+	# Uses BROKER to get the current price of a stock
 	# stock: stock symbol (string)
 	def quote(self, stock:str):
 		return price(stock)
@@ -341,16 +323,16 @@ class Algorithm(object):
 		while hist is None:
 			try:	
 				# Data from Alpaca
-				if broker == 'alpaca':
+				if BROKER == 'alpaca':
 					nextra = 0
 					end = getdatetime().date() + datetime.timedelta(days=2)
 					# Find start date
 					if not isdate(length):
 						length = cast(int, length)
 						if interval=='minute':
-							start = datetime.datetime.strptime( api.get_calendar(end=(self.algodatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
+							start = datetime.datetime.strptime( API.get_calendar(end=(self.algodatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
 						else:	
-							start = datetime.datetime.strptime( api.get_calendar(end=self.algodatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
+							start = datetime.datetime.strptime( API.get_calendar(end=self.algodatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
 					else:
 						start = cast(datetime.date, length)
 					limit = 2500 if interval=='day' else 10
@@ -361,8 +343,8 @@ class Algorithm(object):
 						tempstart = start + datetime.timedelta(days=limit*k+1)
 						tempend = start + datetime.timedelta(days=limit*(k+1))
 						lastsegstart = tempend + datetime.timedelta(days=1)
-						frames.append(api.polygon.historic_agg(interval, stock, _from=tempstart.strftime("%Y-%m-%d"), to=tempend.strftime("%Y-%m-%d")).df)
-					frames.append(api.polygon.historic_agg(interval, stock, _from=lastsegstart.strftime("%Y-%m-%d"), to=end.strftime("%Y-%m-%d")).df)
+						frames.append(API.polygon.historic_agg(interval, stock, _from=tempstart.strftime("%Y-%m-%d"), to=tempend.strftime("%Y-%m-%d")).df)
+					frames.append(API.polygon.historic_agg(interval, stock, _from=lastsegstart.strftime("%Y-%m-%d"), to=end.strftime("%Y-%m-%d")).df)
 					hist = pd.concat(frames)
 			# Keep trying if there is a network error
 			except ValueError as err:
@@ -495,8 +477,8 @@ class Algorithm(object):
 		category = 0
 		if financial:
 			category=1138
-		pytrends.build_payload([query], cat=category, timeframe=startdatestr + " " + enddatestr, geo='US')
-		return pytrends.interest_over_time()[query]
+		PYTRENDS.build_payload([query], cat=category, timeframe=startdatestr + " " + enddatestr, geo='US')
+		return PYTRENDS.interest_over_time()[query]
 
 
 	# Send a string or a dictionary to an email or a phone number
@@ -505,15 +487,15 @@ class Algorithm(object):
 		if isinstance(self,Backtester):
 			return
 		if recipient is None:
-			recipient = creds['Email Address']
+			recipient = CREDS['Email Address']
 		# Send current state of algorithm by default
 		if len(message) == 0:
 			exclude = {"times","chartminute","chartminutetimes","chartday","chartdaytimes","cache","stoplosses","stopgains","limitlow","limithigh"}
 			messagedict = {key: value for (key,value) in self.__dict__.items() if key not in exclude}
 		if type(message) == dict:
 			message = dict2string(messagedict)
-		gmail_user = creds['Email Address']
-		gmail_password = creds['Email Password']
+		gmail_user = CREDS['Email Address']
+		gmail_password = CREDS['Email Password']
 		# If recipient is an email address
 		if "@" in recipient:
 			try:
@@ -730,16 +712,16 @@ class Backtester(Algorithm):
 			hist = None
 			while hist is None:
 				try:
-					if broker == 'alpaca': # Data from Alpaca
+					if BROKER == 'alpaca': # Data from Alpaca
 						nextra = 100 if interval=='day' else 1 # Number of extra samples before the desired range
 						end = getdatetime().date() + datetime.timedelta(days=2)
 						# Find start date
 						if not isdate(length):
 							length = cast(int, length)
 							if interval=='minute':
-								start = datetime.datetime.strptime( api.get_calendar(end=(self.algodatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
+								start = datetime.datetime.strptime( API.get_calendar(end=(self.algodatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
 							else:	
-								start = datetime.datetime.strptime( api.get_calendar(end=self.algodatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
+								start = datetime.datetime.strptime( API.get_calendar(end=self.algodatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
 						else:
 							start = cast(datetime.date, length)
 						limit = 2500 if interval=='day' else 10
@@ -750,8 +732,8 @@ class Backtester(Algorithm):
 							tempstart = start + datetime.timedelta(days=limit*k+1)
 							tempend = start + datetime.timedelta(days=limit*(k+1))
 							lastsegstart = tempend + datetime.timedelta(days=1)
-							frames.append(api.polygon.historic_agg(interval, stock, _from=tempstart.strftime("%Y-%m-%d"), to=tempend.strftime("%Y-%m-%d")).df)
-						frames.append(api.polygon.historic_agg(interval, stock, _from=lastsegstart.strftime("%Y-%m-%d"), to=end.strftime("%Y-%m-%d")).df)
+							frames.append(API.polygon.historic_agg(interval, stock, _from=tempstart.strftime("%Y-%m-%d"), to=tempend.strftime("%Y-%m-%d")).df)
+						frames.append(API.polygon.historic_agg(interval, stock, _from=lastsegstart.strftime("%Y-%m-%d"), to=end.strftime("%Y-%m-%d")).df)
 						hist = pd.concat(frames)
 				# Pause and try again if there is an error
 				except ValueError as err:
