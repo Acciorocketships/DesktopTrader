@@ -14,7 +14,6 @@ import pandas as pd
 class RNN(Algorithm):
 
 	def initialize(self):
-		self.schedule = "0 9 * * *"
 		self.securities = ["FB","SVXY","ARKK","NFLX"]
 		self.sec = 'SPY'
 		self.heldstock = None
@@ -156,25 +155,25 @@ def accuracy(y_true,y_pred):
 	return K.sum(tf.to_float(K.equal(K.sign(y_true),K.sign(y_pred)))) / tf.to_float(tf.shape(y_true)[0])
 
 def train():
-	algo = RNN()
+	algo = RNN(schedule='0 9 * * *')
 	algo.train()
 
 def test():
-	algo = RNN()
+	algo = RNN(schedule='0 9 * * *')
 	algo.test(length=20,skip=0)
 
 def predict():
-	algo = RNN()
+	algo = RNN(schedule='0 9 * * *')
 	print("Percent Change Today: ", algo.indicator("SPY",length=2,skip=-1))
 
 def backtest():
-	algo = backtester(RNN(),capital=1000)
+	algo = backtester(RNN(schedule='0 9 * * *'),capital=1000)
 	algo.start(start=(2017,1,1),end=(2018,1,1))
 	Manager.algogui(algo)
 	import code; code.interact(local=locals())
 
 def debug():
-	algo = backtester(RNN())
+	algo = backtester(RNN(schedule='0 9 * * *'))
 	algo.datetime = datetime(2018,3,27)
 	import code; code.interact(local=locals())
 
