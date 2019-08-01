@@ -2,14 +2,13 @@ import sys, os
 import math
 import datetime
 import code
-import pickle
-import shelve
 import logging
 import traceback
 import atexit
 import trader.AlgoGUI as Alg
 import trader.ManagerGUI as Man
 from trader.Algorithm import *
+from trader.Util import *
 
 logging.basicConfig(format='%(levelname)-7s: %(asctime)-s | %(message)s', 
 					filename='logs.log', 
@@ -279,42 +278,6 @@ class Manager:
 		self.chartday.append(self.value)
 		self.chartdaytimes.append(getdatetime())
 
-
-def save_state(local={}, path='savestate'):
-	shelf = shelve.open(path, flag='n')
-	for key in globals().keys():
-	    try:
-	        shelf['G'+key] = globals()[key]
-	    except (TypeError, pickle.PicklingError) as err:
-	        logging.debug(err)
-	for key in local.keys():
-	    try:
-	        shelf['L'+key] = local[key]
-	    except (TypeError, pickle.PicklingError) as err:
-	        logging.debug(err)
-	shelf.close()
-	logging.info('Saved State')
-
-
-def load_state(path='savestate'):
-	if not os.path.exists(path + ".db"):
-		logging.info('Failed to Load State')
-		return {}
-	shelf = shelve.open(path, flag='c')
-	local = {}
-	for key in shelf:
-		try:
-			isglobal = (key[0] == 'G')
-			varname = key[1:]
-			if isglobal:
-				globals()[varname] = shelf[key]
-			else:
-				local[varname] = shelf[key]
-		except Exception as err:
-			logging.debug(err)
-	shelf.close()
-	logging.info('Successfully Loaded State')
-	return local
 
 
 if __name__ == '__main__':
