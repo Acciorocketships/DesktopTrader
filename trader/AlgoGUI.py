@@ -1,15 +1,11 @@
 from trader.Algorithm import *
-from tkinter import *
+from tkinter import Tk, Frame, N, E, W, S
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import datetime
 from pandas.plotting import register_matplotlib_converters; register_matplotlib_converters()
-import time
-import numpy as np
-import code
 import atexit
 
 
@@ -234,11 +230,10 @@ class Graph(FigureCanvasTkAgg):
 				self.mainplot.plot_date(x, y, color)
 				if fill:
 					self.mainplot.fill_between(x, y, y2=y[0], color=color[0], alpha=0.2)
-				maxy = max(y)
 				self.fig.autofmt_xdate()
 				self.draw()
 		except Exception as e:
-			pass
+			logging.error("Error in AlgoGUI plot: %s", e)
 
 	def widget(self):
 		return self.get_tk_widget()
@@ -249,7 +244,7 @@ class Spacer(Frame):
 		Frame.__init__(self, master, bg=master["background"], width=width, height=height)
 
 
-def add(widget, master, row, col, rowspan=1, colspan=1, sticky=N + E + W + S, padx=0, pady=0, weight=5):
+def add(widget, master, row, col, rowspan=1, colspan=1, sticky= N + E + W + S, padx=0, pady=0, weight=5):
 	master.columnconfigure(col, weight=weight)
 	master.rowconfigure(row, weight=weight)
 	widget.grid(row=row, column=col, sticky=sticky, padx=padx, pady=pady, rowspan=rowspan, columnspan=colspan)

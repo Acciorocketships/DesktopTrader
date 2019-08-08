@@ -231,10 +231,12 @@ def sell(stock:str, amount:int, ordertype:str='market', stop:Optional[float]=Non
 # Returns: share price as a float
 def price(stock:str):
 	if BROKER == 'alpaca':
-		cost = float(API.polygon.last_quote(stock).askprice)
-		if cost == 0:
-			cost = float(API.polygon.last_trade(stock).price)
-		return cost
+		while True:
+			try:
+				cost = float(API.polygon.last_trade(stock).price)
+				return cost
+			except Exception as e:
+				logging.error(e)
 
 
 # Returns: list of ("symbol",amount)
