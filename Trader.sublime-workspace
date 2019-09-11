@@ -4,6 +4,62 @@
 		"selected_items":
 		[
 			[
+				"com",
+				"combine\tfunction"
+			],
+			[
+				"schedul",
+				"scheduleTrigger\tstatement"
+			],
+			[
+				"trad",
+				"tradingdays\tfunction"
+			],
+			[
+				"start",
+				"startdate\tstatement"
+			],
+			[
+				"is",
+				"isinstance"
+			],
+			[
+				"time",
+				"timedelta\tclass"
+			],
+			[
+				"Type",
+				"TypeError\tclass"
+			],
+			[
+				"sche",
+				"scheduleTrigger\tstatement"
+			],
+			[
+				"datetime",
+				"datetimeequals\tfunction"
+			],
+			[
+				"get",
+				"getdatetime"
+			],
+			[
+				"check",
+				"checkthreshold\tfunction"
+			],
+			[
+				"chec",
+				"checkthreshold\tfunction"
+			],
+			[
+				"next",
+				"nextruntime"
+			],
+			[
+				"sch",
+				"scheduleTrigger\tstatement"
+			],
+			[
 				"end",
 				"enddate"
 			],
@@ -24,10 +80,6 @@
 				"Algorithm"
 			],
 			[
-				"is",
-				"isglobal"
-			],
-			[
 				"al",
 				"algothread"
 			],
@@ -42,10 +94,6 @@
 			[
 				"algo",
 				"algodatetime"
-			],
-			[
-				"get",
-				"getdatetime"
 			],
 			[
 				"vars",
@@ -138,10 +186,6 @@
 			[
 				"chartda",
 				"chartdaytimes"
-			],
-			[
-				"check",
-				"checkedthresholds"
 			],
 			[
 				"date",
@@ -276,10 +320,6 @@
 				"datatype"
 			],
 			[
-				"start",
-				"startdate"
-			],
-			[
 				"togg",
 				"toggleT"
 			],
@@ -314,10 +354,6 @@
 			[
 				"p",
 				"p0dot"
-			],
-			[
-				"next",
-				"nextnodes"
 			],
 			[
 				"pri",
@@ -478,117 +514,74 @@
 			[
 				"client",
 				"clientThread"
-			],
-			[
-				"star",
-				"start_new_thread"
-			],
-			[
-				"rot",
-				"rot2euler"
-			],
-			[
-				"has",
-				"hastarget"
-			],
-			[
-				"fly",
-				"flyingaway"
-			],
-			[
-				"cv",
-				"cv_image"
-			],
-			[
-				"cam",
-				"cameraoffset"
-			],
-			[
-				"q",
-				"queue_size"
-			],
-			[
-				"lo",
-				"LossWeights"
-			],
-			[
-				"FCN",
-				"FCNFUNC"
 			]
 		]
 	},
 	"buffers":
 	[
 		{
+			"contents": "import os, sys\nimport traceback\nimport datetime\nfrom pytz import timezone\nimport time\nimport threading # Runs Backtest in a Thread\nimport pandas as pd\nimport numpy as np\nfrom empyrical import max_drawdown, alpha_beta, annual_volatility, sharpe_ratio # Risk Metrics\nimport math\nimport smtplib # Emailing\nfrom ta import trend, volatility, momentum # Technical Indicators\nimport logging\nfrom apscheduler.schedulers.blocking import BaseScheduler\nfrom apscheduler.schedulers.blocking import BlockingScheduler\nfrom apscheduler.schedulers.background import BackgroundScheduler\nfrom apscheduler.triggers.cron import CronTrigger\nfrom apscheduler.triggers.combining import OrTrigger\nfrom apscheduler.triggers.base import BaseTrigger\nfrom typing import *\nfrom trader.Setup import *\nfrom trader.Util import *\n\n\nclass Algorithm(object):\n\n\tdef __init__(self, schedule:Union[str,List[str]]=\"30 9 * * *\"):\n\t\tself.setschedule(schedule)\n\t\t# Variables that change automatically\n\t\tself.startingcapital:float = 0.0\n\t\tself.value:float = 0.0\n\t\tself.cash:float = 0.0\n\t\tself.stocks:Dict[str,int] = {}\n\t\tself.chartminute:List[float] = []\n\t\tself.chartminutetimes:List[datetime.datetime] = []\n\t\tself.chartday:List[float] = []\n\t\tself.chartdaytimes:List[datetime.datetime] = []\n\t\tself.running:bool = True\n\t\tself.cache:Dict[Tuple,Any] = {}\n\t\tself.stoplosses:Dict[str,Tuple[float,float]] = {}\n\t\tself.stopgains:Dict[str,Tuple[float,float]] = {}\n\t\tself.limitlow:Dict[str,Tuple[float,float]] = {}\n\t\tself.limithigh:Dict[str,Tuple[float,float]] = {}\n\t\tself.alpha:Optional[float] = None\n\t\tself.beta:Optional[float] = None\n\t\tself.volatility:Optional[float] = None\n\t\tself.sharpe:Optional[float] = None\n\t\tself.maxdrawdown:Optional[float] = None\n\t\tself.benchmark:Union[str,List[str]] = 'SPY'\n\t\t# User initialization\n\t\tself.initialize()\n\n\tdef initialize(self):\n\t\tpass\n\n\tdef run(self):\n\t\tpass\n\n\tdef runalgo(self):\n\t\ttry:\n\t\t\tself.run()\n\t\texcept Exception as err:\n\t\t\texc_type, exc_obj, exc_tb = sys.exc_info()\n\t\t\tfname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]\n\t\t\tstacktrace = traceback.format_tb(exc_tb)\n\t\t\tlogging.error('%s %s in file %s:\\n'.join(stacktrace), exc_type.__name__, err, fname)\n\n\tdef runner(self, block:bool=False):\n\t\tif block:\n\t\t\tself.scheduler = BlockingScheduler(timezone=timezone(\"US/Eastern\"))\n\t\telse:\n\t\t\tself.scheduler = BackgroundScheduler(timezone=timezone(\"US/Eastern\"))\n\t\tself.scheduler.add_job(self.runalgo, self.scheduleTrigger)\n\t\tself.scheduler.start()\n\n\n\tdef setschedule(self,schedule):\n\t\tself.scheduleCrons:List[str]= schedule if isinstance(schedule,list) else [schedule]\n\t\tself.scheduleTrigger:BaseTrigger = OrTrigger([CronTrigger.from_crontab(cron) for cron in self.scheduleCrons])\n\t\tself.scheduler:BaseScheduler = None\n\n\n\t### PRIVATE METHODS ###\n\n\t# Update function called every second\n\tdef updatetick(self):\n\t\tstockvalue = 0\n\t\tfor stock, amount in list(self.stocks.items()):\n\t\t\tstockvalue += self.quote(stock) * amount\n\t\tself.value = self.cash + stockvalue\n\t\tself.value = round(self.value,2)\n\t\tself.cash = round(self.cash,2)\n\n\t# Update function called every minute\n\tdef updatemin(self):\n\t\tself.updatetick() \n\t\tself.chartminute.append(self.value)\n\t\tself.chartminutetimes.append(self.algodatetime())\n\t\tself.checkthresholds()\n\n\t# Update function called every day\n\tdef updateday(self):\n\t\tself.chartminute = []\n\t\tself.chartminutetimes = []\n\t\tself.chartday.append(self.value)\n\t\tself.chartdaytimes.append(self.algodatetime())\n\t\tself.riskmetrics()\n\n\t# returns datetime as seen by algorithm (overridden in backtester)\n\tdef algodatetime(self) -> datetime.datetime:\n\t\treturn getdatetime()\n\n\t# returns the next expected execution time of algorithm, as defined by the given schedule\n\tdef nextruntime(self) -> datetime.datetime:\n\t\treturn self.scheduleTrigger.get_next_fire_time(None, self.algodatetime()).replace(tzinfo=None)\n\n\t# Checks and executes limit/stop orders\n\tdef checkthreshold(self, stock:str):\n\t\t# Buy/Sell all shares of the stock if its price has crossed the threshold\n\t\tprice = self.quote(stock)\n\t\tif (stock in self.stocks) and (stock in self.stoplosses) and (price <= self.stoplosses[stock][0]):\n\t\t\tprint(\"Stoploss for \" + stock + \" kicking in.\")\n\t\t\tdel self.stoplosses[stock]\n\t\t\tself.orderfraction(stock,self.stoplosses[stock][1],verbose=True)\n\t\telif (stock in self.stocks) and (stock in self.stopgains) and (price >= self.stopgains[stock][0]):\n\t\t\tprint(\"Stopgain for \" + stock + \" kicking in.\")\n\t\t\tdel self.stopgains[stock]\n\t\t\tself.orderfraction(stock,self.stopgains[stock][1],verbose=True)\n\t\telif (stock in self.limitlow) and (price <= self.limitlow[stock][0]):\n\t\t\tprint(\"Limit order \" + stock + \" activated.\")\n\t\t\tdel self.limitlow[stock]\n\t\t\tself.orderfraction(stock,self.limitlow[stock][1],verbose=True)\n\t\telif (stock in self.limithigh) and (price >= self.limithigh[stock][0]):\n\t\t\tprint(\"Limit order \" + stock + \" activated.\")\n\t\t\tdel self.limithigh[stock]\n\t\t\tself.orderfraction(stock,self.limithigh[stock][1],verbose=True)\n\t\t# Remove a stock once it is sold\n\t\tif (stock in self.stoplosses) and (self.stocks.get(stock,0) == 0):\n\t\t\tdel self.stoplosses[stock]\n\t\tif stock in self.stopgains and (self.stocks.get(stock,0) == 0):\n\t\t\tdel self.stopgains[stock]\n\n\tdef checkthresholds(self):\n\t\tfor stock in self.stocks:\n\t\t\tself.checkthreshold(stock)\n\n\tdef riskmetrics(self):\n\t\ttry:\n\t\t\tif len(self.chartday) < 2:\n\t\t\t\treturn\n\t\t\tbenchmark = self.benchmark if type(self.benchmark)==str else 'SPY'\n\t\t\tchanges = self.fractionchange(self.chartday)\n\t\t\tidx = [pd.Timestamp(date.date()) for date in self.chartdaytimes[1:]]\n\t\t\tchanges.index = idx\n\t\t\tif len(changes) > 0:\n\t\t\t\tbenchmarkchanges = self.fractionchange(benchmark, length=len(changes))\n\t\t\t\tidx = [date.tz_convert(None).date() for date in benchmarkchanges.index]\n\t\t\t\tbenchmarkchanges.index = idx\n\t\t\t\tself.alpha, self.beta = alpha_beta(changes, benchmarkchanges)\n\t\t\t\tself.alpha = round(self.alpha,3)\n\t\t\t\tself.beta = round(self.beta,3)\n\t\t\t\tself.sharpe = round(sharpe_ratio(changes),3)\n\t\t\t\tself.volatility = round(annual_volatility(changes),3)\n\t\t\t\tself.maxdrawdown = round(max_drawdown(changes),3)\n\t\texcept Exception as err:\n\t\t\tlogging.error(\"Error in Algorithm riskmetrics: %s\", err)\n\n\n\t### PUBLIC METHODS ###\n\n\n\t# Switches from live trading to paper trading\n\t# If self.running is False, the algorithm will automatically paper trade\n\tdef papertrade(self,cash:Optional[float]=None):\n\t\tif self.running:\n\t\t\tself.cash = cash if (cash is not None) else self.value\n\t\t\tself.value = self.cash\n\t\t\tself.stocks = {}\n\t\t\tself.chartminute = []\n\t\t\tself.chartday = []\n\t\t\tself.running = False\n\n\n\t# Switches from paper trading to live trading\n\tdef livetrade(self):\n\t\tif not self.running:\n\t\t\tself.value = self.startingcapital\n\t\t\tself.cash = self.startingcapital\n\t\t\tself.stocks = {}\n\t\t\tself.chartminute = []\n\t\t\tself.chartday = []\n\t\t\tself.running = True\n\n\n\t# Adds stop loss or stop gain to a particular stock until it is sold (then you need to re-add it)\n\t# If change == 0.05, then the stock will be sold if it goes 5% over the current price\n\t# If change == -0.05, then the stock will be sold if it goes 5% below the current price\n\t# amount is given as a number between 0 and 1 (uses orderfraction)\n\tdef stopsell(self, stock:str, change:float, amount:float=0):\n\t\tif change > 0:\n\t\t\tself.stopgains[stock] = ( (1+change)*self.quote(stock), amount )\n\t\tif change < 0:\n\t\t\tself.stoplosses[stock] = ( (1+change)*self.quote(stock), amount )\n\n\n\t# Adds order for a stock when it crosses above or below a % change from the current price\n\t# If change == 0.05, then the stock will be bought if it goes 5% over the current price\n\t# If change == -0.05, then the stock will be bought if it goes 5% below the current price\n\t# amount is given as a number between 0 and 1 (uses orderfraction)\n\tdef limitbuy(self, stock:str, change:float, amount:float=1):\n\t\tif amount == 1:\n\t\t\tamount = self.cash / self.value\n\t\tif change > 0:\n\t\t\tself.limithigh[stock] = ( (1+change)*self.quote(stock), amount )\n\t\tif change < 0:\n\t\t\tself.limitlow[stock] = ( (1+change)*self.quote(stock), amount )\n\n\n\t# stock: stock symbol (string)\n\t# amount: number of shares of that stock to order (+ for buy, - for sell)\n\t# verbose: prints out order\n\tdef order(self, stock:str, amount:int, ordertype:str=\"market\", stop:Optional[float]=None, \n\t\t\t\t\tlimit:Optional[float]=None, verbose:bool=False, notify_address:Optional[str]=None):\n\t\t# Guard condition for sell\n\t\tif amount < 0 and (-amount > self.stocks.get(stock,0)):\n\t\t\tprint((\"Warning: attempting to sell more shares (\" + str(amount) + \") than are owned (\" + str(\n\t\t\t\tself.stocks.get(stock,0)) + \") of \" + stock))\n\t\t\treturn\n\t\tcost = self.quote(stock)\n\t\t# Guard condition for buy\n\t\tif cost * amount > self.cash:\n\t\t\tprint((\"Warning: not enough cash ($\" + str(self.cash) + \") in algorithm to buy \" + str(\n\t\t\t\tamount) + \" shares of \" + stock))\n\t\t\treturn\n\t\t# Do nothing if amount is 0\n\t\tif amount == 0:\n\t\t\treturn\n\t\t# Place order, block until filled, update amount and cash\n\t\tcurrentcash = portfoliodata()[\"cash\"]\n\t\tcurrentamount = positions().get(stock,0)\n\t\tnewamount = currentamount\n\t\tif self.running:\n\t\t\t# Send order  \n\t\t\tif amount > 0:\n\t\t\t\tbuy(stock, amount, ordertype=ordertype, stop=stop, limit=limit)\n\t\t\telif amount < 0:\n\t\t\t\tsell(stock, abs(amount), ordertype=ordertype, stop=stop, limit=limit)\n\t\t\t# Block for 5 minutes. If order still hasn't filled, continue.\n\t\t\tfor i in range(273):\n\t\t\t\tnewamount = positions().get(stock,0)\n\t\t\t\tif newamount != currentamount:\n\t\t\t\t\tbreak\n\t\t\t\telse:\n\t\t\t\t\ttime.sleep(0.5*(i ** 0.5))\n\t\t\t# If order didn't go through, return.\n\t\t\tif (newamount - currentamount) == 0:\n\t\t\t\tprint(\"Order for \" + str(amount) + \" shares of \" + stock + \" did not fill in time. Continuing.\")\n\t\t\t\treturn\n\t\t\t# Update algo\n\t\t\tnewcash = portfoliodata()[\"cash\"]\n\t\t\tself.cash -= (currentcash - newcash)\n\t\t\tself.stocks[stock] = self.stocks.get(stock,0) + (newamount - currentamount)\n\t\telse:\n\t\t\tself.cash -= cost * amount\n\t\t\tself.stocks[stock] = self.stocks.get(stock,0) + amount\n\t\t# Send Notification\n\t\tif notify_address != None:\n\t\t\tif amount >= 0:\n\t\t\t\tmessage = self.algodatetime().strftime(\"%Y-%m-%d %H|%M|%S\") + \" - \" + \\\n\t\t\t\t\t\t  self.__class__.__name__ + \" Buying \" + str(amount) + \" shares of \" + stock + \" at $\" + str(cost)\n\t\t\telse:\n\t\t\t\tmessage = self.algodatetime().strftime(\"%Y-%m-%d %H|%M|%S\") + \" - \" + \\\n\t\t\t\t\t\t  self.__class__.__name__ + \" Selling \" + str(abs(amount)) + \" shares of \" + stock + \" at $\" + str(cost)\n\t\t\tself.notify(message,notify_address)\n\t\tif verbose:\n\t\t\tif amount >= 0:\n\t\t\t\tprint( \"Buying \" + str(amount) + \" shares of \" + stock + \" at $\" + str(round(cost,2)))\n\t\t\telif amount < 0:\n\t\t\t\tprint( \"Selling \" + str(-amount) + \" shares of \" + stock + \" at $\" + str(round(cost,2)))\n\n\n\t# Buy or sell to reach a target fraction of the algorithm's total allocation\n\t# verbose = True to print out whenever an order is made\n\t# notify = \"example@gmail.com\" to send notification when an order is made (if True, it sends to yourself)\n\tdef orderfraction(self, stock:str, fraction:float, verbose:bool=False, notify_address:Optional[str]=None):\n\t\tcost = self.quote(stock)\n\t\tcurrentfraction = 0.0\n\t\tif stock in self.stocks:\n\t\t\tcurrentfraction = self.stocks[stock] * cost / self.value\n\t\tfractiondiff = fraction - currentfraction\n\t\tif fractiondiff < 0:\n\t\t\t# Min of (# required to reach target fraction) and (# of that stock owned)\n\t\t\tamount = min( round(-fractiondiff * self.value / cost), self.stocks.get(stock,0) )\n\t\t\treturn self.order(stock, -amount, verbose=verbose, notify_address=notify_address)\n\t\telse:\n\t\t\t# Min of (# required to reach target fraction) and (# that you can buy with your available cash)\n\t\t\tamount = min( math.floor(fractiondiff * self.value / cost), math.floor(self.cash / cost) )\n\t\t\treturn self.order(stock, amount, verbose=verbose, notify_address=notify_address)\n\n\n\t# Sells all held stocks\n\tdef sellall(self, verbose:bool=False, notify_address:Optional[str]=None):\n\t\tfor stock in self.stocks:\n\t\t\tself.orderfraction(stock, 0, verbose=verbose, notify_address=None)\n\n\n\t### HISTORY AND INDICATORS ###\n\n\n\t# Uses BROKER to get the current price of a stock\n\t# stock: stock symbol (string)\n\tdef quote(self, stock:str):\n\t\treturn price(stock)\n\n\n\t# Use Alpha Vantage to get the historical price data of a stock\n\t# stock: stock symbol (string)\n\t# interval: time interval between data points 'day','minute'\n\t# length: number of data points (default is only the last)\n\t# datatype: 'close','open','volume' (default close)\n\tdef history(self, stock:str, length:Union[int,Date]=1, datatype:str='close', interval:str='day'):\n\t\thist = None\n\t\twhile hist is None:\n\t\t\ttry:\t\n\t\t\t\t# Data from Alpaca\n\t\t\t\tif BROKER == 'alpaca':\n\t\t\t\t\tnextra = 0\n\t\t\t\t\tend = getdatetime().date() + datetime.timedelta(days=2)\n\t\t\t\t\t# Find start date\n\t\t\t\t\tif not isdate(length):\n\t\t\t\t\t\tlength = cast(int, length)\n\t\t\t\t\t\tif interval=='minute':\n\t\t\t\t\t\t\tstart = datetime.datetime.strptime( API.get_calendar(end=(self.algodatetime()+datetime.timedelta(days=1)).strftime(\"%Y-%m-%d\"))[-1-(length//500)-nextra].date.strftime(\"%Y-%m-%d\"), \"%Y-%m-%d\").date()\n\t\t\t\t\t\telse:\t\n\t\t\t\t\t\t\tstart = datetime.datetime.strptime( API.get_calendar(end=self.algodatetime().strftime(\"%Y-%m-%d\"))[-length-nextra].date.strftime(\"%Y-%m-%d\"), \"%Y-%m-%d\").date()\n\t\t\t\t\telse:\n\t\t\t\t\t\tstart = cast(datetime.date, length)\n\t\t\t\t\tlimit = 2500 if interval=='day' else 10\n\t\t\t\t\tframes = []\n\t\t\t\t\ttotaltime = (end-start).days\n\t\t\t\t\tlastsegstart = start\n\t\t\t\t\tfor k in range(totaltime // limit):\n\t\t\t\t\t\ttempstart = start + datetime.timedelta(days=limit*k+1)\n\t\t\t\t\t\ttempend = start + datetime.timedelta(days=limit*(k+1))\n\t\t\t\t\t\tlastsegstart = tempend + datetime.timedelta(days=1)\n\t\t\t\t\t\tframes.append(API.polygon.historic_agg(interval, stock, _from=tempstart.strftime(\"%Y-%m-%d\"), to=tempend.strftime(\"%Y-%m-%d\")).df)\n\t\t\t\t\tframes.append(API.polygon.historic_agg(interval, stock, _from=lastsegstart.strftime(\"%Y-%m-%d\"), to=end.strftime(\"%Y-%m-%d\")).df)\n\t\t\t\t\thist = pd.concat(frames)\n\t\t\t# Keep trying if there is a network error\n\t\t\texcept ValueError as err:\n\t\t\t\tlogging.warning(\"Trying to fetch historical data: %s\", err)\n\t\t\t\ttime.sleep(5)\n\t\t# Convert length to int\n\t\tif isdate(length):\n\t\t\tlength = datetolength(length,hist[datatype])\n\t\tif length is None:\n\t\t\tlength = len(hist)\n\t\t# Return desired length\n\t\treturn hist[datatype][-length:]\n\n\n\t# macd line: 12 day MA - 26 day MA\n\t# signal line: 9 period MA of the macd line\n\t# Returns MACD Indicator: (Signal - (FastMA - SlowMA))\n\tdef macd(self, stock:str, length:Union[int,Date]=1, \n\t\t\t\t   fastmawindow:int=12, slowmawindow:int=26, signalmawindow:int=9, \n\t\t\t\t   matype:int=1, datatype:str='close', interval:str='day'):\n\t\tif isdate(length):\n\t\t\tlength = len(tradingdays(length, self.algodatetime()))\n\t\tassert isinstance(length, int)\n\t\thist = self.history(stock,interval=interval,length=length+slowmawindow+signalmawindow,datatype=datatype)\n\t\tmd = trend.macd_diff(hist, n_fast=fastmawindow, n_slow=slowmawindow, n_sign=signalmawindow, fillna=False)\n\t\treturn md[-length:]\n\n\n\t# Returns the number of standard deviations that the price is from the moving average\n\t# 0 means the price is at the middle band\n\t# 1 means the price is at the upper band\n\t# -1 means the price is at the lower band\n\tdef bollinger(self, stock, length:Union[int,Date]=1, mawindow:int=20, ndev:int=2, \n\t\t\t\t\t\tmatype:int=1, datatype:str='close', interval:str='day'):\n\t\tif isdate(length):\n\t\t\tlength = len(tradingdays(length, self.algodatetime()))\n\t\tassert isinstance(length, int)\n\t\thist = self.history(stock,interval=interval,length=length+mawindow,datatype=datatype)\n\t\tupper = volatility.bollinger_hband(hist,mawindow,ndev,fillna=False)\n\t\tlower = volatility.bollinger_lband(hist,mawindow,ndev,fillna=False)\n\t\tmiddle = (upper + lower) / 2\n\t\tdev = (upper - lower) / 2\n\t\tbb = (hist - middle) / dev\n\t\treturn bb[-length:]\n\n\n\t# Shows market trends by looking at the average gain and loss in the window.\n\t# Transformed from a scale of [0,100] to [-1,1]\n\t# RSI > 0.2 means overbought (sell indicator), RSI < -0.2 means oversold (buy indicator)\n\tdef rsi(self, stock:str, length:Union[int,Date]=1, window:int=20, datatype:str='close', interval:str='day'):\n\t\tif isdate(length):\n\t\t\tlength = len(tradingdays(length, self.algodatetime()))\n\t\tassert isinstance(length, int)\n\t\thist = self.history(stock,interval=interval,length=length+window+1,datatype=datatype)\n\t\tr = momentum.rsi(pd.Series(np.array(hist)),n=window,fillna=False)\n\t\tr = (r - 50) / 50\n\t\tr.index = hist.index\n\t\treturn r[-length:]\n\n\n\t# Moving Average. matype = 0 means simple, matype = 1 means exponential\n\t# If data is given instead of a stock, then it will take the moving average of that\n\tdef ma(self, stock:Union[str,pd.Series], length:Union[int,Date]=1, mawindow:int=12, matype:int=0, datatype:str='close', interval:str='day'):\n\t\tif isdate(length):\n\t\t\tlength = len(tradingdays(length, self.algodatetime()))\n\t\tassert isinstance(length, int)\n\t\tif isinstance(stock,str):\n\t\t\thist = self.history(stock,interval=interval,length=length+mawindow,datatype=datatype)\n\t\telse:\n\t\t\thist = stock\n\t\tif matype == 0:\n\t\t\tma = volatility.bollinger_mavg(hist,n=mawindow,fillna=False)\n\t\telif matype == 1:\n\t\t\tma = trend.ema_indicator(hist,n=mawindow,fillna=False)\n\t\treturn ma[-length:]\n\n\n\t# The price compared to the low and the high within a window\n\t# Transformed from a scale of [0,100] to [-1,1]\n\t# STOCH > 0.3 means overbought (sell indicator), STOCH < -0.3 means oversold (buy indicator)\n\tdef stoch(self, stock, length:Union[int,Date]=1, window=14, interval='day'):\n\t\tif isdate(length):\n\t\t\tlength = len(tradingdays(length, self.algodatetime()))\n\t\tassert isinstance(length, int)\n\t\thigh = self.history(stock,interval=interval,length=length+window,datatype=\"high\")\n\t\tlow = self.history(stock,interval=interval,length=length+window,datatype=\"low\")\n\t\tclose = self.history(stock,interval=interval,length=length+window,datatype=\"close\")\n\t\ts = momentum.stoch(high=high,low=low,close=close,n=window,fillna=False)\n\t\ts = (s - 50) / 50\n\t\treturn s[-length:]\n\n\n\t# Returns the fraction change\n\t# If data is given instead of a stock, it returns the fraction change of that\n\tdef fractionchange(self, stock:Union[str,pd.Series], length:Union[int,Date]=1, \n\t\t\t\t\t\t\t datatype:str='close', interval:str='day'):\n\t\tif isdate(length):\n\t\t\tlength = len(tradingdays(length, self.algodatetime()))\n\t\tassert isinstance(length, int)\n\t\tif isinstance(stock,str):\n\t\t\thist = self.history(stock,interval=interval,length=length+1,datatype=datatype)\n\t\telse:\n\t\t\thist = pd.Series(stock)\n\t\t\tlength = len(hist)-1\n\t\tchanges = hist.pct_change()\n\t\tchanges = changes.rename(\"fraction Change\")\n\t\treturn changes[-length:]\n\n\n\t# The google trends for interest over time in a given query\n\t# interval: hour, day (changes to weekly if length is too long)\n\t# Returns Series of numbers from 0 to 100 for relative interest over time\n\t# WARNING: Data is for all days (other data is just trading days)\n\tdef google(self, query:str, length:Union[int,Date]=100, financial:bool=True, interval:str='day'):\n\t\tenddate = self.algodatetime()\n\t\tif not isinstance(length, int):\n\t\t\tstartdate = length\n\t\telse:\n\t\t\tlength += 1\n\t\t\tif interval == 'day':\n\t\t\t\tstartdate = enddate - datetime.timedelta(days=length)\n\t\t\telif interval == 'hour':\n\t\t\t\tstartdate = enddate - datetime.timedelta(hours=length)\n\t\tif interval == 'day':\n\t\t\tstartdatestr = startdate.strftime(\"%Y-%m-%d\")\n\t\t\tenddatestr = enddate.strftime(\"%Y-%m-%d\")\n\t\telif interval == 'hour':\n\t\t\tstartdatestr = startdate.strftime(\"%Y-%m-%dT%H\")\n\t\t\tenddatestr = enddate.strftime(\"%Y-%m-%dT%H\")\n\t\tcategory = 0\n\t\tif financial:\n\t\t\tcategory=1138\n\t\tPYTRENDS.build_payload([query], cat=category, timeframe=startdatestr + \" \" + enddatestr, geo='US')\n\t\treturn PYTRENDS.interest_over_time()[query]\n\n\n\t# Send a string or a dictionary to an email or a phone number\n\tdef notify(self, message:str, recipient:Optional[str]=None):\n\t\t# Dont send messages in backtesting\n\t\tif isinstance(self,Backtester):\n\t\t\treturn\n\t\tif recipient is None:\n\t\t\trecipient = CREDS['Email Address']\n\t\t# Send current state of algorithm by default\n\t\tif len(message) == 0:\n\t\t\texclude = {\"times\",\"chartminute\",\"chartminutetimes\",\"chartday\",\"chartdaytimes\",\"cache\",\"stoplosses\",\"stopgains\",\"limitlow\",\"limithigh\"}\n\t\t\tmessagedict = {key: value for (key,value) in self.__dict__.items() if key not in exclude}\n\t\tif type(message) == dict:\n\t\t\tmessage = dict2string(messagedict)\n\t\tgmail_user = CREDS['Email Address']\n\t\tgmail_password = CREDS['Email Password']\n\t\t# If recipient is an email address\n\t\tif \"@\" in recipient:\n\t\t\ttry:\n\t\t\t\temailserver = smtplib.SMTP_SSL(\"smtp.gmail.com\", 465)\n\t\t\t\temailserver.ehlo()\n\t\t\t\temailserver.login(gmail_user, gmail_password)\n\t\t\t\temailserver.sendmail(gmail_user, recipient, message)\n\t\t\t\temailserver.close()\n\t\t\texcept Exception as err:\n\t\t\t\tlogging.error(\"Failed to send email notification: %s\", err)\n\t\t# If recipient is an phone number\n\t\telse:\n\t\t\ttextdomains = [\"@tmomail.net\",\"@vtext.com\",\"@mms.att.net\",\"@pm.sprint.com\"]\n\t\t\ttry:\n\t\t\t\ttextserver = smtplib.SMTP('smtp.gmail.com',587)\n\t\t\t\ttextserver.starttls()\n\t\t\t\ttextserver.login(gmail_user, gmail_password)\n\t\t\t\tfor domain in textdomains:\n\t\t\t\t\ttextserver.sendmail(gmail_user, recipient+domain, message)\n\t\t\t\ttextserver.close()\n\t\t\texcept Exception as err:\n\t\t\t\tlogging.error(\"Failed to send sms notification: %s\", err)\n\n\n\tdef __str__(self):\n\t\tvarsdict = self.__dict__.copy()\n\t\tdel varsdict[\"chartminutetimes\"]\n\t\tdel varsdict[\"chartminute\"]\n\t\tdel varsdict[\"cache\"]\n\t\treturn dict2string(varsdict)\n\n\n\nclass Backtester(Algorithm):\n\tdef __init__(self, capital:float=10000.0, benchmark:Union[str,List[str]]='SPY', logging:str='day'):\n\t\tsuper(Backtester, self).__init__()\n\t\t# Constants\n\t\tself.logging:str = logging\n\t\tself.startingcapital:float = capital\n\t\tself.cash:float = capital\n\t\tself.exptime:int = 450\n\t\t# Variables that change automatically\n\t\tself.datetime:Optional[datetime.datetime] = None\n\t\tself.alpha:Optional[float] = None\n\t\tself.beta:Optional[float] = None\n\t\tself.volatility:Optional[float] = None\n\t\tself.sharpe:Optional[float] = None\n\t\tself.maxdrawdown:Optional[float] = None\n\t\t# Variables that the user can change\n\t\tself.benchmark:Union[str,List[str]] = benchmark\n\n\n\t# Starts the backtest (calls startbacktest in a new thread)\n\t# Times can be in the form of datetime objects or tuples (day,month,year)\n\tdef start(self, start:Union[Date,Tuple[int,int,int],str]=datetime.datetime.today().date()-datetime.timedelta(days=90),\n\t\t\t\t\tend:Union[Date,Tuple[int,int,int],str]=datetime.datetime.today().date(), \n\t\t\t\t\tlogging:str='day'):\n\t\tbacktestthread = threading.Thread(target=self.backtest, args=(start, end, logging))\n\t\tbacktestthread.start()\n\n\n\t# Starts the backtest\n\tdef backtest(self, start:Union[Date,Sequence[int],str]=datetime.datetime.today().date()-datetime.timedelta(days=90),\n\t\t\t\t\t   end:Union[Date,Sequence[int],str]=datetime.datetime.today().date(), \n\t\t\t\t\t   logging:str='day'):\n\t\tif isinstance(start, str):\n\t\t\tstart = tuple([int(x) for x in start.split(\"-\")])\n\t\tif isinstance(end,str):\n\t\t\tend = tuple([int(x) for x in end.split(\"-\")])\n\t\tif isinstance(start,list) or isinstance(start,tuple):\n\t\t\tstart = datetime.datetime(start[0], start[1], start[2], 0, 0)\n\t\tif isinstance(end,list) or isinstance(end,tuple):\n\t\t\tend = datetime.datetime(end[0], end[1], end[2], 23, 59)\n\t\tstart = cast(Date, start)\n\t\tend = cast(Date, end)\n\t\tdays = tradingdays(start=start, end=end)\n\t\tself.logging = logging\n\t\tself.datetime = cast(Optional[datetime.datetime], start)\n\t\tself.update()\n\t\tfor day in days:\n\t\t\tif self.logging == 'minute':\n\t\t\t\tfor minute in range(391):\n\t\t\t\t\t# Set datetime of algorithm\n\t\t\t\t\tself.datetime = datetime.datetime.combine(day, datetime.time(9, 30)) + datetime.timedelta(minutes=minute)\n\t\t\t\t\t# Exit if that datetime is in the future\n\t\t\t\t\tif self.algodatetime() >= getdatetime():\n\t\t\t\t\t\tbreak\n\t\t\t\t\tif self.algodatetime() == self.nextruntime():\n\t\t\t\t\t\t# Update algorithm cash and value\n\t\t\t\t\t\tself.update()\n\t\t\t\t\t\t# Run algorithm\n\t\t\t\t\t\tself.run()\n\t\t\t\t\t# Log algorithm cash and value\n\t\t\t\t\tself.updatemin()\n\t\t\t\t\t# Check limit order thresholds\n\t\t\t\t\tself.checkthresholds()\n\t\t\t\t# Log algorithm cash and value\n\t\t\t\tself.updateday()\n\t\t\telif self.logging == 'day':\n\t\t\t\tcheckedthresholds = False\n\t\t\t\t# While it's still the current trading day\n\t\t\t\tself.datetime = datetime.datetime.combine(day, datetime.time(0,0))\n\t\t\t\twhile self.nextruntime().date() == day.date():\n\t\t\t\t\t# Set datetime of algorithm\n\t\t\t\t\tself.datetime = self.nextruntime()\n\t\t\t\t\t# Exit if that datetime is in the future\n\t\t\t\t\tif self.algodatetime() >= getdatetime():\n\t\t\t\t\t\tbreak\n\t\t\t\t\t# If algorithm is running at the end of the day, check thresholds before running it\n\t\t\t\t\tif self.algodatetime().time() == datetime.time(15,59):\n\t\t\t\t\t\tself.checkthresholds()\n\t\t\t\t\t\tcheckedthresholds = True\n\t\t\t\t\t# Update algorithm cash and value\n\t\t\t\t\tself.update()\n\t\t\t\t\t# Run algorithm\n\t\t\t\t\tself.run()\n\t\t\t\t\t# Proceed to next minute\n\t\t\t\t\tself.datetime += datetime.timedelta(minutes=1)\n\t\t\t\t# Check limit order thresholds if it hasn't already been done\n\t\t\t\tif not checkedthresholds:\n\t\t\t\t\tself.checkthresholds()\n\t\t\t\t# Log algorithm cash and value\n\t\t\t\tself.updateday()\n\t\tself.riskmetrics()\n\n\n\tdef updatemin(self):\n\t\tself.update()\n\t\tself.chartminute.append(self.value)\n\t\tself.chartminutetimes.append(self.algodatetime())\n\n\n\tdef updateday(self):\n\t\tself.update()\n\t\tself.chartday.append(self.value)\n\t\tself.chartdaytimes.append(self.algodatetime())\n\n\n\tdef update(self):\n\t\tstockvalue = 0\n\t\tfor stock, amount in list(self.stocks.items()):\n\t\t\tif amount == 0:\n\t\t\t\tdel self.stocks[stock]\n\t\t\telse:\n\t\t\t\tstockvalue += self.quote(stock) * amount\n\t\tself.value = self.cash + stockvalue\n\t\tself.value = round(self.value, 2)\n\n\n\tdef algodatetime(self):\n\t\tif self.datetime is None:\n\t\t\treturn getdatetime()\n\t\treturn self.datetime\n\n\n\tdef checkthreshold(self, stock:str):\n\t\t# Enforce Thresholds\n\t\tif self.logging == 'minute': # Check if the current price activates a threshold\n\t\t\tprice = self.quote(stock)\n\t\t\tif (stock in self.stocks) and (stock in self.stoplosses) and (price <= self.stoplosses[stock][0]):\n\t\t\t\tprint(\"Stoploss for \" + stock + \" kicking in at $\" + str(round(self.stoplosses[stock][0],2)))\n\t\t\t\tself.orderfraction(stock,self.stoplosses[stock][1],verbose=True)\n\t\t\t\tdel self.stoplosses[stock]\n\t\t\telif (stock in self.stocks) and (stock in self.stopgains) and (price >= self.stopgains[stock][0]):\n\t\t\t\tprint(\"Stopgain for \" + stock + \" kicking in at $\" + str(round(self.stopgains[stock][0],2)))\n\t\t\t\tself.orderfraction(stock,self.stopgains[stock][1],verbose=True)\n\t\t\t\tdel self.stopgains[stock]\n\t\t\telif (stock in self.limitlow) and (price <= self.limitlow[stock][0]):\n\t\t\t\tprint(\"Limit order \" + stock + \" activated at $\" + str(round(self.limitlow[stock][0],2)))\n\t\t\t\tself.orderfraction(stock,self.limitlow[stock][1],verbose=True)\n\t\t\t\tdel self.limitlow[stock]\n\t\t\telif (stock in self.limithigh) and (price >= self.limithigh[stock][0]):\n\t\t\t\tprint(\"Limit order \" + stock + \" activated at $\" + str(round(self.limithigh[stock][0],2)))\n\t\t\t\tself.orderfraction(stock,self.limithigh[stock][1],verbose=True)\n\t\t\t\tdel self.limithigh[stock]\n\t\telse: # Check if the day's low or high activates a threshold\n\t\t\tif (stock in self.stocks) and (stock in self.stoplosses) and (self.history(stock,datatype='low')[0] <= self.stoplosses[stock][0]):\n\t\t\t\tprint(\"Stoploss for \" + stock + \" kicking in at $\" + str(round(self.stoplosses[stock][0],2)))\n\t\t\t\tself.orderfraction(stock, self.stoplosses[stock][1], cost=self.stoplosses[stock][0], verbose=True)\n\t\t\t\tdel self.stoplosses[stock]\n\t\t\telif (stock in self.stocks) and (stock in self.stopgains) and (self.history(stock,datatype='high')[0] >= self.stopgains[stock][0]):\n\t\t\t\tprint(\"Stopgain for \" + stock + \" kicking in at $\" + str(round(self.stopgains[stock][0],2)))\n\t\t\t\tself.orderfraction(stock, self.stopgains[stock][1], cost=self.stopgains[stock][0], verbose=True)\n\t\t\t\tdel self.stopgains[stock]\n\t\t\telif (stock in self.limitlow) and (self.history(stock,datatype='low')[0] <= self.limitlow[stock][0]):\n\t\t\t\tprint(\"Limit order \" + stock + \" activated at $\" + str(round(self.limitlow[stock][0],2)))\n\t\t\t\tself.orderfraction(stock, self.limitlow[stock][1], cost=self.limitlow[stock][0], verbose=True)\n\t\t\t\tdel self.limitlow[stock]\n\t\t\telif (stock in self.limithigh) and (self.history(stock,datatype='high')[0] >= self.limithigh[stock][0]):\n\t\t\t\tprint(\"Limit order \" + stock + \" activated at $\" + str(round(self.limithigh[stock][0],2)))\n\t\t\t\tself.orderfraction(stock, self.limithigh[stock][1], cost=self.limithigh[stock][0], verbose=True)\n\t\t\t\tdel self.limithigh[stock]\n\n\n\tdef checkthresholds(self):\n\t\tfor stock in self.stocks:\n\t\t\tself.checkthreshold(stock)\n\n\n\tdef quote(self, stock:str):\n\t\tif self.algodatetime().time() <= datetime.time(9,30,0,0):\n\t\t\treturn self.history(stock, interval='day', datatype='open')[0].item()\n\t\telif self.algodatetime().time() >= datetime.time(15,59,0,0):\n\t\t\treturn self.history(stock, interval='day', datatype='close')[0].item()\n\t\treturn self.history(stock, interval=self.logging, datatype='close')[0].item()\n\n\n\tdef history(self, stock:str, length:Union[int,Date]=1, datatype:str='close', interval:str='day'):\n\t\tkey = (stock, interval)\n\t\tcache = self.cache.get(key)\n\t\tif cache is not None:\n\t\t\thist, dateidx, lastidx, time = cache \n\t\tif cache is None or (interval=='day' and (getdatetime()-time).days > 0) or (interval=='minute' and (getdatetime()-time).seconds > 60):\n\t\t\thist = None\n\t\t\twhile hist is None:\n\t\t\t\ttry:\n\t\t\t\t\tif BROKER == 'alpaca': # Data from Alpaca\n\t\t\t\t\t\tnextra = 100 if interval=='day' else 1 # Number of extra samples before the desired range\n\t\t\t\t\t\tend = getdatetime().date() + datetime.timedelta(days=2)\n\t\t\t\t\t\t# Find start date\n\t\t\t\t\t\tif not isdate(length):\n\t\t\t\t\t\t\tlength = cast(int, length)\n\t\t\t\t\t\t\tif interval=='minute':\n\t\t\t\t\t\t\t\tstart = datetime.datetime.strptime( API.get_calendar(end=(self.algodatetime()+datetime.timedelta(days=1)).strftime(\"%Y-%m-%d\"))[-1-(length//500)-nextra].date.strftime(\"%Y-%m-%d\"), \"%Y-%m-%d\").date()\n\t\t\t\t\t\t\telse:\t\n\t\t\t\t\t\t\t\tstart = datetime.datetime.strptime( API.get_calendar(end=self.algodatetime().strftime(\"%Y-%m-%d\"))[-length-nextra].date.strftime(\"%Y-%m-%d\"), \"%Y-%m-%d\").date()\n\t\t\t\t\t\telse:\n\t\t\t\t\t\t\tstart = cast(datetime.date, length)\n\t\t\t\t\t\tlimit = 2500 if interval=='day' else 10\n\t\t\t\t\t\tframes = []\n\t\t\t\t\t\ttotaltime = (end-start).days\n\t\t\t\t\t\tlastsegstart = start\n\t\t\t\t\t\tfor k in range(totaltime // limit):\n\t\t\t\t\t\t\ttempstart = start + datetime.timedelta(days=limit*k+1)\n\t\t\t\t\t\t\ttempend = start + datetime.timedelta(days=limit*(k+1))\n\t\t\t\t\t\t\tlastsegstart = tempend + datetime.timedelta(days=1)\n\t\t\t\t\t\t\tframes.append(API.polygon.historic_agg(interval, stock, _from=tempstart.strftime(\"%Y-%m-%d\"), to=tempend.strftime(\"%Y-%m-%d\")).df)\n\t\t\t\t\t\tframes.append(API.polygon.historic_agg(interval, stock, _from=lastsegstart.strftime(\"%Y-%m-%d\"), to=end.strftime(\"%Y-%m-%d\")).df)\n\t\t\t\t\t\thist = pd.concat(frames)\n\t\t\t\t# Pause and try again if there is an error\n\t\t\t\texcept ValueError as err:\n\t\t\t\t\tlogging.warning('Trying to fetch historical backtest data: %s', err)\n\t\t\t\t\ttime.sleep(5)\n\t\t\t# Save To Cache\n\t\t\tdateidx = dateidxs(hist)\n\t\t\tlastidx = nearestidx(self.algodatetime(), dateidx)\n\t\t\tself.cache[key] = [hist, dateidx, lastidx, getdatetime()]\n\t\t# Look for current datetime in cached data\n\t\ttry:\n\t\t\tidx = nearestidx(self.algodatetime(), dateidx, lastchecked=lastidx)\n\t\t\tif isdate(length):\n\t\t\t\tlength = cast(Date, length)\n\t\t\t\tlength = datetolength(length,dateidx,idx)\n\t\t\t# Convert length to int\n\t\t\tif length is None:\n\t\t\t\tlength = len(hist)\n\t\t\tif idx-length+1 < 0:\n\t\t\t\tlogging.error('Not enough historical data')\n\t\texcept: # Happens if we request data farther back than before\n\t\t\tdel self.cache[key]\n\t\t\treturn self.history(stock, interval=interval, length=length, datatype=datatype)\n\t\tself.cache[key][2] = idx\n\t\t\n\t\treturn hist[datatype][idx-length+1 : idx+1]\n\t\t\n\n\tdef order(self, stock:str, amount:int, ordertype:str=\"market\",\n\t\t\t\t\tstop:Optional[float]=None, limit:Optional[float]=None, verbose:bool=False,\n\t\t\t\t\tnotify_address:Optional[str]=None, cost:Optional[float]=None):\n\t\t# Guard condition for sell\n\t\tif amount < 0 and (stock in self.stocks) and (-amount > self.stocks[stock]):\n\t\t\tprint((\"Warning: attempting to sell more shares (\" + str(amount) + \") than are owned (\" + \n\t\t\t\tstr(self.stocks.get(stock,0)) + \") of \" + stock))\n\t\t\treturn None\n\t\tif cost is None:\n\t\t\tcost = self.quote(stock)\n\t\tassert isinstance(cost, float)\n\t\t# Guard condition for buy\n\t\tif cost * amount > self.cash:\n\t\t\tprint((\"Warning: not enough cash ($\" + str(round(self.cash,2)) + \") in algorithm to buy \" + str(\n\t\t\t\tamount) + \" shares of \" + stock))\n\t\t\treturn None\n\t\tif amount == 0:\n\t\t\treturn None\n\t\t# Immediately execute market order\n\t\tif ordertype == 'market':\n\t\t\tself.stocks[stock] = self.stocks.get(stock, 0) + amount\n\t\t\tself.cash -= cost * amount\n\t\t\tself.cash = round(self.cash,2)\n\t\t\tif verbose:\n\t\t\t\tif amount >= 0:\n\t\t\t\t\tprint( \"Buying \" + str(amount) + \" shares of \" + stock + \" at $\" + str(round(cost,2)))\n\t\t\t\telse:\n\t\t\t\t\tprint( \"Selling \" + str(-amount) + \" shares of \" + stock + \" at $\" + str(round(cost,2)))\n\t\t# Simulate stop and limit orders\n\t\telif ordertype == 'stop' or ordertype == 'limit':\n\t\t\tif limit is None and stop is None:\n\t\t\t\tlogging.error(\"You need to specify a stop or limit price for stop/limit orders\")\n\t\t\t\treturn\n\t\t\tprice = limit if (limit is not None) else stop\n\t\t\tassert isinstance(price, float)\n\t\t\tchange = (price - cost) / cost\n\t\t\tperc = (self.stocks.get(stock,0) + amount) * cost / self.value\n\t\t\tif amount > 0:\n\t\t\t\tself.limitbuy(stock, change, perc)\n\t\t\telse:\n\t\t\t\tself.stopsell(stock, change, perc)\n\t\t# TODO: Test stop/limit orders in backtest.\n\n\n\tdef orderfraction(self, stock, fraction, ordertype=\"market\", stop=None, limit=None, verbose=False, notify_address=None, cost=None):\n\t\tif cost is None:\n\t\t\tcost = self.quote(stock)\n\t\tcurrentfraction = self.stocks.get(stock,0) * cost / self.value\n\t\tfractiondiff = fraction - currentfraction\n\t\tif fractiondiff < 0:\n\t\t\t# Min of (# required to reach target fraction) and (# of that stock owned)\n\t\t\tamount = min( round(-fractiondiff * self.value / cost), self.stocks.get(stock,0) )\n\t\t\treturn self.order(stock=stock, amount=-amount, \\\n\t\t\t\t\t\t\t  ordertype=ordertype, stop=stop, limit=limit, \\\n\t\t\t\t\t\t\t  verbose=verbose, notify_address=notify_address, cost=cost)\n\t\telse:\n\t\t\t# Min of (# required to reach target fraction) and (# that you can buy with your available cash)\n\t\t\tamount = min( math.floor(fractiondiff * self.value / cost), math.floor(self.cash / cost) )\n\t\t\treturn self.order(stock=stock, amount=amount, \\\n\t\t\t\t\t\t\t  ordertype=ordertype, stop=stop, limit=limit, \\\n\t\t\t\t\t\t\t  verbose=verbose, notify_address=notify_address, cost=cost)\n\n\n# Converts an Algorithm to a BacktestAlgorithm, allowing you to backtest it\ndef backtester(algo:Algorithm, capital:Optional[float]=None, benchmark:Optional[Union[str,List[str]]]=None):\n\t# Convert\n\tBacktestAlgorithm = type('BacktestAlgorithm', (Backtester,), dict((algo.__class__).__dict__))\n\talgoback = BacktestAlgorithm()\n\talgoback.__dict__ = algo.__dict__\n\t# Set Capital\n\tif capital is None:\n\t\tif algoback.value == 0:\n\t\t\talgoback.cash = 10000.0\n\telse:\n\t\talgoback.cash = capital\n\talgoback.value = algoback.cash\n\t# Set Benchmark\n\tif benchmark is not None:\n\t\talgoback.benchmark = benchmark\n\telif 'benchmark' in algo.__dict__:\n\t\talgoback.benchmark = algo.benchmark\n\telse:\n\t\talgoback.benchmark = \"SPY\"\n\treturn algoback\n\n\n",
+			"file": "trader/Algorithm.py",
+			"file_size": 35072,
+			"file_write_time": 132091769784335609,
+			"settings":
+			{
+				"buffer_size": 35071,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "trader/Util.py",
+			"settings":
+			{
+				"buffer_size": 10082,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
 			"file": "trader/AlgoManager.py",
 			"settings":
 			{
-				"buffer_size": 12520,
+				"buffer_size": 8859,
 				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		},
 		{
-			"file": "trader/Algorithm.py",
+			"file": "trader/Util.py",
 			"settings":
 			{
-				"buffer_size": 44366,
+				"buffer_size": 10082,
 				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		},
 		{
-			"file": "examples/yavois.py",
+			"file": "trader/Setup.py",
 			"settings":
 			{
-				"buffer_size": 3024,
+				"buffer_size": 1692,
 				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		},
 		{
-			"file": "Trader.sublime-project",
+			"file": "trader/AlgoGUI.py",
 			"settings":
 			{
-				"buffer_size": 311,
+				"buffer_size": 9318,
 				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		},
 		{
-			"file": "examples/trendsalgo.py",
+			"file": "examples/run.py",
 			"settings":
 			{
-				"buffer_size": 631,
+				"buffer_size": 535,
 				"encoding": "UTF-8",
 				"line_ending": "Unix"
-			}
-		},
-		{
-			"contents": "Globals:\n\n__builtins__ ┃ {'ord': <built-in function ord>, 'TabError': <class 'TabError'>, 'id': <built-in function id>, 'bytes': <class 'bytes'>, 'EnvironmentError': <class 'OSError'>, 'ConnectionResetError': <class 'ConnectionResetError'>, 'StopIteration': <class 'StopIteration'>, 'ConnectionAbortedError': <class 'ConnectionAbortedError'>, 'IOError': <class 'OSError'>, 'min': <built-in function min>, 'NameError': <class 'NameError'>, 'delattr': <built-in function delattr>, 'len': <built-in function len>, 'UnicodeEncodeError': <class 'UnicodeEncodeError'>, 'NotImplemented': NotImplemented, 'bool': <class 'bool'>, 'float': <class 'float'>, 'IndentationError': <class 'IndentationError'>, 'ZeroDivisionError': <class 'ZeroDivisionError'>, 'compile': <built-in function compile>, 'type': <class 'type'>, 'SystemExit': <class 'SystemExit'>, 'FutureWarning': <class 'FutureWarning'>, 'getattr': <built-in function getattr>, 'TypeError': <class 'TypeError'>, 'RuntimeError': <class 'RuntimeError'>, 'issubclass': <built-in function issubclass>, 'abs': <built-in function abs>, 'sum': <built-in function sum>, '__import__': <built-in function __import__>, 'iter': <built-in function iter>, 'object': <class 'object'>, 'ResourceWarning': <class 'ResourceWarning'>, 'filter': <class 'filter'>, 'IsADirectoryError': <class 'IsADirectoryError'>, 'hasattr': <built-in function hasattr>, 'BytesWarning': <class 'BytesWarning'>, 'PermissionError': <class 'PermissionError'>, 'ImportError': <class 'ImportError'>, 'exec': <built-in function exec>, 'Exception': <class 'Exception'>, 'slice': <class 'slice'>, 'classmethod': <class 'classmethod'>, 'PendingDeprecationWarning': <class 'PendingDeprecationWarning'>, 'UnicodeWarning': <class 'UnicodeWarning'>, 'tuple': <class 'tuple'>, 'memoryview': <class 'memoryview'>, 'Ellipsis': Ellipsis, 'SystemError': <class 'SystemError'>, 'super': <class 'super'>, 'zip': <class 'zip'>, 'KeyError': <class 'KeyError'>, 'sorted': <built-in function sorted>, 'LookupError': <class 'LookupError'>, 'locals': <built-in function locals>, 'isinstance': <built-in function isinstance>, 'OSError': <class 'OSError'>, 'ascii': <built-in function ascii>, '__doc__': \"Built-in functions, exceptions, and other objects.\\n\\nNoteworthy: None is the `nil' object; Ellipsis represents `...' in slices.\", 'ReferenceError': <class 'ReferenceError'>, 'complex': <class 'complex'>, 'SyntaxError': <class 'SyntaxError'>, 'DeprecationWarning': <class 'DeprecationWarning'>, 'repr': <built-in function repr>, 'TimeoutError': <class 'TimeoutError'>, 'round': <built-in function round>, 'GeneratorExit': <class 'GeneratorExit'>, 'ChildProcessError': <class 'ChildProcessError'>, 'ConnectionError': <class 'ConnectionError'>, 'map': <class 'map'>, '__build_class__': <built-in function __build_class__>, 'InterruptedError': <class 'InterruptedError'>, 'True': True, 'BaseException': <class 'BaseException'>, 'AssertionError': <class 'AssertionError'>, 'None': None, 'bytearray': <class 'bytearray'>, 'hash': <built-in function hash>, 'AttributeError': <class 'AttributeError'>, 'Warning': <class 'Warning'>, 'NotADirectoryError': <class 'NotADirectoryError'>, 'format': <built-in function format>, 'FloatingPointError': <class 'FloatingPointError'>, 'property': <class 'property'>, 'callable': <built-in function callable>, 'UnicodeError': <class 'UnicodeError'>, 'reversed': <class 'reversed'>, 'BlockingIOError': <class 'BlockingIOError'>, 'chr': <built-in function chr>, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, 'input': <built-in function input>, 'FileExistsError': <class 'FileExistsError'>, 'oct': <built-in function oct>, 'all': <built-in function all>, 'max': <built-in function max>, 'BrokenPipeError': <class 'BrokenPipeError'>, 'ImportWarning': <class 'ImportWarning'>, 'NotImplementedError': <class 'NotImplementedError'>, 'globals': <built-in function globals>, 'EOFError': <class 'EOFError'>, 'frozenset': <class 'frozenset'>, 'hex': <built-in function hex>, 'UnboundLocalError': <class 'UnboundLocalError'>, 'next': <built-in function next>, 'ArithmeticError': <class 'ArithmeticError'>, 'vars': <built-in function vars>, 'setattr': <built-in function setattr>, 'print': <built-in function print>, 'any': <built-in function any>, 'ConnectionRefusedError': <class 'ConnectionRefusedError'>, 'UnicodeDecodeError': <class 'UnicodeDecodeError'>, 'UserWarning': <class 'UserWarning'>, 'MemoryError': <class 'MemoryError'>, 'staticmethod': <class 'staticmethod'>, 'int': <class 'int'>, 'OverflowError': <class 'OverflowError'>, 'IndexError': <class 'IndexError'>, 'enumerate': <class 'enumerate'>, 'set': <class 'set'>, 'list': <class 'list'>, 'dir': <built-in function dir>, 'UnicodeTranslateError': <class 'UnicodeTranslateError'>, 'divmod': <built-in function divmod>, 'eval': <built-in function eval>, 'str': <class 'str'>, 'open': <built-in function open>, 'pow': <built-in function pow>, '__debug__': True, 'KeyboardInterrupt': <class 'KeyboardInterrupt'>, '__package__': None, 'False': False, 'FileNotFoundError': <class 'FileNotFoundError'>, 'ValueError': <class 'ValueError'>, 'dict': <class 'dict'>, 'BufferError': <class 'BufferError'>, 'bin': <built-in function bin>, 'SyntaxWarning': <class 'SyntaxWarning'>, '__name__': 'builtins', 'range': <class 'range'>, 'RuntimeWarning': <class 'RuntimeWarning'>, 'ProcessLookupError': <class 'ProcessLookupError'>}\n__file__     ┃ '/Users/ryko/Desktop/Projects/DesktopTrader/examples/trendsalgo.py'\n__name__     ┃ '__main__'\n\nLocals:\n\n__builtins__ ┃ {'ord': <built-in function ord>, 'TabError': <class 'TabError'>, 'id': <built-in function id>, 'bytes': <class 'bytes'>, 'EnvironmentError': <class 'OSError'>, 'ConnectionResetError': <class 'ConnectionResetError'>, 'StopIteration': <class 'StopIteration'>, 'ConnectionAbortedError': <class 'ConnectionAbortedError'>, 'IOError': <class 'OSError'>, 'min': <built-in function min>, 'NameError': <class 'NameError'>, 'delattr': <built-in function delattr>, 'len': <built-in function len>, 'UnicodeEncodeError': <class 'UnicodeEncodeError'>, 'NotImplemented': NotImplemented, 'bool': <class 'bool'>, 'float': <class 'float'>, 'IndentationError': <class 'IndentationError'>, 'ZeroDivisionError': <class 'ZeroDivisionError'>, 'compile': <built-in function compile>, 'type': <class 'type'>, 'SystemExit': <class 'SystemExit'>, 'FutureWarning': <class 'FutureWarning'>, 'getattr': <built-in function getattr>, 'TypeError': <class 'TypeError'>, 'RuntimeError': <class 'RuntimeError'>, 'issubclass': <built-in function issubclass>, 'abs': <built-in function abs>, 'sum': <built-in function sum>, '__import__': <built-in function __import__>, 'iter': <built-in function iter>, 'object': <class 'object'>, 'ResourceWarning': <class 'ResourceWarning'>, 'filter': <class 'filter'>, 'IsADirectoryError': <class 'IsADirectoryError'>, 'hasattr': <built-in function hasattr>, 'BytesWarning': <class 'BytesWarning'>, 'PermissionError': <class 'PermissionError'>, 'ImportError': <class 'ImportError'>, 'exec': <built-in function exec>, 'Exception': <class 'Exception'>, 'slice': <class 'slice'>, 'classmethod': <class 'classmethod'>, 'PendingDeprecationWarning': <class 'PendingDeprecationWarning'>, 'UnicodeWarning': <class 'UnicodeWarning'>, 'tuple': <class 'tuple'>, 'memoryview': <class 'memoryview'>, 'Ellipsis': Ellipsis, 'SystemError': <class 'SystemError'>, 'super': <class 'super'>, 'zip': <class 'zip'>, 'KeyError': <class 'KeyError'>, 'sorted': <built-in function sorted>, 'LookupError': <class 'LookupError'>, 'locals': <built-in function locals>, 'isinstance': <built-in function isinstance>, 'OSError': <class 'OSError'>, 'ascii': <built-in function ascii>, '__doc__': \"Built-in functions, exceptions, and other objects.\\n\\nNoteworthy: None is the `nil' object; Ellipsis represents `...' in slices.\", 'ReferenceError': <class 'ReferenceError'>, 'complex': <class 'complex'>, 'SyntaxError': <class 'SyntaxError'>, 'DeprecationWarning': <class 'DeprecationWarning'>, 'repr': <built-in function repr>, 'TimeoutError': <class 'TimeoutError'>, 'round': <built-in function round>, 'GeneratorExit': <class 'GeneratorExit'>, 'ChildProcessError': <class 'ChildProcessError'>, 'ConnectionError': <class 'ConnectionError'>, 'map': <class 'map'>, '__build_class__': <built-in function __build_class__>, 'InterruptedError': <class 'InterruptedError'>, 'True': True, 'BaseException': <class 'BaseException'>, 'AssertionError': <class 'AssertionError'>, 'None': None, 'bytearray': <class 'bytearray'>, 'hash': <built-in function hash>, 'AttributeError': <class 'AttributeError'>, 'Warning': <class 'Warning'>, 'NotADirectoryError': <class 'NotADirectoryError'>, 'format': <built-in function format>, 'FloatingPointError': <class 'FloatingPointError'>, 'property': <class 'property'>, 'callable': <built-in function callable>, 'UnicodeError': <class 'UnicodeError'>, 'reversed': <class 'reversed'>, 'BlockingIOError': <class 'BlockingIOError'>, 'chr': <built-in function chr>, '__loader__': <class '_frozen_importlib.BuiltinImporter'>, 'input': <built-in function input>, 'FileExistsError': <class 'FileExistsError'>, 'oct': <built-in function oct>, 'all': <built-in function all>, 'max': <built-in function max>, 'BrokenPipeError': <class 'BrokenPipeError'>, 'ImportWarning': <class 'ImportWarning'>, 'NotImplementedError': <class 'NotImplementedError'>, 'globals': <built-in function globals>, 'EOFError': <class 'EOFError'>, 'frozenset': <class 'frozenset'>, 'hex': <built-in function hex>, 'UnboundLocalError': <class 'UnboundLocalError'>, 'next': <built-in function next>, 'ArithmeticError': <class 'ArithmeticError'>, 'vars': <built-in function vars>, 'setattr': <built-in function setattr>, 'print': <built-in function print>, 'any': <built-in function any>, 'ConnectionRefusedError': <class 'ConnectionRefusedError'>, 'UnicodeDecodeError': <class 'UnicodeDecodeError'>, 'UserWarning': <class 'UserWarning'>, 'MemoryError': <class 'MemoryError'>, 'staticmethod': <class 'staticmethod'>, 'int': <class 'int'>, 'OverflowError': <class 'OverflowError'>, 'IndexError': <class 'IndexError'>, 'enumerate': <class 'enumerate'>, 'set': <class 'set'>, 'list': <class 'list'>, 'dir': <built-in function dir>, 'UnicodeTranslateError': <class 'UnicodeTranslateError'>, 'divmod': <built-in function divmod>, 'eval': <built-in function eval>, 'str': <class 'str'>, 'open': <built-in function open>, 'pow': <built-in function pow>, '__debug__': True, 'KeyboardInterrupt': <class 'KeyboardInterrupt'>, '__package__': None, 'False': False, 'FileNotFoundError': <class 'FileNotFoundError'>, 'ValueError': <class 'ValueError'>, 'dict': <class 'dict'>, 'BufferError': <class 'BufferError'>, 'bin': <built-in function bin>, 'SyntaxWarning': <class 'SyntaxWarning'>, '__name__': 'builtins', 'range': <class 'range'>, 'RuntimeWarning': <class 'RuntimeWarning'>, 'ProcessLookupError': <class 'ProcessLookupError'>}\n__file__     ┃ '/Users/ryko/Desktop/Projects/DesktopTrader/examples/trendsalgo.py'\n__name__     ┃ '__main__'",
-			"settings":
-			{
-				"buffer_size": 11019,
-				"line_ending": "Unix",
-				"name": "Variables"
-			}
-		},
-		{
-			"contents": "",
-			"settings":
-			{
-				"buffer_size": 0,
-				"line_ending": "Unix",
-				"name": "Expression"
-			}
-		},
-		{
-			"contents": "",
-			"settings":
-			{
-				"buffer_size": 0,
-				"line_ending": "Unix",
-				"name": "Breakpoints"
 			}
 		}
 	],
@@ -620,12 +613,20 @@
 		"selected_items":
 		[
 			[
-				"Package Control: ",
+				"install",
+				"Package Control: Install Package"
+			],
+			[
+				"pack",
 				"Package Control: Remove Package"
 			],
 			[
-				"install",
+				"in",
 				"Package Control: Install Package"
+			],
+			[
+				"Package Control: ",
+				"Package Control: Remove Package"
 			],
 			[
 				"install pa",
@@ -636,7 +637,7 @@
 	},
 	"console":
 	{
-		"height": 0.0,
+		"height": 130.0,
 		"history":
 		[
 		]
@@ -657,18 +658,25 @@
 	],
 	"file_history":
 	[
-		"/Users/ryko/Desktop/Projects/DesktopTrader/Trader.sublime-project",
-		"/Users/ryko/Library/Application Support/Sublime Text 3/Packages/SublimeREPL/SublimeREPL.sublime-settings",
+		"/Users/ryko/Desktop/Projects/Libraries/setup.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/trendsalgo.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/run.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/yavois.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/rnnalgo.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/highestdrops.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/trader/AlgoManager.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/test/integrationtestbacktest.py",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/test/test_Algorithm.py",
 		"/Users/ryko/Library/Application Support/Sublime Text 3/Packages/Anaconda/Anaconda.sublime-settings",
+		"/Users/ryko/Desktop/Projects/DesktopTrader/Trader.sublime-project",
+		"/Applications/Sublime.app/Contents/MacOS/<string>",
+		"/Applications/Sublime.app/Contents/MacOS/<frozen importlib._bootstrap>",
+		"/Users/ryko/Library/Application Support/Sublime Text 3/Packages/SublimeREPL/SublimeREPL.sublime-settings",
 		"/Users/ryko/Library/Application Support/Sublime Text 3/Packages/Python Breakpoints/PythonBreakpoints.sublime-settings",
 		"/Users/ryko/.bash_profile",
 		"/Users/ryko/Library/Application Support/Sublime Text 3/Packages/MarkdownEditing/Bold and Italic Markers.tmPreferences",
 		"/Users/ryko/Desktop/Projects/DesktopTrader/trader/AlgoGUI.py",
-		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/yavois.py",
-		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/highestdrops.py",
-		"/Users/ryko/Desktop/Projects/DesktopTrader/trader/AlgoManager.py",
 		"/Users/ryko/Desktop/Projects/DesktopTrader/trader/Algorithm.py",
-		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/run.py",
 		"/Users/ryko/Desktop/Projects/DesktopTrader/.gitignore",
 		"/Users/ryko/Desktop/testlog.py",
 		"/Users/ryko/$inion Paper 2.docx",
@@ -680,7 +688,6 @@
 		"/Users/ryko/Desktop/Projects/Libraries/Image/examples/test_homography.py",
 		"/Users/ryko/Desktop/Projects/Libraries/Image/image.py",
 		"/Users/ryko/.ssh/config",
-		"/Users/ryko/Desktop/Projects/DesktopTrader/examples/rnnalgo.py",
 		"/Users/ryko/Desktop/Projects/Libraries/Image/examples/pnp_test.py",
 		"/Users/ryko/Desktop/Projects/Libraries/Image/examples/vanishingPoints_test.py",
 		"/Users/ryko/Downloads/Image-Rectification-master/rectification.py",
@@ -738,7 +745,6 @@
 		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/Map.py",
 		"/Users/ryko/Desktop/Projects/DesktopTrader/test/test1.py",
 		"/Users/ryko/Desktop/School/Senior Design/testing/Gauss.py",
-		"/Users/ryko/Desktop/Projects/DesktopTrader/test/test_Algorithm.py",
 		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/Mainloop.py",
 		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/imgstream.py",
 		"/Users/ryko/Desktop/School/Control for Robotics/PennParkCar/ComputerVision.py",
@@ -779,12 +785,7 @@
 		"/Users/ryko/Desktop/Projects/InternetTV/Webapp/run.py",
 		"/Users/ryko/Desktop/Projects/Sudoku/webapp/app/views.py",
 		"/Users/ryko/Desktop/Projects/Sudoku/webapp/manage.py",
-		"/Users/ryko/Desktop/Projects/Downloaded/ratslam/ratslam/__init__.py",
-		"/Users/ryko/Desktop/Projects/Sudoku/webapp/app/jinja2/home.html",
-		"/Users/ryko/Desktop/Projects/Sudoku/webapp/sudoku/sudokumaker.py",
-		"/Users/ryko/Downloads/python-sudoku-generator-solver-master/sudoku.py",
-		"/Users/ryko/Desktop/Projects/Sudoku/webapp/app/settings.py",
-		"/Users/ryko/Desktop/Projects/Sudoku/webapp/run"
+		"/Users/ryko/Desktop/Projects/Downloaded/ratslam/ratslam/__init__.py"
 	],
 	"find":
 	{
@@ -792,16 +793,95 @@
 	},
 	"find_in_files":
 	{
-		"height": 0.0,
+		"height": 101.0,
 		"where_history":
 		[
+			""
 		]
 	},
 	"find_state":
 	{
-		"case_sensitive": false,
+		"case_sensitive": true,
 		"find_history":
 		[
+			"broker",
+			"pytrends",
+			"account",
+			"api",
+			"pytrends",
+			"broker",
+			"account",
+			"api",
+			"broker",
+			"account",
+			"api",
+			"pytrends",
+			"creds",
+			"api",
+			"BROKER",
+			"pytrends",
+			"PYTRENDS",
+			"pytrends",
+			"ACCOUNT",
+			"account",
+			"API",
+			"api",
+			"broker",
+			"Date",
+			"account",
+			"api",
+			"api ",
+			"api",
+			"papertrade",
+			"broker",
+			"creds",
+			"checkthresholds",
+			"stock",
+			"backtester",
+			"Date",
+			"\"Date\"",
+			"Date",
+			"setupcreds",
+			"pkg",
+			"json",
+			"print",
+			"cost",
+			"pdb",
+			"self.value",
+			"perc",
+			"pdb",
+			"chartdaytimes",
+			"self.datetime",
+			"chartdaytimes",
+			"backtest",
+			"nextrun",
+			"microsecond",
+			"self.triggers",
+			"tradingdays",
+			"backtest",
+			"start",
+			"self.scheduleTriggers",
+			"scheduleTrigger",
+			"notify",
+			"isdate",
+			"self.cache",
+			"trend",
+			"startdate",
+			"interpreter",
+			"paths",
+			"lint",
+			"interpreter",
+			"datetime.datetime.now",
+			"self.getdatetime",
+			"robinhood",
+			"fractionchange",
+			"percent",
+			"runalgo",
+			"algo_times",
+			"times",
+			"checkthresholds",
+			"checkthreshods",
+			"python",
 			"     backtest()",
 			"\t\tif iscrashing:\n\t\t\tself.orderpercent(self.stock, 0, verbose=True)\n\t\telse:\n\t\t\tself.orderpercent(self.stock, 1, verbose=True)\n\ndef backtest():\n\ttrendsalgo = backtester(TrendsAlgo(times='every day'))\n\ttrendsalgo.benchmark = [\"SPY\"]\n\ttrendsalgo.start(start=(2018,9,1), end=(2019,2,1))\n\tManager.algogui(trendsalgo)\n\nif __name__ == '__main__':\n\tbacktest()",
 			"\n\t",
@@ -833,61 +913,56 @@
 	"groups":
 	[
 		{
-			"selected": 3,
+			"selected": 2,
 			"sheets":
 			[
 				{
 					"buffer": 0,
-					"file": "trader/AlgoManager.py",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 12520,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								261,
-								231
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Python/Python.sublime-syntax",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 4,
-					"type": "text"
-				},
-				{
-					"buffer": 1,
 					"file": "trader/Algorithm.py",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 44366,
+						"buffer_size": 35071,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								35128,
-								35128
+								12562,
+								12562
 							]
 						],
 						"settings":
 						{
+							"SL.13.region_keys":
+							[
+								"sublime_linter.protected_regions"
+							],
+							"SL.14.region_keys":
+							[
+							],
+							"SL.25.region_keys":
+							[
+								"SL.mypy.Highlights.|44d42efafe93b95a2f9d048f81bf8042731e35488b15b5b28b52ffdd1c300a8d|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Gutter.|region.redish markup.error.sublime_linter|dot",
+								"sublime_linter.protected_regions"
+							],
+							"SL.28.region_keys":
+							[
+								"sublime_linter.protected_regions"
+							],
+							"SL.42.region_keys":
+							[
+								"SL.mypy.Highlights.|ca037bb57c822e23ec3179f6e11298dbce438402b2124986079c3209c610ca35|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Gutter.|region.redish markup.error.sublime_linter|dot",
+								"sublime_linter.protected_regions",
+								"SL.mypy.Highlights.|05b1ba237c1400b93277c34e1d1fa71b1899c1a862fda546b9341c90bd7b45f1|region.redish markup.error.sublime_linter|32"
+							],
 							"syntax": "Packages/Python/Python.sublime-syntax",
 							"translate_tabs_to_spaces": false
 						},
-						"translation.x": 0.0,
+						"translation.x": 11.0,
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
@@ -895,68 +970,76 @@
 					"type": "text"
 				},
 				{
-					"buffer": 2,
-					"file": "examples/yavois.py",
+					"buffer": 1,
+					"file": "trader/Util.py",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 3024,
+						"buffer_size": 10082,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								2871,
-								2871
+								8778,
+								8778
 							]
 						],
 						"settings":
 						{
-							"auto_complete_triggers":
+							"SL.14.region_keys":
 							[
-								{
-									"characters": "<",
-									"selector": "text.html"
-								},
-								{
-									"characters": ".",
-									"selector": "source.python - string - comment - constant.numeric"
-								}
+							],
+							"SL.31.region_keys":
+							[
+								"sublime_linter.protected_regions"
+							],
+							"syntax": "Packages/Python/Python.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 3046.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "trader/AlgoManager.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 8859,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1428,
+								1428
+							]
+						],
+						"settings":
+						{
+							"SL.14.region_keys":
+							[
+								"sublime_linter.protected_regions"
+							],
+							"SL.15.region_keys":
+							[
+							],
+							"SL.26.region_keys":
+							[
+							],
+							"SL.32.region_keys":
+							[
 							],
 							"syntax": "Packages/Python/Python.sublime-syntax",
 							"translate_tabs_to_spaces": false
 						},
-						"translation.x": 0.0,
-						"translation.y": 740.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 2,
-					"type": "text"
-				},
-				{
-					"buffer": 3,
-					"file": "Trader.sublime-project",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 311,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								180,
-								180
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JSON.sublime-syntax",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
+						"translation.x": 1.0,
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
@@ -964,26 +1047,89 @@
 					"type": "text"
 				},
 				{
-					"buffer": 4,
-					"file": "examples/trendsalgo.py",
+					"buffer": 3,
+					"file": "trader/Util.py",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 631,
+						"buffer_size": 10082,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								591,
-								591
+								8744,
+								8744
 							]
 						],
 						"settings":
 						{
+							"SL.15.region_keys":
+							[
+								"sublime_linter.protected_regions"
+							],
+							"SL.27.region_keys":
+							[
+								"sublime_linter.protected_regions"
+							],
+							"SL.35.region_keys":
+							[
+								"SL.mypy.Highlights.|d2b05dff4efd9cd802f127594e581b5f6de7c9b2410502ede55fa7265661b0f2|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Highlights.|61d53103ba491c6b143c7d574fab807ce0913a320594c00dfb93038449adf64d|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Highlights.|fea490e4156d01c189caa806a8104b8fd2ff4813d341caa52b1c54a5959fcd6b|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Highlights.|f8314a5d54501850df97f59aad12888e48e83c741035ad13b3654b097bbfd8c6|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Highlights.|f44ec0929204405894ab08e2f652f3d8dbde9b57d01619ace2276138d930cfd8|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Highlights.|e6976cb0c3a6a619c065e0e0b1dda7c087fea27866e6870f872be9242d36326f|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Highlights.|36970e2fc07058967a65f5897482c07fc9cdf4635872d9ce12ab1be2b72b140a|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Gutter.|region.redish markup.error.sublime_linter|dot",
+								"SL.mypy.Highlights.|3e08bbd2fd4f13f979e46cc1f0ced1fa157cf185afd3fbbfd003f5f5dca18984|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Highlights.|c1dfe05c3c54caa6eeedd0e63b6f29f65cf2681706f1c5e6f09d28edef9c293e|region.redish markup.error.sublime_linter|32",
+								"sublime_linter.protected_regions",
+								"SL.mypy.Highlights.|8d76a21ba2b30feb78713a94c58a14b3f1d7973866b0d2f7f7b14659e8a834bd|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Highlights.|9847f11b78de876b30d45ffef66394dd21378c214821f3c0401ca4d6a81a1fa0|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Highlights.|8c58a4678614b68fb2039e7f480471f3e629029ca26d857dba87e83f725fdb99|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Highlights.|0843d09b308d8325b7562c803b46e1cd3b5c5a0bc41572f0b57157ad5131d2e3|region.redish markup.error.sublime_linter|32",
+								"SL.mypy.Highlights.|ff8333da2f5a829513a7c1c90c748c5481d977447186e5b42ca5de1d6cf27c51|region.redish markup.error.sublime_linter|32"
+							],
 							"syntax": "Packages/Python/Python.sublime-syntax",
 							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 3.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "trader/Setup.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1692,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								884,
+								884
+							]
+						],
+						"settings":
+						{
+							"SL.16.region_keys":
+							[
+							],
+							"SL.18.region_keys":
+							[
+								"sublime_linter.protected_regions"
+							],
+							"auto_name": "",
+							"syntax": "Packages/Python/Python.sublime-syntax"
 						},
 						"translation.x": 0.0,
 						"translation.y": 0.0,
@@ -991,54 +1137,46 @@
 					},
 					"stack_index": 5,
 					"type": "text"
-				}
-			]
-		},
-		{
-			"selected": 0,
-			"sheets":
-			[
+				},
 				{
 					"buffer": 5,
+					"file": "trader/AlgoGUI.py",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 11019,
+						"buffer_size": 9318,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								11019,
-								11019
+								9288,
+								9288
 							]
 						],
 						"settings":
 						{
-							"gutter": false,
-							"syntax": "Packages/Text/Plain text.tmLanguage",
-							"word_wrap": false
+							"SL.18.region_keys":
+							[
+								"sublime_linter.protected_regions"
+							],
+							"syntax": "Packages/Python/Python.sublime-syntax"
 						},
 						"translation.x": 0.0,
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 7,
+					"stack_index": 2,
 					"type": "text"
-				}
-			]
-		},
-		{
-			"selected": 0,
-			"sheets":
-			[
+				},
 				{
 					"buffer": 6,
+					"file": "examples/run.py",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 0,
+						"buffer_size": 535,
 						"regions":
 						{
 						},
@@ -1051,50 +1189,19 @@
 						],
 						"settings":
 						{
-							"gutter": false,
-							"syntax": "Packages/Text/Plain text.tmLanguage",
-							"word_wrap": false
+							"SL.16.region_keys":
+							[
+							],
+							"SL.28.region_keys":
+							[
+							],
+							"syntax": "Packages/Python/Python.sublime-syntax"
 						},
 						"translation.x": 0.0,
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 6,
-					"type": "text"
-				}
-			]
-		},
-		{
-			"selected": 0,
-			"sheets":
-			[
-				{
-					"buffer": 7,
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 0,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								0,
-								0
-							]
-						],
-						"settings":
-						{
-							"gutter": false,
-							"syntax": "Packages/Text/Plain text.tmLanguage",
-							"word_wrap": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 1,
 					"type": "text"
 				}
 			]
@@ -1117,44 +1224,27 @@
 				0,
 				1,
 				1
-			],
-			[
-				1,
-				0,
-				2,
-				2
-			],
-			[
-				1,
-				2,
-				2,
-				3
-			],
-			[
-				1,
-				3,
-				2,
-				1
 			]
 		],
 		"cols":
 		[
 			0.0,
-			0.659253472222,
 			1.0
 		],
 		"rows":
 		[
 			0.0,
-			1.0,
-			0.6,
-			0.8
+			1.0
 		]
 	},
 	"menu_visible": true,
+	"output.SublimeLinter":
+	{
+		"height": 0.0
+	},
 	"output.exec":
 	{
-		"height": 112.0
+		"height": 169.0
 	},
 	"output.find_results":
 	{
@@ -1162,7 +1252,7 @@
 	},
 	"output.help":
 	{
-		"height": 146.0
+		"height": 449.0
 	},
 	"pinned_build_system": "Anaconda Python Builder",
 	"project": "Trader.sublime-project",
@@ -1205,6 +1295,15 @@
 	"selected_group": 0,
 	"settings":
 	{
+		"last_automatic_layout":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		]
 	},
 	"show_minimap": true,
 	"show_open_files": false,

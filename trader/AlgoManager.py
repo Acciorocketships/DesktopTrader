@@ -236,7 +236,7 @@ class Manager:
 		# function that returns a boolean for if the given day is a trading day
 		tradingday = lambda currentday: datetimeequals(tradingdays(start=currentday,end=currentday+datetime.timedelta(days=1))[0].date(), currentday)
 		# boolean trading day flag
-		istradingday = tradingday(getdatetime())
+		istradingday = tradingday(getdatetime().date())
 		# Main Loop
 		while self.running:
 			time.sleep(15)
@@ -244,6 +244,9 @@ class Manager:
 				# Get time and day
 				currenttime = getdatetime().time()
 				currentday = getdatetime().date()
+				if currentday != lastday:
+					istradingday = tradingday(currentday)
+					lastday = currentday
 				# If trading is open
 				if istradingday and currenttime != lasttime and currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
 					lasttime = currenttime
@@ -253,15 +256,14 @@ class Manager:
 					self.updatemin()
 					# Update day
 					if currentday != lastday:
-						istradingday = tradingday(currentday)
-						lastday = currentday
 						self.updateday()
 						for algo in list(self.algo_alloc.keys()):
 							algo.updateday()
 						logging.debug('New day. Variables: %s', self)
 					# Run algorithms
 					for algo in self.algo_alloc:
-						if datetimeequals(algo.nextruntime(), getdatetime()):
+						currdatetime = datetime.datetime.combine(currentday,currenttime)
+						if datetimeequals(algo.nextruntime(currdatetime), currdatetime):
 							algothread = threading.Thread(target=algo.runalgo)
 							algothread.start()
 							logging.debug('Running algo %s. Variables: %s', algo, algo.__dict__)

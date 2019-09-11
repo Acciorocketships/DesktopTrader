@@ -111,8 +111,11 @@ class Algorithm(object):
 		return getdatetime()
 
 	# returns the next expected execution time of algorithm, as defined by the given schedule
-	def nextruntime(self) -> datetime.datetime:
-		return self.scheduleTrigger.get_next_fire_time(None, self.algodatetime()).replace(tzinfo=None)
+	def nextruntime(self, currtime:Optional[datetime.datetime]=None) -> datetime.datetime:
+		if currtime is None:
+			currtime = self.algodatetime()
+		nextruntime = self.scheduleTrigger.get_next_fire_time(None, currtime).replace(tzinfo=None)
+		return datetime.datetime.combine(nextruntime.date(),nextruntime.time()) # purely so object is SpoofTime in tests
 
 	# Checks and executes limit/stop orders
 	def checkthreshold(self, stock:str):
