@@ -327,17 +327,16 @@ class Algorithm(object):
 			try:	
 				# Data from Alpaca
 				if BROKER == 'alpaca':
-					nextra = 0
 					end = getdatetime().date() + datetime.timedelta(days=2)
 					# Find start date
 					if not isdate(length):
 						length = cast(int, length)
-						if interval=='minute':
-							start = datetime.datetime.strptime( API.get_calendar(end=(self.algodatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
-						else:	
-							start = datetime.datetime.strptime( API.get_calendar(end=self.algodatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
+						start = tradingdays(start=length, end=self.algodatetime()).date()
 					else:
 						start = cast(datetime.date, length)
+					if interval == 'minute':
+						length = 0 # return data from the beginning of the first day
+						start = start - datetime.timedelta(days=1)
 					limit = 2500 if interval=='day' else 10
 					frames = []
 					totaltime = (end-start).days
@@ -716,17 +715,17 @@ class Backtester(Algorithm):
 			while hist is None:
 				try:
 					if BROKER == 'alpaca': # Data from Alpaca
-						nextra = 100 if interval=='day' else 1 # Number of extra samples before the desired range
+						nextra = 100 if interval=='day' else 5 # Number of extra samples before the desired range
 						end = getdatetime().date() + datetime.timedelta(days=2)
 						# Find start date
 						if not isdate(length):
 							length = cast(int, length)
-							if interval=='minute':
-								start = datetime.datetime.strptime( API.get_calendar(end=(self.algodatetime()+datetime.timedelta(days=1)).strftime("%Y-%m-%d"))[-1-(length//500)-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
-							else:	
-								start = datetime.datetime.strptime( API.get_calendar(end=self.algodatetime().strftime("%Y-%m-%d"))[-length-nextra].date.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
+							start = tradingdays(start=length+nextra, end=self.algodatetime()).date()
 						else:
 							start = cast(datetime.date, length)
+						if interval == 'minute':
+							length = datetime.datetime.combine(start, datetime.time(0,0,0))
+							start = start - datetime.timedelta(days=1)
 						limit = 2500 if interval=='day' else 10
 						frames = []
 						totaltime = (end-start).days

@@ -48,6 +48,7 @@ class RunnerTests(unittest.TestCase):
         manager.start()
         while datetime.datetime.now().time() < datetime.time(9,30):
             assert not runspoof.called
+            pause(0.1)
         pause(1)
         runspoof.assert_called_once()
         manager.stop()

@@ -242,7 +242,7 @@ class Manager:
 			time.sleep(15)
 			try:
 				# Get time and day
-				currenttime = getdatetime().time()
+				currenttime = getdatetime().time().replace(second=0, microsecond=0)
 				currentday = getdatetime().date()
 				if currentday != lastday:
 					istradingday = tradingday(currentday)

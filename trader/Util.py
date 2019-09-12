@@ -77,7 +77,7 @@ def tradingdays(start:Union[Date,Sequence[int],str,int]=getdatetime(),
 		n = start
 		start = end - datetime.timedelta(days=2*n)
 		datelist = API.get_calendar(start = start.strftime("%Y-%m-%d"), end = end.strftime("%Y-%m-%d"))
-		date = datelist[-n].date.to_pydatetime()
+		date = datelist[-n-1].date.to_pydatetime()
 		return date
 
 	# n Days After Start
