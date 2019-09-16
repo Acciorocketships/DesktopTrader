@@ -44,7 +44,7 @@ PYTRENDS = TrendReq(hl='en-US', tz=360)
 logging.basicConfig(format='%(levelname)-7s: %(asctime)-s | %(message)s', 
 					filename='logs.log', 
 					datefmt='%d-%m-%Y %I:%M:%S %p',
-					level=logging.DEBUG)
+					level=logging.INFO)
 console = logging.StreamHandler()
 console.setLevel(logging.INFO)
 logging.getLogger('').addHandler(console)

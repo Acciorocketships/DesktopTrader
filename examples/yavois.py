@@ -75,7 +75,7 @@ class Yavois(Algorithm):
 		
 
 def backtest():
-	algo = Yavois(schedule = ["0 9 * * MON-FRI", "59 15 * * MON-FRI"])
+	algo = Yavois(schedule = ["30 9 * * MON-FRI", "59 15 * * MON-FRI"])
 	algoback = backtester(algo,capital=1000)
 	algoback.benchmark = ["SPY", "SVXY"]
 	algoback.backtest(start=(2019,1,1))
@@ -84,7 +84,7 @@ def backtest():
 
 def run():
 	manager = Manager()
-	algo = Yavois(schedule = ["0 9 * * MON-FRI", "59 15 * * MON-FRI"])
+	algo = Yavois(schedule = ["30 9 * * MON-FRI", "59 15 * * MON-FRI"])
 	manager.add(algo,allocation=1)
 	manager.start()
 	manager.interactive(vars=locals())

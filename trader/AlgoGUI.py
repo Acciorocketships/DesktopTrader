@@ -1,5 +1,5 @@
 from trader.Algorithm import *
-from tkinter import Tk, Frame, N, E, W, S
+from tkinter import *
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt

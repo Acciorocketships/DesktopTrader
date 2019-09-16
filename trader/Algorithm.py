@@ -840,6 +840,7 @@ def backtester(algo:Algorithm, capital:Optional[float]=None, benchmark:Optional[
 	else:
 		algoback.cash = capital
 	algoback.value = algoback.cash
+	algoback.startingcapital = algoback.value
 	# Set Benchmark
 	if benchmark is not None:
 		algoback.benchmark = benchmark

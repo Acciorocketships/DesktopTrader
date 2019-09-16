@@ -248,7 +248,7 @@ class Manager:
 					istradingday = tradingday(currentday)
 					lastday = currentday
 				# If trading is open
-				if istradingday and currenttime != lasttime and currenttime >= datetime.time(9,30) and currenttime <= datetime.time(16,0):
+				if (istradingday) and (not datetimeequals(currenttime, lasttime)) and (currenttime >= datetime.time(9,30)) and (currenttime <= datetime.time(16,0)):
 					lasttime = currenttime
 					# Update minute
 					for algo in list(self.algo_alloc.keys()):
@@ -259,14 +259,14 @@ class Manager:
 						self.updateday()
 						for algo in list(self.algo_alloc.keys()):
 							algo.updateday()
-						logging.debug('New day. Variables: %s', self)
+						logging.info('New day. Variables: %s', self)
 					# Run algorithms
 					for algo in self.algo_alloc:
 						currdatetime = datetime.datetime.combine(currentday,currenttime)
 						if datetimeequals(algo.nextruntime(currdatetime), currdatetime):
 							algothread = threading.Thread(target=algo.runalgo)
 							algothread.start()
-							logging.debug('Running algo %s. Variables: %s', algo, algo.__dict__)
+							logging.info('Running algo %s. Variables: %s', algo, algo.__dict__)
 			except Exception as err:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
 				fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]

@@ -96,6 +96,10 @@ def isdate(var:Any) -> bool:
 
 def datetimeequals(dt1:Union[datetime.datetime,datetime.date,datetime.time], 
 				   dt2:Union[datetime.datetime,datetime.date,datetime.time]) -> bool:
+	if dt1 == dt2:
+		return True
+	if dt1 is None or dt2 is None:
+		return False
 	# get date and time for each input
 	dt1date = None
 	dt1time = None
