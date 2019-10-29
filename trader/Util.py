@@ -252,6 +252,7 @@ def positions():
 	positions = {}
 	
 	if BROKER == 'alpaca':
+		API._oauth = None
 		poslist = API.list_positions()
 		for pos in poslist:
 			positions[pos.symbol] = int(pos.qty)

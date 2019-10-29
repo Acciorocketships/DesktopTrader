@@ -34,8 +34,10 @@ except PermissionError:
 if BROKER == 'alpaca':
 	API = tradeapi.REST(CREDS['Alpaca ID'] if not PAPERTRADE else CREDS['Alpaca Paper ID'], 
 						CREDS['Alpaca Secret Key'] if not PAPERTRADE else CREDS['Alpaca Paper Secret Key'],
-						base_url='https://api.alpaca.markets' if not PAPERTRADE else 'https://paper-api.alpaca.markets')
+						base_url='https://api.alpaca.markets' if not PAPERTRADE else 'https://paper-api.alpaca.markets', 
+						api_version='v2')
 	ACCOUNT = API.get_account()
+	# import pdb; pdb.set_trace()
 
 # Google Trends API
 PYTRENDS = TrendReq(hl='en-US', tz=360)
