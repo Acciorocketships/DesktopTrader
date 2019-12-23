@@ -11,6 +11,14 @@ from trader.Setup import *
 from trader.Util import *
 from trader.Algorithm import *
 
+debuglogger = logging.getLogger("debuglogger")
+debuglogger.setLevel(logging.DEBUG)
+fh = logging.FileHandler('debug.log')
+fmt = logging.Formatter('%(levelname)-7s: %(asctime)-s | %(message)s')
+fh.setFormatter(fmt)
+fh.setLevel(logging.DEBUG)
+debuglogger.addHandler(fh)
+
 class Manager:
 	def __init__(self):
 
@@ -29,8 +37,8 @@ class Manager:
 		self.chartdaytimes = []
 		self.stocks = {}
 		self.updatemin()
-		logging.debug('Starting AlgoManager')
-		atexit.register(logging.debug, 'Stopping AlgoManager')
+		debuglogger.debug('Starting AlgoManager')
+		atexit.register(debuglogger.debug, 'Stopping AlgoManager')
 		atexit.register(self.stop)
 
 
@@ -244,29 +252,32 @@ class Manager:
 				# Get time and day
 				currenttime = getdatetime().time().replace(second=0, microsecond=0)
 				currentday = getdatetime().date()
+				debuglogger.debug('time: %s, day: %s', currenttime, currentday)
 				if currentday != lastday:
 					istradingday = tradingday(currentday)
 					lastday = currentday
 				# If trading is open
+				debuglogger.debug('istradingday: %s, newtime: %s, lateenough: %s, earlyenough: %s', istradingday, not datetimeequals(currenttime, lasttime), currenttime >= datetime.time(9,30), currenttime <= datetime.time(16,0))
 				if (istradingday) and (not datetimeequals(currenttime, lasttime)) and (currenttime >= datetime.time(9,30)) and (currenttime <= datetime.time(16,0)):
 					lasttime = currenttime
 					# Update minute
-					for algo in list(self.algo_alloc.keys()):
+					for algo in self.algo_alloc:
 						algo.updatemin()
 					self.updatemin()
 					# Update day
 					if currentday != lastday:
 						self.updateday()
-						for algo in list(self.algo_alloc.keys()):
+						for algo in self.algo_alloc:
 							algo.updateday()
-						logging.info('New day. Variables: %s', self)
+						logging.debug('New day. Variables: %s', self)
 					# Run algorithms
 					for algo in self.algo_alloc:
 						currdatetime = datetime.datetime.combine(currentday,currenttime)
+						debuglogger.debug('algo %s: nextruntime=%s, currenttime=%s, (running=%s)', algo.__class__.__name__, algo.nextruntime(currdatetime), currdatetime, datetimeequals(algo.nextruntime(currdatetime), currdatetime))
 						if datetimeequals(algo.nextruntime(currdatetime), currdatetime):
 							algothread = threading.Thread(target=algo.runalgo)
 							algothread.start()
-							logging.info('Running algo %s. Variables: %s', algo, algo.__dict__)
+							debuglogger.debug('Running algo %s. Variables: %s', algo.__class__.__name__, algo)
 			except Exception as err:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
 				fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
